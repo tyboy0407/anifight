@@ -48,6 +48,17 @@ const LYING_SIZE := Vector2(110, 36)
 @export var player_id: int = 1
 @export var body_color: Color = Color(0.9, 0.35, 0.3)
 @export var max_health: int = 1000
+## 角色素材資料夾(內含 sheet.png 與 sheet.json)。留空或沒有素材時以色塊顯示。
+@export_dir var sprite_dir: String = ""
+
+## 缺少某個動畫時改播的替代動畫。不在表內的名稱(角色專屬動作)會先試 "cast"。
+const ANIM_FALLBACKS := {
+	"walk": "idle", "jump": "idle", "dash": "walk", "teleport": "dash", "guard": "idle",
+	"attack1": "idle", "attack2": "attack1", "attack3": "attack1", "air_attack": "attack1",
+	"special": "attack3", "super": "special", "cast": "special", "burst": "cast",
+	"hit": "idle", "stunned": "hit", "launched": "hit", "down": "launched", "ko": "down",
+	"getup": "idle",
+}
 
 var opponent: Fighter
 var state: State = State.IDLE
@@ -78,7 +89,13 @@ var _cast_callback: Callable
 var _cast_fired := false
 var _combo_hits := 0
 var _combo_damage := 0
+var _has_sprite := false
+var _current_anim := ""
+var _anim_restart := false
+var _attack_anim := "attack1"
+var _cast_anim := "cast"
 
+@onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _body: ColorRect = $Body
 @onready var _eye: ColorRect = $Eye
 @onready var _hitbox: Area2D = $Hitbox
@@ -89,6 +106,7 @@ var _combo_damage := 0
 func _ready() -> void:
 	# 場景內的子資源會被所有實例共用,所以攻擊框形狀在這裡各自建立。
 	_hit_shape.shape = RectangleShape2D.new()
+	_load_sprite()
 	_build_moves()
 	health = max_health
 	_set_hitbox(false)
@@ -330,8 +348,10 @@ func _start_super() -> void:
 
 ## 進入施法狀態:release_at 秒時呼叫 callback,duration 秒後恢復行動。
 ## 施法途中被打會中斷,callback 不會觸發。
-func _start_cast(duration: float, release_at: float, callback: Callable) -> void:
+## animation 是施法時播放的動畫名稱;素材沒有這個動畫時會退回 "cast"。
+func _start_cast(duration: float, release_at: float, callback: Callable, animation: String = "cast") -> void:
 	_set_hitbox(false)
+	_cast_anim = animation
 	_cast_duration = duration
 	_cast_release = release_at
 	_cast_callback = callback
@@ -409,6 +429,12 @@ func _start_dash() -> void:
 func _start_attack(move: AttackData, combo_step: int) -> void:
 	_move = move
 	_combo_step = combo_step
+	if combo_step < 0:
+		_attack_anim = "air_attack"
+	elif combo_step < _ground_moves.size():
+		_attack_anim = "attack%d" % (combo_step + 1)
+	else:
+		_attack_anim = "super" if move == _super_move else "special"
 	_combo_queued = false
 	_hit_targets.clear()
 	var shape := _hit_shape.shape as RectangleShape2D
@@ -490,6 +516,7 @@ func _set_state(new_state: State, force: bool = false) -> void:
 		return
 	state = new_state
 	_state_time = 0.0
+	_anim_restart = true
 	if new_state == State.IDLE:
 		_end_combo()
 
@@ -615,7 +642,100 @@ func _held(action_name: String) -> bool:
 	return input_enabled and Input.is_action_pressed(_action(action_name))
 
 
+## 載入角色素材。成功時改用動畫顯示並隱藏色塊。
+func _load_sprite() -> void:
+	var loaded := SpriteSheetLoader.load_character(sprite_dir)
+	if loaded.is_empty():
+		_sprite.visible = false
+		return
+	var canvas: Vector2 = loaded.canvas
+	_sprite.sprite_frames = loaded.frames
+	_sprite.scale = Vector2.ONE * float(loaded.scale)
+	_sprite.offset = Vector2(-canvas.x / 2.0, -canvas.y + float(loaded.foot_offset))
+	_sprite.visible = true
+	_has_sprite = true
+	_body.visible = false
+	_eye.visible = false
+
+	# 同角色對戰時靠頭上的標籤分辨玩家。
+	var tag := Label.new()
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.text = "%dP" % player_id
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.add_theme_font_size_override("font_size", 16)
+	tag.add_theme_color_override("font_color", body_color.lightened(0.25))
+	tag.add_theme_color_override("font_outline_color", Color.BLACK)
+	tag.add_theme_constant_override("outline_size", 5)
+	tag.size = Vector2(60, 22)
+	tag.position = Vector2(-30, -BODY_SIZE.y - 44)
+	add_child(tag)
+
+
+func _resolve_animation(animation: String) -> String:
+	var frames := _sprite.sprite_frames
+	for attempt in 8:
+		if frames.has_animation(animation):
+			return animation
+		if ANIM_FALLBACKS.has(animation):
+			animation = ANIM_FALLBACKS[animation]
+		elif animation != "idle":
+			animation = "cast"
+		else:
+			break
+	return ""
+
+
+func _update_sprite() -> void:
+	var animation := "idle"
+	var duration := 0.0  # 大於 0 時,調整播放速度讓動畫剛好在這段時間內播完
+	match state:
+		State.MOVE: animation = "walk"
+		State.JUMP: animation = "jump"
+		State.DASH: animation = "dash"
+		State.TELEPORT: animation = "teleport"
+		State.GUARD: animation = "guard"
+		State.ATTACK:
+			animation = _attack_anim
+			duration = _move.startup + _move.active + _move.recovery
+		State.CAST:
+			animation = _cast_anim
+			duration = _cast_duration
+		State.BURST: animation = "burst"
+		State.HITSTUN: animation = "hit"
+		State.STUNNED: animation = "stunned"
+		State.LAUNCHED: animation = "launched"
+		State.DOWN: animation = "down"
+		State.GETUP:
+			animation = "getup"
+			duration = GETUP_TIME
+		State.KO: animation = "ko" if is_on_floor() else "launched"
+
+	animation = _resolve_animation(animation)
+	if animation != "" and (animation != _current_anim or _anim_restart):
+		var frames := _sprite.sprite_frames
+		var natural := frames.get_frame_count(animation) / maxf(frames.get_animation_speed(animation), 0.01)
+		_sprite.speed_scale = natural / duration if duration > 0.0 else 1.0
+		_sprite.stop()
+		_sprite.play(animation)
+		_current_anim = animation
+	_anim_restart = false
+	_sprite.flip_h = facing < 0
+
+	var tint := Color.WHITE
+	match state:
+		State.HITSTUN, State.LAUNCHED: tint = Color(1.8, 1.8, 1.8)
+		State.GUARD: tint = Color(0.6, 0.6, 0.7)
+		State.GETUP, State.TELEPORT: tint = Color(1, 1, 1, 0.5)
+		State.BURST: tint = Color(1.6, 1.6, 1.0)
+		State.STUNNED: tint = Color(0.75, 0.55, 1.0)
+		State.KO: tint = Color(0.55, 0.55, 0.55)
+	_sprite.modulate = tint
+
+
 func _update_visual() -> void:
+	if _has_sprite:
+		_update_sprite()
+		return
 	var lying := state == State.DOWN or (state == State.KO and is_on_floor())
 	if lying:
 		_body.size = LYING_SIZE

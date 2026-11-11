@@ -152,16 +152,32 @@ func _build_card(info: Dictionary) -> PanelContainer:
 	var portrait := Control.new()
 	portrait.custom_minimum_size = Vector2(0, 130)
 	box.add_child(portrait)
-	var body := ColorRect.new()
-	body.color = Color(0.6, 0.62, 0.7)
-	body.size = Vector2(50, 100)
-	body.position = Vector2(CARD_SIZE.x / 2.0 - 16 - 25, 26)
-	portrait.add_child(body)
-	var hair := ColorRect.new()
-	hair.color = info.hair
-	hair.size = Vector2(56, 20)
-	hair.position = body.position + Vector2(-3, -14)
-	portrait.add_child(hair)
+	var center_x := CARD_SIZE.x / 2.0 - 16
+	var loaded := SpriteSheetLoader.load_character(info.get("sprites", ""))
+	if loaded.is_empty():
+		# 沒有素材時的後備:身體色塊 + 頭髮色塊
+		var body := ColorRect.new()
+		body.color = Color(0.6, 0.62, 0.7)
+		body.size = Vector2(50, 100)
+		body.position = Vector2(center_x - 25, 26)
+		portrait.add_child(body)
+		var hair := ColorRect.new()
+		hair.color = info.hair
+		hair.size = Vector2(56, 20)
+		hair.position = body.position + Vector2(-3, -14)
+		portrait.add_child(hair)
+	else:
+		var canvas: Vector2 = loaded.canvas
+		var sprite := AnimatedSprite2D.new()
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.sprite_frames = loaded.frames
+		sprite.centered = false
+		sprite.scale = Vector2.ONE * float(loaded.scale)
+		sprite.offset = Vector2(-canvas.x / 2.0, -canvas.y)
+		sprite.position = Vector2(center_x, 130)
+		portrait.add_child(sprite)
+		if sprite.sprite_frames.has_animation("idle"):
+			sprite.play("idle")
 
 	box.add_child(_label(info.name, 30))
 	var summary := _label(info.summary, 16)

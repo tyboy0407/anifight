@@ -17,6 +17,11 @@ script = ExtResource("1_fighter")
 position = Vector2(0, -55)
 shape = SubResource("body_shape")
 
+[node name="Sprite" type="AnimatedSprite2D" parent="."]
+visible = false
+texture_filter = 1
+centered = false
+
 [node name="Body" type="ColorRect" parent="."]
 offset_left = -25.0
 offset_top = -110.0

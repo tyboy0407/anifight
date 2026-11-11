@@ -5,6 +5,7 @@
 
 [node name="Fighter" instance=ExtResource("1_base")]
 script = ExtResource("2_gojo")
+sprite_dir = "res://assets/characters/gojo"
 
 [node name="Hair" type="ColorRect" parent="."]
 offset_left = -28.0

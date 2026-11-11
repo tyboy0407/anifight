@@ -11,6 +11,7 @@ const CHARACTERS: Array[Dictionary] = [
 	{
 		"name": "五條悟",
 		"scene": "res://scenes/characters/gojo.tscn",
+		"sprites": "res://assets/characters/gojo",
 		"hair": Color(0.95, 0.96, 1.0),
 		"skills": ["蒼", "赫(1格)", "無量空處(3格)"],
 		"summary": "蒼:吸引對手\n赫:遠程擊飛\n無量空處:定身 2.6 秒",
@@ -18,6 +19,7 @@ const CHARACTERS: Array[Dictionary] = [
 	{
 		"name": "兩面宿儺",
 		"scene": "res://scenes/characters/sukuna.tscn",
+		"sprites": "res://assets/characters/sukuna",
 		"hair": Color(0.95, 0.6, 0.65),
 		"skills": ["解", "捌(1格,需近身)", "伏魔御廚子(3格)"],
 		"summary": "解:遠距離斬擊\n捌:近身多段斬\n伏魔御廚子:10 秒隨機斬擊",
