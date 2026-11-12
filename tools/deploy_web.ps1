@@ -31,12 +31,10 @@ $email = git -C $root config user.email
 $revision = git -C $root rev-parse --short HEAD
 
 # Use the GitHub CLI token for the push when gh is installed, without touching git config.
+# The empty first value clears any other credential helper for this one command.
+$auth = @()
 if (Get-Command gh -ErrorAction SilentlyContinue) {
-    $env:GIT_CONFIG_COUNT = "2"
-    $env:GIT_CONFIG_KEY_0 = "credential.helper"
-    $env:GIT_CONFIG_VALUE_0 = ""
-    $env:GIT_CONFIG_KEY_1 = "credential.helper"
-    $env:GIT_CONFIG_VALUE_1 = "!gh auth git-credential"
+    $auth = @("-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential")
 }
 
 $staging = Join-Path ([IO.Path]::GetTempPath()) ("pages-" + [guid]::NewGuid().ToString("N"))
@@ -48,7 +46,7 @@ try {
     git -C $staging add -A
     git -C $staging -c "user.name=$name" -c "user.email=$email" commit -q -m "Deploy $revision"
     Write-Host "Pushing to $Branch ..."
-    git -C $staging push -q -f $remote "${Branch}:${Branch}"
+    git -C $staging @auth push -q -f $remote "${Branch}:${Branch}"
     if ($LASTEXITCODE -ne 0) { throw "Push to $Branch failed." }
 }
 finally {
