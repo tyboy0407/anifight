@@ -11,7 +11,7 @@ signal back_requested
 
 const BUTTON_SIZE := 104.0
 const BUTTON_GAP := 10.0
-const MARGIN := Vector2(40, 22)  # 離畫面左右邊緣遠一點,避開手機的瀏海與圓角
+const MARGIN := Vector2(24, 22)  # 離安全區邊緣的距離;瀏海與圓角由安全區處理
 const IDLE_ALPHA := 0.42
 const PRESSED_ALPHA := 0.9
 
@@ -20,6 +20,7 @@ var player_id: int = 1
 
 var _buttons: Array[Dictionary] = []  # {node, side("left"/"right"), offset(離角落的距離)}
 var _skill_labels: Array[Label] = []
+var _menu_root: Control
 var _menu_button: Button
 var _match_over_box: VBoxContainer
 
@@ -109,6 +110,7 @@ func _build_menu() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	_menu_root = root
 
 	_menu_button = _make_menu_button("回選角", 18, Vector2(96, 40))
 	_menu_button.anchor_left = 0.5
@@ -150,11 +152,13 @@ func _make_menu_button(text: String, font_size: int, minimum_size: Vector2) -> B
 	return button
 
 
-## 依目前畫面大小,把按鈕貼齊左下與右下角。
+## 依目前畫面大小,把按鈕貼齊安全區的左下與右下角。
 func _layout() -> void:
 	var view := get_viewport().get_visible_rect().size
+	var area := GameState.safe_area(get_viewport())  # 左, 上, 右, 下
+	GameState.fit_to_safe_area(_menu_root)
 	for entry in _buttons:
 		var node: TouchScreenButton = entry.node
 		var offset: Vector2 = entry.offset + MARGIN
-		var x := offset.x if entry.side == "left" else view.x - offset.x
-		node.position = Vector2(x, view.y - offset.y)
+		var x := area.x + offset.x if entry.side == "left" else view.x - area.z - offset.x
+		node.position = Vector2(x, view.y - area.w - offset.y)

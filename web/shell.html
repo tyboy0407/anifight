@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+	<head>
+		<meta charset="utf-8">
+		<!--
+			Custom shell for the web export (see export_presets.cfg, html/custom_html_shell).
+			Based on Godot's default shell, with these changes for phones:
+			- viewport-fit=cover: draw under the notch instead of leaving black side bars;
+			  the game reads the safe-area insets and keeps its UI clear of them.
+			- The canvas is sized from window.visualViewport, not window.innerHeight.
+			  On iOS Safari innerHeight can disagree with the visible area (toolbars,
+			  rotation), which pushed the picture down and cut off the bottom.
+			- Page scrolling, pinch zoom and double-tap zoom are disabled.
+			- Can be added to the iOS home screen and run without browser bars.
+			The export preset uses canvas resize policy "None" so this page owns the size.
+		-->
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<meta name="apple-mobile-web-app-title" content="$GODOT_PROJECT_NAME">
+		<meta name="theme-color" content="#000000">
+		<title>$GODOT_PROJECT_NAME</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+html {
+	width: 100%;
+	height: 100%;
+	background-color: black;
+}
+
+body {
+	/* Fixed body: the document can never scroll or be dragged out of place. */
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	overscroll-behavior: none;
+	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+#canvas {
+	display: block;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	touch-action: none;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+/* Invisible element whose padding mirrors the safe-area insets, so script can read them. */
+#safe-area-probe {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 0;
+	height: 0;
+	visibility: hidden;
+	pointer-events: none;
+	padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* Shown with ?debug=1 to diagnose layout problems on a real device. */
+#viewport-debug {
+	display: none;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 10;
+	padding: 6px 10px;
+	font: 12px/1.4 monospace;
+	white-space: pre;
+	text-align: left;
+	color: #9f9;
+	background: rgba(0, 0, 0, 0.75);
+	pointer-events: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: $GODOT_SPLASH_COLOR;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+		<div id="safe-area-probe"></div>
+		<div id="viewport-debug"></div>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<script>
+// Keeps the canvas exactly over the visible area and exposes device information to the game.
+(function () {
+	const canvas = document.getElementById('canvas');
+	const probe = document.getElementById('safe-area-probe');
+	const debug = document.getElementById('viewport-debug');
+	const showDebug = /[?&]debug=1/.test(window.location.search);
+	let lastKey = '';
+
+	function visibleArea() {
+		const vv = window.visualViewport;
+		if (vv) {
+			return { width: vv.width, height: vv.height, left: vv.offsetLeft, top: vv.offsetTop };
+		}
+		return { width: window.innerWidth, height: window.innerHeight, left: 0, top: 0 };
+	}
+
+	function safeArea() {
+		const style = window.getComputedStyle(probe);
+		return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]
+			.map((value) => parseFloat(value) || 0);
+	}
+
+	function fit() {
+		const area = visibleArea();
+		const ratio = window.devicePixelRatio || 1;
+		const width = Math.max(1, Math.ceil(area.width));
+		const height = Math.max(1, Math.ceil(area.height));
+		const key = [width, height, area.left, area.top, ratio].join(',');
+		if (key !== lastKey) {
+			lastKey = key;
+			canvas.style.left = `${area.left}px`;
+			canvas.style.top = `${area.top}px`;
+			canvas.style.width = `${width}px`;
+			canvas.style.height = `${height}px`;
+			// The engine watches the drawing-buffer size and resizes the game window to match.
+			canvas.width = Math.round(width * ratio);
+			canvas.height = Math.round(height * ratio);
+		}
+		if (window.scrollX !== 0 || window.scrollY !== 0) {
+			window.scrollTo(0, 0);
+		}
+		if (showDebug) {
+			const vv = window.visualViewport;
+			debug.style.display = 'block';
+			debug.textContent = [
+				`inner   ${window.innerWidth} x ${window.innerHeight}`,
+				`visual  ${vv ? `${vv.width.toFixed(1)} x ${vv.height.toFixed(1)} @ ${vv.offsetLeft.toFixed(1)},${vv.offsetTop.toFixed(1)} scale ${vv.scale}` : 'n/a'}`,
+				`screen  ${window.screen.width} x ${window.screen.height}  dpr ${ratio}`,
+				`canvas  css ${canvas.style.width} x ${canvas.style.height}  buffer ${canvas.width} x ${canvas.height}`,
+				`safe    top/right/bottom/left ${safeArea().join(' / ')}`,
+				`scroll  ${window.scrollX},${window.scrollY}  standalone ${isStandalone()}`,
+			].join('\n');
+		}
+	}
+
+	function isStandalone() {
+		return window.navigator.standalone === true
+			|| window.matchMedia('(display-mode: standalone)').matches
+			|| window.matchMedia('(display-mode: fullscreen)').matches;
+	}
+
+	// Read by scripts/game_state.gd.
+	window.anifightPlatform = function () {
+		const ua = window.navigator.userAgent;
+		return JSON.stringify({
+			insets: safeArea(), // top, right, bottom, left in CSS pixels
+			width: parseFloat(canvas.style.width) || window.innerWidth,
+			fullscreen: Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled),
+			ios: /iPhone|iPad|iPod/.test(ua) || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1),
+			standalone: isStandalone(),
+		});
+	};
+
+	fit();
+	['resize', 'orientationchange', 'pageshow'].forEach((name) => window.addEventListener(name, fit));
+	['fullscreenchange', 'webkitfullscreenchange'].forEach((name) => document.addEventListener(name, fit));
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', fit);
+		window.visualViewport.addEventListener('scroll', fit);
+	}
+	// iOS does not always fire an event once its toolbars settle after a rotation.
+	window.setInterval(fit, 400);
+
+	// No pinch zoom, double-tap zoom, rubber-band scrolling or long-press menu.
+	['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'touchmove'].forEach((name) => {
+		document.addEventListener(name, (event) => event.preventDefault(), { passive: false });
+	});
+	document.addEventListener('contextmenu', (event) => event.preventDefault());
+}());
+		</script>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+		displayFailureNotice(missingMsg + missing.join('\n'));
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>

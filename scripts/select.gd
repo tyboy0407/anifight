@@ -135,6 +135,9 @@ func _build_ui() -> void:
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 26)
 	add_child(column)
+	# 手機上讓內容避開瀏海與底部橫條
+	get_viewport().size_changed.connect(func() -> void: GameState.fit_to_safe_area(column))
+	GameState.fit_to_safe_area(column)
 
 	column.add_child(_label("選擇角色", 48))
 
@@ -152,7 +155,21 @@ func _build_ui() -> void:
 	column.add_child(_mode_label)
 
 	if GameState.touch_enabled:
-		# 手機瀏覽器的網址列很佔空間,提供全螢幕切換(iPhone 的 Safari 不支援)
+		_build_touch_extras(column)
+
+
+## 觸控模式的附加介面:全螢幕按鈕,或是 iPhone 上改用「加入主畫面」的提示。
+func _build_touch_extras(column: VBoxContainer) -> void:
+	var platform := GameState.web_platform()
+	if platform.get("fullscreen", true):
+		# 手機瀏覽器的網址列很佔空間,提供全螢幕切換
+		var overlay := Control.new()
+		overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(overlay)
+		get_viewport().size_changed.connect(func() -> void: GameState.fit_to_safe_area(overlay))
+		GameState.fit_to_safe_area(overlay)
+
 		var fullscreen := Button.new()
 		fullscreen.text = "全螢幕"
 		fullscreen.focus_mode = Control.FOCUS_NONE
@@ -164,8 +181,13 @@ func _build_ui() -> void:
 		fullscreen.offset_top = 24
 		fullscreen.offset_bottom = 72
 		fullscreen.pressed.connect(_toggle_fullscreen)
-		add_child(fullscreen)
-		OrientationNotice.attach_if_touch(self)
+		overlay.add_child(fullscreen)
+	elif platform.get("ios", false) and not platform.get("standalone", false):
+		# iPhone 的 Safari 不支援網頁全螢幕;從主畫面開啟才不會有網址列
+		var tip := _label("想要全螢幕:點 Safari 的分享按鈕,選「加入主畫面」,再從主畫面開啟", 16)
+		tip.modulate = Color(1.0, 0.9, 0.55, 0.9)
+		column.add_child(tip)
+	OrientationNotice.attach_if_touch(self)
 
 
 func _build_card(info: Dictionary) -> PanelContainer:

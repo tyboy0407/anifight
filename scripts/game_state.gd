@@ -85,6 +85,48 @@ static func setup_input() -> void:
 	})
 
 
+## 測試用:直接指定安全區內縮量(邏輯像素),格式同 safe_area() 的回傳值。
+static var safe_area_override: Variant = null
+
+
+## 網頁版的裝置資訊,由 web/shell.html 提供:
+## insets(安全區,上右下左,CSS 像素)、width(畫布的 CSS 寬度)、
+## fullscreen(瀏覽器是否支援全螢幕)、ios、standalone(是否從主畫面開啟)。
+## 不是網頁版時回傳空字典。
+static func web_platform() -> Dictionary:
+	if not OS.has_feature("web"):
+		return {}
+	var raw: Variant = JavaScriptBridge.eval("window.anifightPlatform ? window.anifightPlatform() : ''")
+	if raw is String and not (raw as String).is_empty():
+		var parsed: Variant = JSON.parse_string(raw)
+		if parsed is Dictionary:
+			return parsed
+	return {}
+
+
+## 螢幕安全區的內縮量,單位是遊戲的邏輯像素:Vector4(左, 上, 右, 下)。
+## 手機的瀏海、圓角與底部橫條會佔用這些區域,介面要往內縮才不會被擋住。
+static func safe_area(viewport: Viewport) -> Vector4:
+	if safe_area_override != null:
+		return safe_area_override
+	var info := web_platform()
+	var css_width := float(info.get("width", 0.0))
+	var insets: Array = info.get("insets", [])
+	if css_width <= 0.0 or insets.size() < 4:
+		return Vector4.ZERO
+	var to_logical := viewport.get_visible_rect().size.x / css_width
+	return Vector4(float(insets[3]), float(insets[0]), float(insets[1]), float(insets[2])) * to_logical
+
+
+## 把鋪滿畫面的 Control 往內縮到安全區內。
+static func fit_to_safe_area(control: Control) -> void:
+	var area := safe_area(control.get_viewport())
+	control.offset_left = area.x
+	control.offset_top = area.y
+	control.offset_right = -area.z
+	control.offset_bottom = -area.w
+
+
 static func _detect_touch() -> void:
 	if OS.get_cmdline_user_args().has("--touch"):
 		touch_enabled = true

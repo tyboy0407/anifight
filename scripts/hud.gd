@@ -29,6 +29,9 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	_root = root
+	# 手機上讓整個介面避開瀏海與圓角
+	get_viewport().size_changed.connect(func() -> void: GameState.fit_to_safe_area(_root))
+	GameState.fit_to_safe_area(_root)
 
 	_bars = [
 		_make_bar(root, true, Color(0.95, 0.4, 0.35)),
