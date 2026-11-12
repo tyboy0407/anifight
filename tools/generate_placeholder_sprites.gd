@@ -27,6 +27,13 @@ const STYLES := [
 		"top": Color(0.93, 0.91, 0.88), "sleeve": Color(0.93, 0.91, 0.88),
 		"pants": Color(0.16, 0.15, 0.2), "sash": Color(0.2, 0.18, 0.26),
 	},
+	{
+		"id": "yuta",
+		"hair": Color(0.14, 0.14, 0.19), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.94, 0.94, 0.96), "sleeve": Color(0.94, 0.94, 0.96),
+		"pants": Color(0.14, 0.15, 0.22), "sash": Color(0, 0, 0, 0),
+		"sword": true,
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -213,7 +220,22 @@ func _draw_figure(p: Dictionary) -> void:
 	_draw_limb(p.hip + Vector2i(1, 0), p.get("knee_f"), p.foot_f, pants, 3)
 	_fill(p.foot_f + Vector2i(-1, -1), Vector2i(4, 2), SHOE)
 	_draw_limb(shoulder, p.get("elbow_f"), p.hand_f, sleeve, 3)
+	if _style.get("sword", false):
+		_draw_sword(p.get("elbow_f", shoulder), p.hand_f)
 	_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
+
+
+## 刀:從近側的手沿著前臂方向往外延伸。
+func _draw_sword(arm_from: Vector2i, hand: Vector2i) -> void:
+	var direction := Vector2(hand - arm_from)
+	if direction.length() < 0.5:
+		direction = Vector2.RIGHT
+	direction = direction.normalized()
+	var tip := hand + Vector2i((direction * 13.0).round())
+	_draw_line(hand, tip, Color(0.86, 0.92, 0.98), 2)
+	# 護手
+	var guard := Vector2i((direction.orthogonal() * 2.0).round())
+	_draw_line(hand - guard, hand + guard, Color(0.5, 0.42, 0.2), 1)
 
 
 func _draw_head(center: Vector2i) -> void:

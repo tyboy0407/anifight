@@ -106,7 +106,7 @@ func _decide() -> void:
 			_press("skill", TAP)
 		elif roll < 0.68 and me.energy >= Fighter.SPECIAL_COST:
 			_press("special", TAP)
-		elif roll < 0.75 and me.energy >= Fighter.SUPER_COST:
+		elif roll < 0.75 and me.energy >= me.super_cost():
 			_press("down", 0.12)
 			_press("special", TAP)
 		elif roll < 0.88:

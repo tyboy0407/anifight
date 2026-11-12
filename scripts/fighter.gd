@@ -10,7 +10,7 @@ signal combo_changed(hits: int, damage: int)
 
 enum State { IDLE, MOVE, JUMP, DASH, ATTACK, GUARD, HITSTUN, LAUNCHED, DOWN, GETUP, KO, TELEPORT, BURST, CAST, STUNNED }
 
-# 氣量:一格 100,最多三格。
+# 氣量:一格 100,預設最多三格(實際上限看 max_energy)。
 const MAX_ENERGY := 300
 const START_ENERGY := 100
 const SPECIAL_COST := 100
@@ -48,6 +48,8 @@ const LYING_SIZE := Vector2(110, 36)
 @export var player_id: int = 1
 @export var body_color: Color = Color(0.9, 0.35, 0.3)
 @export var max_health: int = 1000
+## 氣量上限(每格 100)。預設三格,個別角色可以在場景裡調整。
+@export var max_energy: int = MAX_ENERGY
 ## 角色素材資料夾(內含 sheet.png 與 sheet.json)。留空或沒有素材時以色塊顯示。
 @export_dir var sprite_dir: String = ""
 
@@ -55,6 +57,7 @@ const LYING_SIZE := Vector2(110, 36)
 const ANIM_FALLBACKS := {
 	"walk": "idle", "jump": "idle", "dash": "walk", "teleport": "dash", "guard": "idle",
 	"attack1": "idle", "attack2": "attack1", "attack3": "attack1", "air_attack": "attack1",
+	"attack4": "attack2", "attack5": "attack3",
 	"special": "attack3", "super": "special", "cast": "special", "burst": "cast",
 	"hit": "idle", "stunned": "hit", "launched": "hit", "down": "launched", "ko": "down",
 	"getup": "idle",
@@ -323,7 +326,7 @@ func _try_energy_actions() -> bool:
 		return true
 	if _pressed("special"):
 		if _held("down"):
-			if _spend_energy(SUPER_COST):
+			if _spend_energy(super_cost()):
 				_start_super()
 				return true
 		elif _spend_energy(SPECIAL_COST):
@@ -460,7 +463,23 @@ func _check_hits() -> void:
 		if target == null or target == self or _hit_targets.has(target):
 			continue
 		_hit_targets.append(target)
-		target.take_hit(_move, self)
+		target.take_hit(_effective_move(_move), self)
+		_on_attack_hit(target, _move)
+
+
+## 實際套用到對手身上的招式數值。子類別可覆寫來做傷害強化等效果。
+func _effective_move(move: AttackData) -> AttackData:
+	return move
+
+
+## 自己的招式命中對手後呼叫。子類別可覆寫來做追擊等效果。
+func _on_attack_hit(_target: Fighter, _move: AttackData) -> void:
+	pass
+
+
+## 超必殺的耗氣量。子類別可依狀態改變。
+func super_cost() -> int:
+	return SUPER_COST
 
 
 ## 被招式命中。倒地、起身、被擊飛、幽步、脫出與 KO 期間無敵。
@@ -549,8 +568,8 @@ func add_energy(amount: int) -> void:
 
 
 func _set_energy(value: int) -> void:
-	energy = clampi(value, 0, MAX_ENERGY)
-	energy_changed.emit(energy, MAX_ENERGY)
+	energy = clampi(value, 0, max_energy)
+	energy_changed.emit(energy, max_energy)
 
 
 func _spend_energy(cost: int) -> bool:
@@ -605,8 +624,8 @@ func _callout(text: String, color: Color) -> void:
 	label.add_theme_color_override("font_color", color.lightened(0.4))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 8)
-	label.size = Vector2(120, 60)
-	label.position = global_position + Vector2(-60, -200)
+	label.size = Vector2(400, 60)
+	label.position = global_position + Vector2(-200, -200)
 	label.z_index = 2
 	get_parent().add_child(label)
 	var tween := label.create_tween()

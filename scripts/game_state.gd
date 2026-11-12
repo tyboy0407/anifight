@@ -24,6 +24,14 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["解", "捌(1格,需近身)", "伏魔御廚子(3格)"],
 		"summary": "解:遠距離斬擊\n捌:近身多段斬\n伏魔御廚子:10 秒隨機斬擊",
 	},
+	{
+		"name": "乙骨憂太",
+		"scene": "res://scenes/characters/yuta.tscn",
+		"sprites": "res://assets/characters/yuta",
+		"hair": Color(0.13, 0.13, 0.17),
+		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(3格)/純愛砲"],
+		"summary": "氣量上限 5 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。

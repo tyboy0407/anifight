@@ -135,8 +135,8 @@ func _on_health_changed(current: int, maximum: int, player_index: int) -> void:
 	_hud.set_health(player_index, current, maximum)
 
 
-func _on_energy_changed(current: int, _maximum: int, player_index: int) -> void:
-	_hud.set_energy(player_index, current)
+func _on_energy_changed(current: int, maximum: int, player_index: int) -> void:
+	_hud.set_energy(player_index, current, maximum)
 
 
 func _on_combo_changed(hits: int, damage: int, attacker_index: int) -> void:

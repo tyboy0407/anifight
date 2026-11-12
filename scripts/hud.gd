@@ -2,13 +2,15 @@ class_name FightHUD
 extends CanvasLayer
 ## 對戰介面:雙方血條、勝場、倒數計時、中央訊息。全部用程式建立。
 
-const ENERGY_SEGMENTS := 3
 const ENERGY_PER_SEGMENT := 100
 const ENERGY_SEGMENT_WIDTH := 96.0
 const ENERGY_SEGMENT_GAP := 6.0
+## 一側所有氣量格的總寬度上限;格數多的角色每格會變窄,不超出血條。
+const ENERGY_ROW_WIDTH := 466.0
 
 var _bars: Array[ProgressBar] = []
 var _energy_bars: Array = [[], []]
+var _root: Control
 var _win_labels: Array[Label] = []
 var _combo_labels: Array[Label] = []
 var _combo_tweens: Array = [null, null]
@@ -26,15 +28,13 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+	_root = root
 
 	_bars = [
 		_make_bar(root, true, Color(0.95, 0.4, 0.35)),
 		_make_bar(root, false, Color(0.35, 0.6, 0.95)),
 	]
 	_win_labels = [_make_win_label(root, true), _make_win_label(root, false)]
-	for side in 2:
-		for segment in ENERGY_SEGMENTS:
-			_energy_bars[side].append(_make_energy_segment(root, side == 0, segment))
 
 	for side in 2:
 		var combo := _make_label(root, 34, HORIZONTAL_ALIGNMENT_LEFT if side == 0 else HORIZONTAL_ALIGNMENT_RIGHT)
@@ -85,8 +85,17 @@ func set_health(player_index: int, current: int, maximum: int) -> void:
 
 
 ## 氣量以每格 100 分段顯示;滿格的段落會變亮。
-func set_energy(player_index: int, current: int) -> void:
-	for segment in ENERGY_SEGMENTS:
+func set_energy(player_index: int, current: int, maximum: int) -> void:
+	@warning_ignore("integer_division")
+	var segments := maxi(maximum / ENERGY_PER_SEGMENT, 1)
+	if _energy_bars[player_index].size() != segments:
+		# 氣量上限因角色而異,格數不同時重建這一側的氣量格
+		for old: ProgressBar in _energy_bars[player_index]:
+			old.queue_free()
+		_energy_bars[player_index] = []
+		for segment in segments:
+			_energy_bars[player_index].append(_make_energy_segment(_root, player_index == 0, segment, segments))
+	for segment in segments:
 		var bar: ProgressBar = _energy_bars[player_index][segment]
 		bar.value = clampi(current - segment * ENERGY_PER_SEGMENT, 0, ENERGY_PER_SEGMENT)
 		bar.modulate = Color.WHITE if bar.value >= ENERGY_PER_SEGMENT else Color(1, 1, 1, 0.55)
@@ -172,19 +181,21 @@ func _make_bar(root: Control, left: bool, fill_color: Color) -> ProgressBar:
 
 
 ## 氣量格從畫面外側往中央排列。
-func _make_energy_segment(root: Control, left: bool, segment: int) -> ProgressBar:
+func _make_energy_segment(root: Control, left: bool, segment: int, segment_count: int) -> ProgressBar:
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.max_value = ENERGY_PER_SEGMENT
-	var start := 40.0 + segment * (ENERGY_SEGMENT_WIDTH + ENERGY_SEGMENT_GAP)
+	var fitted := (ENERGY_ROW_WIDTH - ENERGY_SEGMENT_GAP * (segment_count - 1)) / segment_count
+	var width := minf(ENERGY_SEGMENT_WIDTH, fitted)
+	var start := 40.0 + segment * (width + ENERGY_SEGMENT_GAP)
 	if left:
 		bar.offset_left = start
-		bar.offset_right = start + ENERGY_SEGMENT_WIDTH
+		bar.offset_right = start + width
 	else:
 		bar.anchor_left = 1.0
 		bar.anchor_right = 1.0
-		bar.offset_left = -start - ENERGY_SEGMENT_WIDTH
+		bar.offset_left = -start - width
 		bar.offset_right = -start
 		bar.fill_mode = ProgressBar.FILL_END_TO_BEGIN
 	bar.offset_top = 62
