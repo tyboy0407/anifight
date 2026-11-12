@@ -50,8 +50,10 @@ func _ready() -> void:
 ## 觸控模式:加上螢幕按鈕,隱藏鍵盤操作提示。
 func _setup_touch() -> void:
 	_touch = TouchControls.new()
+	_touch.fighter = _fighters[0]
 	add_child(_touch)
-	_touch.set_skill_labels(GameState.character(0).get("touch_labels", []))
+	# 觸控用專用按鈕出招,方向鍵不再改變按鍵的意思
+	_fighters[0].direction_combos = false
 	_touch.rematch_requested.connect(_on_rematch_requested)
 	_touch.back_requested.connect(_back_to_select)
 	_hud.set_hint("")

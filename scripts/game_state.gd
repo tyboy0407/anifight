@@ -14,7 +14,6 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/gojo",
 		"hair": Color(0.95, 0.96, 1.0),
 		"skills": ["蒼", "赫(1格)", "無量空處(3格)"],
-		"touch_labels": ["蒼", "赫", "領域"],
 		"summary": "蒼:吸引對手\n赫:遠程擊飛\n無量空處:定身 2.6 秒",
 	},
 	{
@@ -23,7 +22,6 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/sukuna",
 		"hair": Color(0.95, 0.6, 0.65),
 		"skills": ["解", "捌(1格,需近身)", "伏魔御廚子(3格)"],
-		"touch_labels": ["解", "捌", "領域"],
 		"summary": "解:遠距離斬擊\n捌:近身多段斬\n伏魔御廚子:10 秒隨機斬擊",
 	},
 	{
@@ -32,7 +30,6 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/yuta",
 		"hair": Color(0.13, 0.13, 0.17),
 		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(3格)/純愛砲"],
-		"touch_labels": ["咒言", "附刀", "里香"],
 		"summary": "氣量上限 5 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒",
 	},
 ]

@@ -69,6 +69,8 @@ var facing: int = 1
 var health: int = 0
 var energy: int = 0
 var input_enabled: bool = true
+## 是否接受「方向 + 按鍵」的組合招式(鍵盤)。觸控操作時關閉,改用專用按鈕。
+var direction_combos: bool = true
 ## 目前可活動的水平範圍,由主場景依鏡頭位置更新。
 var arena_min_x: float = -INF
 var arena_max_x: float = INF
@@ -341,25 +343,27 @@ func _try_energy_actions() -> bool:
 
 # 招式的輸入判斷。鍵盤用「方向 + 按鍵」的組合;觸控按鈕則直接送出
 # skill2 / super / teleport 這幾個專用動作,不必同時按方向。
+# direction_combos 關閉時(觸控),方向鍵不會改變按鍵的意思:
+# 例如按住防禦再點衝刺,不會變成幽步。
 
 func _skill1_pressed() -> bool:
-	return _pressed("skill") and not _held("up")
+	return _pressed("skill") and not (direction_combos and _held("up"))
 
 
 func _skill2_pressed() -> bool:
-	return (_pressed("skill") and _held("up")) or _pressed("skill2")
+	return _pressed("skill2") or (direction_combos and _pressed("skill") and _held("up"))
 
 
 func _special_pressed() -> bool:
-	return _pressed("special") and not _held("down")
+	return _pressed("special") and not (direction_combos and _held("down"))
 
 
 func _super_pressed() -> bool:
-	return (_pressed("special") and _held("down")) or _pressed("super")
+	return _pressed("super") or (direction_combos and _pressed("special") and _held("down"))
 
 
 func _teleport_pressed() -> bool:
-	return (_pressed("dash") and (_held("down") or _held("up"))) or _pressed("teleport")
+	return _pressed("teleport") or (direction_combos and _pressed("dash") and (_held("down") or _held("up")))
 
 
 ## 角色專屬技能的掛勾。子類別覆寫;有發動就回傳 true。
