@@ -1,0 +1,77 @@
+name: Deploy to GitHub Pages
+
+# Exports the Godot web build on GitHub's servers and publishes it to Pages.
+# Runs on every push to master, or manually from the Actions tab.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7-stable
+  # Folder name Godot expects under export_templates/
+  GODOT_TEMPLATES_DIR: 4.7.stable
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and web export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web
+
+      - name: Download Godot and web export templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}"
+          templates="$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATES_DIR}"
+          mkdir -p "$HOME/godot" "$templates"
+          curl -sSfL -o godot.zip "${base}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip -d "$HOME/godot"
+          mv "$HOME/godot/Godot_v${GODOT_VERSION}_linux.x86_64" "$HOME/godot/godot"
+          curl -sSfL -o templates.tpz "${base}/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          # The archive holds every platform; only the web templates are needed.
+          unzip -q -j templates.tpz 'templates/web_*' 'templates/version.txt' -d "$templates"
+          rm godot.zip templates.tpz
+
+      - name: Export web build
+        run: |
+          mkdir -p build/web
+          # First import builds the .godot cache (not in the repo); it reports
+          # errors for resources that are imported later in the same pass.
+          "$HOME/godot/godot" --headless --path . --import || true
+          "$HOME/godot/godot" --headless --path . --export-release Web build/web/index.html
+          test -f build/web/index.wasm
+          test -f build/web/index.pck
+          touch build/web/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

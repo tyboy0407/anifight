@@ -46,7 +46,9 @@ try {
     git -C $staging add -A
     git -C $staging -c "user.name=$name" -c "user.email=$email" commit -q -m "Deploy $revision"
     Write-Host "Pushing to $Branch ..."
-    git -C $staging @auth push -q -f $remote "${Branch}:${Branch}"
+    # A large post buffer sends the engine file in one request; the default
+    # chunked upload can time out (HTTP 408) on slow connections.
+    git -C $staging @auth -c http.postBuffer=209715200 push -q -f $remote "${Branch}:${Branch}"
     if ($LASTEXITCODE -ne 0) { throw "Push to $Branch failed." }
 }
 finally {

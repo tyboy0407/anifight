@@ -28,12 +28,19 @@ F1 切換 P2 由電腦或玩家操作,Esc 回選角畫面。
 - `scripts/characters/`:各角色的專屬招式
 - `scripts/touch_controls.gd`:觸控按鈕
 - `assets/characters/<角色>/`:角色素材(`sheet.png` + `sheet.json`)
-- `tools/`:臨時素材產生器、切圖工具、字型精簡工具、部署腳本
+- `tools/`:臨時素材產生器、切圖工具、字型精簡工具
 
 ## 發布網頁版
 
+推送到 `master` 分支後,GitHub Actions(`.github/workflows/deploy.yml`)會自動匯出網頁版並發布到 GitHub Pages,不需要在本機上傳匯出檔。
+
+新增了沒出現過的中文字時,推送前先執行 `python tools/subset_font.py` 更新內建字型。
+
+本機測試網頁版:
+
 ```
-powershell -File tools\deploy_web.ps1 -Godot "<Godot 執行檔路徑>"
+godot --headless --path . --export-release Web build/web/index.html
+python -m http.server 8765 --directory build/web
 ```
 
-會匯出網頁版並推送到 `gh-pages` 分支。新增了沒出現過的中文字時,先執行 `python tools/subset_font.py` 更新內建字型。
+然後開啟 http://localhost:8765 (加上 `?touch=1` 可在電腦上強制顯示觸控按鈕)。
