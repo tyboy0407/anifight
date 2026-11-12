@@ -85,15 +85,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_character_actions() -> bool:
-	if not _pressed("skill"):
-		return false
-	if _held("up"):
+	if _skill2_pressed():
 		# 捌:對手不在近身範圍內就放不出來,也不扣氣。
 		if _opponent_in_cleave_range(1.0) and _spend_energy(CLEAVE_COST):
 			_start_cast(CLEAVE_CAST, CLEAVE_FIRST_HIT, _begin_cleave)
 			return true
 		return false
-	if _dismantle_cooldown <= 0.0:
+	if _skill1_pressed() and _dismantle_cooldown <= 0.0:
 		_dismantle_cooldown = DISMANTLE_COOLDOWN
 		_start_cast(DISMANTLE_CAST, DISMANTLE_RELEASE, _release_dismantle)
 		return true

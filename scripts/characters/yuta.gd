@@ -156,14 +156,12 @@ func in_rika_state() -> bool:
 
 
 func _try_character_actions() -> bool:
-	if not _pressed("skill"):
-		return false
-	if _held("up"):
+	if _skill2_pressed():
 		if _spend_energy(BUFF_COST):
 			_start_cast(BUFF_CAST, BUFF_RELEASE, _release_buff)
 			return true
 		return false
-	if _speech_cooldown <= 0.0 and _spend_energy(SPEECH_COST):
+	if _skill1_pressed() and _speech_cooldown <= 0.0 and _spend_energy(SPEECH_COST):
 		_speech_cooldown = SPEECH_COOLDOWN
 		_start_cast(SPEECH_CAST, SPEECH_RELEASE, _release_speech)
 		return true

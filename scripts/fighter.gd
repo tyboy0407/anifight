@@ -324,19 +324,42 @@ func _tick_getup() -> void:
 func _try_energy_actions() -> bool:
 	if _try_character_actions():
 		return true
-	if _pressed("special"):
-		if _held("down"):
-			if _spend_energy(super_cost()):
-				_start_super()
-				return true
-		elif _spend_energy(SPECIAL_COST):
+	if _super_pressed():
+		if _spend_energy(super_cost()):
+			_start_super()
+			return true
+	elif _special_pressed():
+		if _spend_energy(SPECIAL_COST):
 			_start_attack(_special_move, SPECIAL_STEP)
 			return true
-	if _pressed("dash") and (_held("down") or _held("up")) and opponent != null:
+	if _teleport_pressed() and opponent != null:
 		if _spend_energy(TELEPORT_COST):
 			_start_teleport()
 			return true
 	return false
+
+
+# 招式的輸入判斷。鍵盤用「方向 + 按鍵」的組合;觸控按鈕則直接送出
+# skill2 / super / teleport 這幾個專用動作,不必同時按方向。
+
+func _skill1_pressed() -> bool:
+	return _pressed("skill") and not _held("up")
+
+
+func _skill2_pressed() -> bool:
+	return (_pressed("skill") and _held("up")) or _pressed("skill2")
+
+
+func _special_pressed() -> bool:
+	return _pressed("special") and not _held("down")
+
+
+func _super_pressed() -> bool:
+	return (_pressed("special") and _held("down")) or _pressed("super")
+
+
+func _teleport_pressed() -> bool:
+	return (_pressed("dash") and (_held("down") or _held("up"))) or _pressed("teleport")
 
 
 ## 角色專屬技能的掛勾。子類別覆寫;有發動就回傳 true。

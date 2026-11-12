@@ -1,6 +1,7 @@
 extends Control
 ## 選角畫面。雙方各自左右選擇、攻擊鍵確認;都確認後進入對戰。
 ## P2 為電腦時,P1 確認自己的角色後,接著用同一組按鍵替電腦選角色。
+## 也可以直接用滑鼠或手指點角色卡片:第一下選自己,第二下選對手。
 
 const CARD_SIZE := Vector2(260, 330)
 const CONFIRM_DELAY := 0.6
@@ -24,7 +25,8 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _starting:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F1:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F1 \
+			and not GameState.touch_enabled:
 		GameState.cpu_enabled = not GameState.cpu_enabled
 		_confirmed[1] = false
 		_refresh()
@@ -54,6 +56,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 
+## 用滑鼠或手指點角色卡片:先選自己的角色,再選對手的角色。
+func _on_card_input(event: InputEvent, card_index: int) -> void:
+	if _starting or not (event is InputEventMouseButton):
+		return
+	var click := event as InputEventMouseButton
+	if not click.pressed or click.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var target := 1 if _confirmed[0] else 0
+	if _confirmed[target]:
+		return
+	_cursor[target] = card_index
+	_confirmed[target] = true
+	_refresh()
+	_try_start()
+
+
+func _toggle_fullscreen() -> void:
+	var window := get_window()
+	var is_fullscreen := window.mode == Window.MODE_FULLSCREEN or window.mode == Window.MODE_EXCLUSIVE_FULLSCREEN
+	window.mode = Window.MODE_WINDOWED if is_fullscreen else Window.MODE_FULLSCREEN
+
+
 func _move_cursor(target: int, step: int) -> void:
 	_cursor[target] = posmod(_cursor[target] + step, GameState.CHARACTERS.size())
 	_refresh()
@@ -76,6 +100,13 @@ func _refresh() -> void:
 			marker.visible = _cursor[player_index] == card_index
 			var who := "P1" if player_index == 0 else ("電腦" if GameState.cpu_enabled else "P2")
 			marker.text = "%s%s" % [who, " OK" if _confirmed[player_index] else ""]
+	if GameState.touch_enabled:
+		_mode_label.text = "對手由電腦操作"
+		if not _confirmed[0]:
+			_status_label.text = "點選你的角色"
+		elif not _confirmed[1]:
+			_status_label.text = "點選對手的角色"
+		return
 	_mode_label.text = "P2:%s(F1 切換)" % ("電腦操作" if GameState.cpu_enabled else "玩家操作")
 	if not _confirmed[0]:
 		_status_label.text = "P1 選擇角色:A / D 移動,J 確認"
@@ -120,6 +151,22 @@ func _build_ui() -> void:
 	_mode_label.modulate = Color(1, 1, 1, 0.7)
 	column.add_child(_mode_label)
 
+	if GameState.touch_enabled:
+		# 手機瀏覽器的網址列很佔空間,提供全螢幕切換(iPhone 的 Safari 不支援)
+		var fullscreen := Button.new()
+		fullscreen.text = "全螢幕"
+		fullscreen.focus_mode = Control.FOCUS_NONE
+		fullscreen.add_theme_font_size_override("font_size", 20)
+		fullscreen.anchor_left = 1.0
+		fullscreen.anchor_right = 1.0
+		fullscreen.offset_left = -150
+		fullscreen.offset_right = -30
+		fullscreen.offset_top = 24
+		fullscreen.offset_bottom = 72
+		fullscreen.pressed.connect(_toggle_fullscreen)
+		add_child(fullscreen)
+		OrientationNotice.attach_if_touch(self)
+
 
 func _build_card(info: Dictionary) -> PanelContainer:
 	var card := PanelContainer.new()
@@ -130,12 +177,17 @@ func _build_card(info: Dictionary) -> PanelContainer:
 	style.set_content_margin_all(16)
 	card.add_theme_stylebox_override("panel", style)
 
+	# 整張卡片都可以點;內部的容器不攔截點擊
+	card.gui_input.connect(_on_card_input.bind(_cards.size()))
+
 	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 10)
 	card.add_child(box)
 
 	# P1 / P2 游標標記
 	var marker_row := HBoxContainer.new()
+	marker_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	marker_row.custom_minimum_size = Vector2(0, 30)
 	box.add_child(marker_row)
 	var pair: Array[Label] = []
@@ -150,6 +202,7 @@ func _build_card(info: Dictionary) -> PanelContainer:
 
 	# 角色示意:身體色塊 + 頭髮色塊
 	var portrait := Control.new()
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait.custom_minimum_size = Vector2(0, 130)
 	box.add_child(portrait)
 	var center_x := CARD_SIZE.x / 2.0 - 16

@@ -74,14 +74,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_character_actions() -> bool:
-	if not _pressed("skill"):
-		return false
-	if _held("up"):
+	if _skill2_pressed():
 		if _spend_energy(RED_COST):
 			_start_cast(RED_CAST, RED_RELEASE, _release_red)
 			return true
 		return false
-	if _blue_cooldown <= 0.0:
+	if _skill1_pressed() and _blue_cooldown <= 0.0:
 		_blue_cooldown = BLUE_COOLDOWN
 		_start_cast(BLUE_CAST, BLUE_RELEASE, _release_blue)
 		return true

@@ -21,6 +21,7 @@ var _time_left := ROUND_TIME
 var _round_active := false
 var _match_over := false
 var _cpu: CpuController
+var _touch: TouchControls  # 只有觸控模式才會建立
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _hud: FightHUD = $HUD
@@ -39,8 +40,32 @@ func _ready() -> void:
 	add_child(_cpu)
 	_set_cpu_enabled(GameState.cpu_enabled)
 	_hud.set_names(GameState.character(0).name, GameState.character(1).name)
-	_hud.set_hint("%s\n%s      %s" % [COMMON_HINT, _skill_hint(0), _skill_hint(1)])
+	if GameState.touch_enabled:
+		_setup_touch()
+	else:
+		_hud.set_hint("%s\n%s      %s" % [COMMON_HINT, _skill_hint(0), _skill_hint(1)])
 	_start_match()
+
+
+## 觸控模式:加上螢幕按鈕,隱藏鍵盤操作提示。
+func _setup_touch() -> void:
+	_touch = TouchControls.new()
+	add_child(_touch)
+	_touch.set_skill_labels(GameState.character(0).get("touch_labels", []))
+	_touch.rematch_requested.connect(_on_rematch_requested)
+	_touch.back_requested.connect(_back_to_select)
+	_hud.set_hint("")
+	OrientationNotice.attach_if_touch(self)
+
+
+func _on_rematch_requested() -> void:
+	if _match_over:
+		_start_match()
+
+
+func _back_to_select() -> void:
+	_cpu.set_enabled(false)
+	get_tree().change_scene_to_file(GameState.SELECT_SCENE)
 
 
 func _process(delta: float) -> void:
@@ -69,8 +94,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.physical_keycode == KEY_F1:
 			_set_cpu_enabled(not _cpu.enabled)
 		elif event.physical_keycode == KEY_ESCAPE:
-			_cpu.set_enabled(false)
-			get_tree().change_scene_to_file(GameState.SELECT_SCENE)
+			_back_to_select()
 
 
 ## 依選角結果建立雙方角色。
@@ -112,6 +136,8 @@ func _set_cpu_enabled(value: bool) -> void:
 
 func _start_match() -> void:
 	_match_over = false
+	if _touch != null:
+		_touch.set_match_over(false)
 	_wins = [0, 0]
 	_round_number = 0
 	_hud.set_wins(0, 0)
@@ -170,7 +196,12 @@ func _end_round(winner: int, headline: String) -> void:
 
 	if winner >= 0 and _wins[winner] >= ROUNDS_TO_WIN:
 		_match_over = true
-		_hud.show_message("%s\nP%d %s 獲勝\nEnter 再戰一場   Esc 回選角" % [headline, winner + 1, GameState.character(winner).name])
+		var result_text := "%s\nP%d %s 獲勝" % [headline, winner + 1, GameState.character(winner).name]
+		if _touch != null:
+			_touch.set_match_over(true)
+		else:
+			result_text += "\nEnter 再戰一場   Esc 回選角"
+		_hud.show_message(result_text)
 		return
 
 	var result := "DRAW" if winner < 0 else "P%d WIN" % (winner + 1)

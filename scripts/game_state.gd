@@ -14,6 +14,7 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/gojo",
 		"hair": Color(0.95, 0.96, 1.0),
 		"skills": ["蒼", "赫(1格)", "無量空處(3格)"],
+		"touch_labels": ["蒼", "赫", "領域"],
 		"summary": "蒼:吸引對手\n赫:遠程擊飛\n無量空處:定身 2.6 秒",
 	},
 	{
@@ -22,6 +23,7 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/sukuna",
 		"hair": Color(0.95, 0.6, 0.65),
 		"skills": ["解", "捌(1格,需近身)", "伏魔御廚子(3格)"],
+		"touch_labels": ["解", "捌", "領域"],
 		"summary": "解:遠距離斬擊\n捌:近身多段斬\n伏魔御廚子:10 秒隨機斬擊",
 	},
 	{
@@ -30,6 +32,7 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/yuta",
 		"hair": Color(0.13, 0.13, 0.17),
 		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(3格)/純愛砲"],
+		"touch_labels": ["咒言", "附刀", "里香"],
 		"summary": "氣量上限 5 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒",
 	},
 ]
@@ -37,6 +40,13 @@ const CHARACTERS: Array[Dictionary] = [
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。
 static var selection: Array[int] = [0, 1]
 static var cpu_enabled: bool = true
+## 是否顯示觸控按鈕。網頁版在觸控裝置上自動開啟;
+## 測試時可在網址加上 ?touch=1,或在桌面版加上啟動參數 -- --touch。
+static var touch_enabled: bool = false
+
+## 只有觸控按鈕會用到的動作:一顆按鈕直接放出鍵盤上要搭配方向鍵的招式。
+const DIRECT_ACTIONS: Array[String] = ["skill2", "super", "teleport"]
+static var _initialized: bool = false
 
 
 static func character(player_index: int) -> Dictionary:
@@ -49,8 +59,13 @@ static func action(player_id: int, action_name: String) -> String:
 
 ## 註冊雙方的輸入動作。可重複呼叫。
 static func setup_input() -> void:
-	if InputMap.has_action(action(1, "attack")):
+	if _initialized:
 		return
+	_initialized = true
+	_detect_touch()
+	for player_id in [1, 2]:
+		for action_name in DIRECT_ACTIONS:
+			_ensure_action(player_id, action_name)
 	_bind_keys(1, {
 		"left": KEY_A, "right": KEY_D, "up": KEY_W, "down": KEY_S,
 		"attack": KEY_J, "jump": KEY_K, "dash": KEY_L,
@@ -68,6 +83,17 @@ static func setup_input() -> void:
 		"attack": JOY_BUTTON_X, "jump": JOY_BUTTON_A, "dash": JOY_BUTTON_B,
 		"special": JOY_BUTTON_Y, "escape": JOY_BUTTON_RIGHT_SHOULDER, "skill": JOY_BUTTON_LEFT_SHOULDER,
 	})
+
+
+static func _detect_touch() -> void:
+	if OS.get_cmdline_user_args().has("--touch"):
+		touch_enabled = true
+	elif OS.has_feature("web"):
+		var query: Variant = JavaScriptBridge.eval("window.location.search")
+		var forced := query is String and (query as String).contains("touch=1")
+		touch_enabled = forced or DisplayServer.is_touchscreen_available()
+	if touch_enabled:
+		cpu_enabled = true  # 觸控只有一組按鈕,對手固定由電腦操作
 
 
 static func _bind_keys(player_id: int, bindings: Dictionary) -> void:
