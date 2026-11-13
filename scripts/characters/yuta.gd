@@ -128,7 +128,7 @@ func _build_moves() -> void:
 
 
 func _slash(damage: int, startup: float, recovery: float, hitstun: float, launches: bool) -> AttackData:
-	var knockback := Vector2(440, -540) if launches else Vector2(170, 0)
+	var knockback := CHAIN_LAUNCH if launches else Vector2(170, 0)
 	var move := AttackData.make(damage, startup, 0.10, recovery, Vector2(80, -62), Vector2(120, 56), knockback, hitstun, launches, 230.0 if launches else 130.0)
 	move.color = Color(0.85, 0.92, 1.0, 0.75)
 	return move

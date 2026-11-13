@@ -4,6 +4,7 @@ extends Fighter
 ##
 ## 被動
 ##   黑閃:所有攻擊命中時有 1% 機率觸發,該次傷害 2 倍,並進入心流狀態。
+##         對手防禦住也會觸發(傷害為防禦減免後的 2 倍)。
 ##   心流:持續 30 秒,期間持續回復氣量,黑閃機率提升到 10%。
 ##         心流期間再觸發黑閃不會刷新時間,要等心流結束才能重新進入。
 ## 招式
@@ -87,7 +88,7 @@ func _build_moves() -> void:
 		AttackData.make(40, 0.05, 0.10, 0.16, Vector2(60, -70), Vector2(70, 36), Vector2(170, 0), 0.32),
 		AttackData.make(45, 0.06, 0.10, 0.16, Vector2(62, -62), Vector2(76, 40), Vector2(180, 0), 0.32),
 		AttackData.make(55, 0.07, 0.10, 0.18, Vector2(66, -58), Vector2(86, 46), Vector2(190, 0), 0.34),
-		AttackData.make(95, 0.10, 0.12, 0.30, Vector2(72, -65), Vector2(100, 60), Vector2(440, -540), 0.0, true, 230.0),
+		AttackData.make(95, 0.10, 0.12, 0.30, Vector2(72, -65), Vector2(100, 60), CHAIN_LAUNCH, 0.0, true, 230.0),
 	]
 	_ultimate_move = AttackData.make(ULTIMATE_DAMAGE, 0.16, 0.14, 0.40, Vector2(90, -62), Vector2(170, 90), Vector2(720, -560), 0.0, true, 420.0)
 	_ultimate_move.builds_energy = false
@@ -166,12 +167,14 @@ func _prepare_strike(move: AttackData) -> AttackData:
 	return _doubled[move]
 
 
-## 出手後:這一擊真的打中(沒被防禦、對手不是無敵)才算觸發黑閃。
+## 出手後:這一擊有碰到對手就算觸發黑閃,被防禦住也算(傷害是防禦減免後的 2 倍)。
+## 對手無敵、或攻擊被格檔抵銷時不算。
 func _finish_strike(target: Fighter) -> void:
 	if not _strike_flash:
 		return
 	_strike_flash = false
-	if target.health >= _strike_health or target.state == State.GUARD:
+	# 防禦中的對手剩 1 滴血時不會再扣血,但仍然算是打在防禦上
+	if target.health >= _strike_health and target.state != State.GUARD:
 		return
 	_callout("黑閃", FLASH_COLOR)
 	_spark(target.global_position + Vector2(0, -60))

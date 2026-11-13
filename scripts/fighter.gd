@@ -28,6 +28,11 @@ const BURST_RADIUS := 170.0
 const COMBO_DAMAGE_STEP := 0.1
 const COMBO_DAMAGE_FLOOR := 0.3
 const COMBO_HIT_LIMIT := 10
+# 浮空中被普通招式打到時:往上彈的速度,以及水平擊退的縮小比例。
+const AIR_HIT_POP := -300.0
+const AIR_HIT_PUSH_SCALE := 0.3
+## 普攻連段最後一擊的擊飛方向:打高、不打遠,衝刺追上去還來得及在空中接著打。
+const CHAIN_LAUNCH := Vector2(250, -700)
 ## 耗氣招式用的連段編號:視為地面招式,但不能再接下一段。
 const SPECIAL_STEP := 99
 
@@ -47,7 +52,7 @@ const LYING_SIZE := Vector2(110, 36)
 
 @export var player_id: int = 1
 @export var body_color: Color = Color(0.9, 0.35, 0.3)
-@export var max_health: int = 1000
+@export var max_health: int = 2500
 ## 氣量上限(每格 100)。預設三格,個別角色可以在場景裡調整。
 @export var max_energy: int = MAX_ENERGY
 ## 角色素材資料夾(內含 sheet.png 與 sheet.json)。留空或沒有素材時以色塊顯示。
@@ -94,6 +99,8 @@ var _cast_callback: Callable
 var _cast_fired := false
 var _combo_hits := 0
 var _combo_damage := 0
+## 連段到達上限後的那次擊飛:落地前不能再被追打。一般的擊飛則可以在空中被連擊。
+var _launch_protected := false
 var _has_sprite := false
 var _current_anim := ""
 var _anim_restart := false
@@ -123,7 +130,7 @@ func _build_moves() -> void:
 	_ground_moves = [
 		AttackData.make(40, 0.06, 0.10, 0.18, Vector2(60, -70), Vector2(70, 36), Vector2(180, 0), 0.32),
 		AttackData.make(50, 0.07, 0.10, 0.20, Vector2(65, -60), Vector2(80, 40), Vector2(200, 0), 0.34),
-		AttackData.make(90, 0.10, 0.12, 0.30, Vector2(70, -65), Vector2(95, 60), Vector2(420, -520), 0.0, true, 220.0),
+		AttackData.make(90, 0.10, 0.12, 0.30, Vector2(70, -65), Vector2(95, 60), CHAIN_LAUNCH, 0.0, true, 220.0),
 	]
 	_air_move = AttackData.make(60, 0.05, 0.20, 0.10, Vector2(45, -40), Vector2(80, 60), Vector2(260, 0), 0.30, false, 0.0)
 	# 大招(耗 1 格):前衝的大範圍擊飛,可以從連段第一、二段取消接上。
@@ -302,7 +309,9 @@ func _tick_stunned(delta: float) -> void:
 
 
 func _tick_launched() -> void:
-	if _state_time > 0.05 and _landed():
+	if can_escape() and _pressed("escape") and _spend_energy(ESCAPE_COST):
+		_start_burst()
+	elif _state_time > 0.05 and _landed():
 		velocity.x = 0.0
 		_set_state(State.DOWN)
 
@@ -407,8 +416,8 @@ func stun(duration: float, damage: int = 0) -> void:
 
 ## 被打出短暫硬直,不造成傷害、不計入連段。用於格檔反擊這類「打斷對手」的效果。
 func stagger(duration: float) -> void:
-	if is_invulnerable():
-		return
+	if is_invulnerable() or state == State.LAUNCHED:
+		return  # 已經被打飛在空中的對手維持浮空,不會被拉回站立硬直
 	_set_hitbox(false)
 	velocity.x = 0.0
 	_stun_time = duration
@@ -424,8 +433,17 @@ func ai_skill2_range() -> float:
 	return INF
 
 
+## 倒地、起身、幽步、脫出與 KO 期間無敵。被擊飛在空中時仍然可以被追打,
+## 只有連段到達上限的那次擊飛例外。
 func is_invulnerable() -> bool:
-	return state in [State.KO, State.DOWN, State.GETUP, State.LAUNCHED, State.TELEPORT, State.BURST]
+	if state == State.LAUNCHED:
+		return _launch_protected
+	return state in [State.KO, State.DOWN, State.GETUP, State.TELEPORT, State.BURST]
+
+
+## 現在能不能用受擊脫出:地面硬直中,或是在空中被追打時。
+func can_escape() -> bool:
+	return state == State.HITSTUN or (state == State.LAUNCHED and not _launch_protected)
 
 
 ## 幽步:瞬間移動到對手背後。
@@ -528,7 +546,7 @@ func super_cost() -> int:
 	return SUPER_COST
 
 
-## 被招式命中。倒地、起身、被擊飛、幽步、脫出與 KO 期間無敵。
+## 被招式命中。倒地、起身、幽步、脫出與 KO 期間無敵;浮空時可以被連擊。
 func take_hit(move: AttackData, attacker: Fighter) -> void:
 	if is_invulnerable():
 		return
@@ -555,15 +573,18 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 		velocity = Vector2(away * 350.0, -450.0)
 		_set_state(State.KO, true)
 		defeated.emit(self)
+	elif _combo_hits >= COMBO_HIT_LIMIT:
+		# 連段到達上限:強制擊飛倒地,落地前不能再被追打,結束這段連段。
+		velocity = Vector2(away * move.knockback.x, move.knockback.y) if move.launches else Vector2(away * 320.0, -420.0)
+		_set_state(State.LAUNCHED, true)
+		_launch_protected = true
 	elif move.launches:
 		velocity = Vector2(away * move.knockback.x, move.knockback.y)
 		_set_state(State.LAUNCHED, true)
-	elif _combo_hits >= COMBO_HIT_LIMIT:
-		# 連段到達上限:強制擊飛倒地,結束這段連段。
-		velocity = Vector2(away * 320.0, -420.0)
-		_set_state(State.LAUNCHED, true)
-	elif not is_on_floor():
-		velocity = Vector2(away * move.knockback.x, -300.0)
+	elif state == State.LAUNCHED or not is_on_floor():
+		# 浮空中被打:再往上彈一下,落地前可以繼續被連擊。
+		# 空中沒有地面摩擦,水平擊退要縮小,不然第二下就會被推出攻擊範圍。
+		velocity = Vector2(away * move.knockback.x * AIR_HIT_PUSH_SCALE, AIR_HIT_POP)
 		_set_state(State.LAUNCHED, true)
 	elif state == State.STUNNED:
 		# 定身中被普通招式打到:扣血但維持定身,不重置時間。
@@ -582,6 +603,7 @@ func _set_state(new_state: State, force: bool = false) -> void:
 	state = new_state
 	_state_time = 0.0
 	_anim_restart = true
+	_launch_protected = false
 	if new_state == State.IDLE:
 		_end_combo()
 

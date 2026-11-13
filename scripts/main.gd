@@ -10,7 +10,7 @@ const CAMERA_HALF_WIDTH := 576.0
 const VIEW_HALF := 520.0
 const SPAWN_GAP := 220.0
 const ROUNDS_TO_WIN := 2
-const ROUND_TIME := 60.0
+const ROUND_TIME := 150.0
 const ROUND_END_DELAY := 2.2
 const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   Esc 回選角"
 

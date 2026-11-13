@@ -104,7 +104,7 @@ func set_match_over(is_over: bool) -> void:
 # ---------- 衝刺鍵 ----------
 
 func _is_hit() -> bool:
-	return fighter != null and fighter.state == Fighter.State.HITSTUN
+	return fighter != null and fighter.can_escape()
 
 
 func _is_teleporting() -> bool:

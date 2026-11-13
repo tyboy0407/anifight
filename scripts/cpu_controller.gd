@@ -49,11 +49,12 @@ func _decide() -> void:
 	var away := "left" if dx > 0.0 else "right"
 	var roll := randf()
 
+	if me.can_escape():
+		# 地面硬直或在空中被追打
+		if me.energy >= Fighter.ESCAPE_COST and roll < 0.2:
+			_press("escape", TAP)
+		return
 	match me.state:
-		Fighter.State.HITSTUN:
-			if me.energy >= Fighter.ESCAPE_COST and roll < 0.2:
-				_press("escape", TAP)
-			return
 		Fighter.State.DOWN:
 			if roll < 0.5:
 				_press("dash", TAP)
