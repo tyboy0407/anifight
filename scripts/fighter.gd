@@ -405,6 +405,25 @@ func stun(duration: float, damage: int = 0) -> void:
 	_set_state(State.STUNNED, true)
 
 
+## 被打出短暫硬直,不造成傷害、不計入連段。用於格檔反擊這類「打斷對手」的效果。
+func stagger(duration: float) -> void:
+	if is_invulnerable():
+		return
+	_set_hitbox(false)
+	velocity.x = 0.0
+	_stun_time = duration
+	_set_state(State.HITSTUN, true)
+
+
+## 給電腦對手的提示:技能一、技能二在離對手多遠以內才值得使用。預設不限距離。
+func ai_skill_range() -> float:
+	return INF
+
+
+func ai_skill2_range() -> float:
+	return INF
+
+
 func is_invulnerable() -> bool:
 	return state in [State.KO, State.DOWN, State.GETUP, State.LAUNCHED, State.TELEPORT, State.BURST]
 

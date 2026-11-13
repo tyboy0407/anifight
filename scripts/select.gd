@@ -3,7 +3,8 @@ extends Control
 ## P2 為電腦時,P1 確認自己的角色後,接著用同一組按鍵替電腦選角色。
 ## 也可以直接用滑鼠或手指點角色卡片:第一下選自己,第二下選對手。
 
-const CARD_SIZE := Vector2(260, 330)
+const CARD_SIZE := Vector2(244, 330)
+const CARD_GAP := 26  # 四張卡片加間距要放得進 1152 寬的畫面
 const CONFIRM_DELAY := 0.6
 
 var _cursor: Array[int] = [0, 1]
@@ -143,7 +144,7 @@ func _build_ui() -> void:
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 40)
+	row.add_theme_constant_override("separation", CARD_GAP)
 	column.add_child(row)
 	for info: Dictionary in GameState.CHARACTERS:
 		row.add_child(_build_card(info))
@@ -255,7 +256,10 @@ func _build_card(info: Dictionary) -> PanelContainer:
 			sprite.play("idle")
 
 	box.add_child(_label(info.name, 30))
-	var summary := _label(info.summary, 16)
+	var summary := _label(info.summary, 14)
+	# 太長的說明自動換行,不要把卡片撐寬
+	summary.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+	summary.custom_minimum_size.x = CARD_SIZE.x - 32
 	summary.modulate = Color(1, 1, 1, 0.8)
 	box.add_child(summary)
 

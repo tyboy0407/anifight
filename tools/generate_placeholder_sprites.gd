@@ -34,6 +34,13 @@ const STYLES := [
 		"pants": Color(0.14, 0.15, 0.22), "sash": Color(0, 0, 0, 0),
 		"sword": true,
 	},
+	{
+		"id": "yuji",
+		"hair": Color(0.98, 0.68, 0.6), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.14, 0.15, 0.26), "sleeve": Color(0.14, 0.15, 0.26),
+		"pants": Color(0.12, 0.13, 0.22), "sash": Color(0, 0, 0, 0),
+		"hood": Color(0.85, 0.16, 0.18),
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -213,6 +220,10 @@ func _draw_figure(p: Dictionary) -> void:
 	if sash.a > 0.0:
 		_fill(p.hip + Vector2i(-3, -3), Vector2i(7, 2), sash)
 	_fill(p.neck + Vector2i(-1, -1), Vector2i(3, 2), SKIN)
+	if _style.has("hood"):
+		# 制服的連帽:披在肩膀與後頸
+		_fill(p.neck + Vector2i(-5, 0), Vector2i(9, 3), _style.hood)
+		_fill(p.neck + Vector2i(-6, -2), Vector2i(3, 4), _style.hood)
 
 	_draw_head(p.head)
 

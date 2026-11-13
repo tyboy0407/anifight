@@ -102,6 +102,10 @@ func _start_super() -> void:
 	_start_cast(DOMAIN_CAST, DOMAIN_RELEASE, _release_domain)
 
 
+func ai_skill2_range() -> float:
+	return CLEAVE_RANGE
+
+
 # ---------- 解 ----------
 
 func _release_dismantle() -> void:

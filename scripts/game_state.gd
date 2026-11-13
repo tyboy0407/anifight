@@ -32,6 +32,14 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(3格)/純愛砲"],
 		"summary": "氣量上限 5 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒",
 	},
+	{
+		"name": "虎杖悠仁",
+		"scene": "res://scenes/characters/yuji.tscn",
+		"sprites": "res://assets/characters/yuji",
+		"hair": Color(0.98, 0.7, 0.62),
+		"skills": ["逕庭拳(1格)", "格檔(1格)", "黑閃(3格)"],
+		"summary": "被動:攻擊 1% 機率黑閃\n逕庭拳:延遲的衝擊波\n格檔:擋下近身攻擊並反擊\n黑閃:必定黑閃的一拳",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。
