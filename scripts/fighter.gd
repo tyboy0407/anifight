@@ -459,18 +459,23 @@ func can_escape() -> bool:
 ## 幽步:瞬間移動到對手背後。
 func _start_teleport() -> void:
 	_set_hitbox(false)
+	_move_behind_opponent(TELEPORT_OFFSET)
+	_set_state(State.TELEPORT, true)
+
+
+## 瞬間移到對手背後 offset 的位置,並轉身面向對手。
+func _move_behind_opponent(offset: float) -> void:
 	var side := int(signf(opponent.global_position.x - global_position.x))
 	if side == 0:
 		side = facing
-	var target_x := opponent.global_position.x + side * TELEPORT_OFFSET
+	var target_x := opponent.global_position.x + side * offset
 	if target_x < arena_min_x or target_x > arena_max_x:
 		# 對手貼在畫面邊緣,背後沒有空間:改為瞬移到對手面前。
 		side = -side
-		target_x = opponent.global_position.x + side * TELEPORT_OFFSET
+		target_x = opponent.global_position.x + side * offset
 	global_position.x = target_x
 	velocity = Vector2.ZERO
 	facing = -side
-	_set_state(State.TELEPORT, true)
 
 
 ## 受擊脫出:無敵並把附近的對手彈開,不造成傷害。

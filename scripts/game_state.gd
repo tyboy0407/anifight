@@ -23,7 +23,7 @@ const CHARACTERS: Array[Dictionary] = [
 				"sprites": "res://assets/characters/gojo_young",
 				"hair": Color(0.95, 0.96, 1.0),
 				"skills": ["蒼放(1格)", "無下限(2格)", "順轉「蒼」(3格)"],
-				"summary": "開場 10 秒無下限\n蒼放:吸近後推飛\n無下限:10 秒攻擊無效\n順轉「蒼」:吸入後甩出",
+				"summary": "開場 10 秒無下限\n蒼放:閃到背後甩出蒼球\n無下限:10 秒攻擊無效\n順轉「蒼」:吸入後甩出",
 			},
 		],
 	},
