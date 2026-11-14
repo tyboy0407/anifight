@@ -48,6 +48,13 @@ const STYLES := [
 		"pants": Color(0.12, 0.13, 0.23), "sash": Color(0, 0, 0, 0),
 		"tall_hair": true,
 	},
+	{
+		"id": "gojo_young",
+		"hair": Color(0.96, 0.97, 1.0), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.16, 0.18, 0.32), "sleeve": Color(0.16, 0.18, 0.32),
+		"pants": Color(0.13, 0.14, 0.24), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.2, 0.62, 1.0),  # 六眼的蒼藍色,不戴眼罩也不戴墨鏡
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -281,6 +288,12 @@ func _draw_head(center: Vector2i) -> void:
 
 	if _style.blindfold:
 		_fill(center + Vector2i(-4, -1), Vector2i(9, 2), Color(0.08, 0.08, 0.11))
+	elif _style.has("eye"):
+		# 指定顏色的大眼睛:2x2,上緣一點白色高光,上方一道深色眼線
+		var eye: Color = _style.eye
+		_fill(center + Vector2i(2, -1), Vector2i(2, 2), eye)
+		_plot(center + Vector2i(3, -1), eye.lightened(0.6))
+		_fill(center + Vector2i(1, -2), Vector2i(3, 1), Color(0.16, 0.18, 0.26))
 	else:
 		_plot(center + Vector2i(2, 0), Color(0.3, 0.05, 0.08))
 		_plot(center + Vector2i(3, 0), Color(0.3, 0.05, 0.08))

@@ -15,6 +15,17 @@ const CHARACTERS: Array[Dictionary] = [
 		"hair": Color(0.95, 0.96, 1.0),
 		"skills": ["蒼", "赫(1格)", "無量空處(3格)"],
 		"summary": "蒼:吸引對手\n赫:遠程擊飛\n無量空處:定身 2.6 秒",
+		# 同一個角色的其他時期 / 型態。選角畫面長按角色卡片可以切換。
+		"forms": [
+			{
+				"name": "青年五條悟",
+				"scene": "res://scenes/characters/gojo_young.tscn",
+				"sprites": "res://assets/characters/gojo_young",
+				"hair": Color(0.95, 0.96, 1.0),
+				"skills": ["蒼放(1格)", "無下限(2格)", "順轉「蒼」(3格)"],
+				"summary": "開場 10 秒無下限\n蒼放:吸近後推飛\n無下限:10 秒攻擊無效\n順轉「蒼」:吸入後甩出",
+			},
+		],
 	},
 	{
 		"name": "兩面宿儺",
@@ -52,6 +63,8 @@ const CHARACTERS: Array[Dictionary] = [
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。
 static var selection: Array[int] = [0, 1]
+## 雙方選到的型態:0 是角色原本的樣子,1 以後是該角色 "forms" 裡的第幾個。
+static var forms: Array[int] = [0, 0]
 static var cpu_enabled: bool = true
 ## 是否顯示觸控按鈕。網頁版在觸控裝置上自動開啟;
 ## 測試時可在網址加上 ?touch=1,或在桌面版加上啟動參數 -- --touch。
@@ -62,8 +75,23 @@ const DIRECT_ACTIONS: Array[String] = ["skill2", "super", "teleport"]
 static var _initialized: bool = false
 
 
+## 某位玩家實際出戰的角色資料(已套用選到的型態)。
 static func character(player_index: int) -> Dictionary:
-	return CHARACTERS[selection[player_index]]
+	return form_info(selection[player_index], forms[player_index])
+
+
+## 這個角色共有幾種型態(含原本的樣子)。
+static func form_count(character_index: int) -> int:
+	return 1 + (CHARACTERS[character_index].get("forms", []) as Array).size()
+
+
+## 取得某個角色指定型態的資料;型態編號超出範圍時回到原本的樣子。
+static func form_info(character_index: int, form_index: int) -> Dictionary:
+	var base: Dictionary = CHARACTERS[character_index]
+	var alternates: Array = base.get("forms", [])
+	if form_index <= 0 or form_index > alternates.size():
+		return base
+	return alternates[form_index - 1]
 
 
 static func action(player_id: int, action_name: String) -> String:
