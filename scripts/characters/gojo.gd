@@ -114,7 +114,8 @@ func _tick_blue(delta: float) -> void:
 	if opponent != null and not opponent.is_invulnerable():
 		var distance := absf(_blue_position.x - opponent.global_position.x)
 		if distance <= BLUE_RANGE:
-			opponent.global_position.x = move_toward(opponent.global_position.x, _blue_position.x, BLUE_PULL_SPEED * delta)
+			if not opponent.is_immovable():
+				opponent.global_position.x = move_toward(opponent.global_position.x, _blue_position.x, BLUE_PULL_SPEED * delta)
 			distance = absf(_blue_position.x - opponent.global_position.x)
 			if distance <= BLUE_HIT_RADIUS and _blue_tick <= 0.0:
 				_blue_tick = BLUE_TICK

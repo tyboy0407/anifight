@@ -451,6 +451,11 @@ func is_invulnerable() -> bool:
 	return state in [State.KO, State.DOWN, State.GETUP, State.TELEPORT, State.BURST]
 
 
+## 吸引類的招式(蒼、順轉「蒼」)能不能拉動這個角色。
+func is_immovable() -> bool:
+	return is_invulnerable()
+
+
 ## 現在能不能用受擊脫出:地面硬直中,或是在空中被追打時。
 func can_escape() -> bool:
 	return state == State.HITSTUN or (state == State.LAUNCHED and not _launch_protected)

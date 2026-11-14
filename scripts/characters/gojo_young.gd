@@ -3,7 +3,8 @@ extends Fighter
 ## 五條悟的另一個型態:青年五條悟。在選角畫面長按五條悟的卡片可以選到。
 ##
 ## 被動
-##   每回合開場有 10 秒「無下限」:期間對手的所有攻擊都無效。
+##   每回合開場有 10 秒「無下限」:期間對手的所有攻擊都無效,
+##   但每被打中一下,無下限的剩餘時間會少 0.5 秒。
 ## 招式
 ##   術式「蒼放」(skill,1 格):閃身到對手背後,凝聚一顆小蒼球向前甩出,命中擊飛。
 ##   無下限(上 + skill,2 格):進入「無下限」狀態 10 秒。
@@ -15,6 +16,7 @@ const INFINITY_COLOR := Color(0.72, 0.9, 1.0)
 
 # 無下限
 const INFINITY_DURATION := 10.0
+const INFINITY_HIT_PENALTY := 0.5   # 無下限期間每被打中一下,剩餘時間少這麼多
 const INFINITY_COST := 200
 const INFINITY_CAST := 0.5
 const INFINITY_RELEASE := 0.3
@@ -121,7 +123,7 @@ func _physics_process(delta: float) -> void:
 		_infinity_time = maxf(_infinity_time - delta, 0.0)
 	_tick_push(delta)
 	_tick_orb(delta)
-	_status_label.text = "無下限 %d" % ceili(_infinity_time) if in_infinity() else ""
+	_status_label.text = "無下限 %.1f" % _infinity_time if in_infinity() else ""
 
 
 func _try_character_actions() -> bool:
@@ -156,23 +158,40 @@ func _release_infinity() -> void:
 	_callout("無下限", INFINITY_COLOR)
 
 
-## 無下限期間視同無敵:飛行道具、吸引、式神等各種招式都會略過他。
-func is_invulnerable() -> bool:
-	return in_infinity() or super()
-
-
-## 無下限期間被近身招式碰到:攻擊停在身前,不造成任何效果。
+## 無下限期間被任何招式打中:攻擊停在身前、不造成任何效果,但每一下會讓無下限少 0.5 秒。
+## (不把自己當成無敵,對手的招式才會照常打上來,電腦也才會主動進攻。)
 func take_hit(move: AttackData, attacker: Fighter) -> void:
 	if in_infinity():
-		_infinity_ripple(attacker)
+		if not is_invulnerable():
+			_absorb_hit(attacker)
 		return
 	super(move, attacker)
 
 
+## 定身類的招式(例如無量空處)也算一次命中。
 func stun(duration: float, damage: int = 0) -> void:
 	if in_infinity():
+		if not is_invulnerable():
+			_absorb_hit(opponent)
 		return
 	super(duration, damage)
+
+
+## 不造成傷害的打斷效果直接無效,不扣時間。
+func stagger(duration: float) -> void:
+	if not in_infinity():
+		super(duration)
+
+
+## 無下限期間,吸引類的招式拉不動他。
+func is_immovable() -> bool:
+	return in_infinity() or super()
+
+
+func _absorb_hit(attacker: Fighter) -> void:
+	_infinity_time = maxf(_infinity_time - INFINITY_HIT_PENALTY, 0.0)
+	if attacker != null:
+		_infinity_ripple(attacker)
 
 
 ## 攻擊被無下限擋在身前的效果:一道淡藍色的屏障閃一下。
@@ -332,6 +351,8 @@ func _tick_orb(delta: float) -> void:
 
 ## 把對手往球體吸。回傳對手是否已經在球體裡。
 func _pull_into_orb(delta: float) -> bool:
+	if opponent.is_immovable():
+		return false
 	var chest := opponent.global_position + Vector2(0, -BODY_SIZE.y / 2.0)
 	var offset := _orb_position - chest
 	if offset.length() <= ORB_CAPTURE_RADIUS:
