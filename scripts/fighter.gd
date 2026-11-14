@@ -85,6 +85,8 @@ var _dash_cooldown := 0.0
 var _dash_dir := 1
 var _stun_time := 0.0
 var _stun_damage_scale := 1.0
+var _energy_seal_time := 0.0
+var _seal_label: Label
 var _move: AttackData
 var _combo_step := 0  # 地面連段的第幾段;-1 代表空中攻擊
 var _combo_queued := false
@@ -151,6 +153,8 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	facing = spawn_facing
 	health = max_health
 	_dash_cooldown = 0.0
+	_energy_seal_time = 0.0
+	_update_seal_label()
 	_set_hitbox(false)
 	_end_combo()
 	_set_state(State.IDLE, true)
@@ -162,6 +166,7 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 func _physics_process(delta: float) -> void:
 	_state_time += delta
 	_dash_cooldown = maxf(_dash_cooldown - delta, 0.0)
+	_tick_energy_seal(delta)
 	if state != State.DASH:
 		velocity.y += GRAVITY * delta
 
@@ -428,6 +433,11 @@ func stagger(duration: float) -> void:
 	_set_state(State.HITSTUN, true)
 
 
+## 給電腦對手的提示:技能二要按住幾秒(可以蓄力的招式用)。預設點一下就好。
+func ai_skill2_hold() -> float:
+	return 0.0
+
+
 ## 給電腦對手的提示:這個角色放出、即將落在場上的範圍攻擊,讓電腦知道要閃。
 ## 每一項是 {x, half_width, time}:中心位置、半寬、離判定結束還有幾秒。
 func ai_hazards() -> Array[Dictionary]:
@@ -664,7 +674,43 @@ func _set_health(value: int) -> void:
 
 
 func add_energy(amount: int) -> void:
+	if amount > 0 and energy_sealed():
+		return
 	_set_energy(energy + amount)
+
+
+## 氣閉:這段時間內無法以任何方式累積氣量;已經有的氣照常可以使用。
+func seal_energy(duration: float) -> void:
+	_energy_seal_time = maxf(_energy_seal_time, duration)
+	if _seal_label == null:
+		_seal_label = Label.new()
+		_seal_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_seal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_seal_label.add_theme_font_size_override("font_size", 14)
+		_seal_label.add_theme_color_override("font_color", Color(0.78, 0.74, 0.92))
+		_seal_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_seal_label.add_theme_constant_override("outline_size", 5)
+		_seal_label.size = Vector2(240, 20)
+		# 放在各角色自己的狀態文字上面一行
+		_seal_label.position = Vector2(-120, -BODY_SIZE.y - 86)
+		add_child(_seal_label)
+	_update_seal_label()
+
+
+func energy_sealed() -> bool:
+	return _energy_seal_time > 0.0
+
+
+func _tick_energy_seal(delta: float) -> void:
+	if _energy_seal_time <= 0.0:
+		return
+	_energy_seal_time = maxf(_energy_seal_time - delta, 0.0)
+	_update_seal_label()
+
+
+func _update_seal_label() -> void:
+	if _seal_label != null:
+		_seal_label.text = "氣閉 %d" % ceili(_energy_seal_time) if energy_sealed() else ""
 
 
 func _set_energy(value: int) -> void:

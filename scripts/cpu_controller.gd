@@ -97,7 +97,7 @@ func _decide() -> void:
 	if distance > FAR:
 		if roll < 0.2 and me.energy >= Fighter.SPECIAL_COST and distance <= me.ai_skill2_range():
 			_press("up", 0.12)
-			_press("skill", TAP)
+			_press("skill", maxf(TAP, me.ai_skill2_hold()))
 		elif roll < 0.5 and distance <= me.ai_skill_range():
 			_press("skill", TAP)
 		elif roll < 0.6:
@@ -121,7 +121,7 @@ func _decide() -> void:
 		elif roll < 0.6 and me.energy >= Fighter.SPECIAL_COST:
 			# 上 + 技能:近身型技能(例如捌)在這個距離才放得出來
 			_press("up", 0.12)
-			_press("skill", TAP)
+			_press("skill", maxf(TAP, me.ai_skill2_hold()))
 		elif roll < 0.68 and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
 			_press("special", TAP)
 		elif roll < 0.75 and me.energy >= me.super_cost():

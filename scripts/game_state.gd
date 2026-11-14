@@ -14,7 +14,7 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/gojo",
 		"hair": Color(0.95, 0.96, 1.0),
 		"skills": ["蒼", "赫(1格)", "無量空處(3格)"],
-		"summary": "蒼:吸引對手\n赫:遠程擊飛\n無量空處:定身 5 秒,受傷 1.5 倍",
+		"summary": "蒼:吸引對手\n赫:長按蓄力,遠程擊飛\n無量空處:定身 5 秒\n受傷 1.5 倍、氣閉 20 秒",
 		# 同一個角色的其他時期 / 型態。選角畫面長按角色卡片可以切換。
 		"forms": [
 			{
