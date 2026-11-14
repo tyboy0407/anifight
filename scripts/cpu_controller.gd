@@ -8,6 +8,11 @@ const THINK_MAX := 0.22
 const TAP := 0.05
 const FAR := 380.0
 const CLOSE := 115.0
+# 閃避對手的範圍攻擊。不是每次都閃,閃的時候一半防禦、一半衝刺離開。
+const DODGE_CHANCE := 0.8
+const DODGE_GUARD_CHANCE := 0.5
+const DODGE_MARGIN := 10.0
+const DODGE_ROOM := 200.0  # 離場邊不到這個距離就當作沒有退路
 
 var fighter: Fighter
 var enabled: bool = true
@@ -67,6 +72,11 @@ func _decide() -> void:
 				_press("special", TAP)
 			return
 
+	var hazard := _hazard_on_me()
+	if not hazard.is_empty() and roll < DODGE_CHANCE:
+		_dodge(hazard)
+		return
+
 	if foe.is_invulnerable():
 		# 對手倒地或無敵時不浪費招式,保持中距離。
 		if distance < 200.0:
@@ -121,6 +131,36 @@ func _decide() -> void:
 			_press("down", 0.3)
 		else:
 			_move(away, 0.25)
+
+
+## 對手放出的範圍攻擊(例如伏魔御廚子的斬擊)中,會打到自己的那一個;沒有就回傳空字典。
+func _hazard_on_me() -> Dictionary:
+	var x := fighter.global_position.x
+	for hazard in fighter.opponent.ai_hazards():
+		if absf(x - hazard.x) <= hazard.half_width + Fighter.BODY_SIZE.x / 2.0 + DODGE_MARGIN:
+			return hazard
+	return {}
+
+
+## 閃避範圍攻擊:防禦撐過去,或是衝刺離開。
+func _dodge(hazard: Dictionary) -> void:
+	if fighter.is_on_floor() and randf() < DODGE_GUARD_CHANCE:
+		_release("left")
+		_release("right")
+		_press("down", hazard.time + 0.05)
+		return
+	var x := fighter.global_position.x
+	var direction := "right" if x >= hazard.x else "left"
+	# 背後就是場邊、衝不出去的話改往另一邊
+	if direction == "right" and x > fighter.arena_max_x - DODGE_ROOM:
+		direction = "left"
+	elif direction == "left" and x < fighter.arena_min_x + DODGE_ROOM:
+		direction = "right"
+	# 放開上下,免得衝刺變成耗氣的幽步
+	_release("down")
+	_release("up")
+	_move(direction, 0.25)
+	_press("dash", TAP)
 
 
 func _move(direction: String, duration: float) -> void:

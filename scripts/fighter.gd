@@ -428,6 +428,12 @@ func stagger(duration: float) -> void:
 	_set_state(State.HITSTUN, true)
 
 
+## 給電腦對手的提示:這個角色放出、即將落在場上的範圍攻擊,讓電腦知道要閃。
+## 每一項是 {x, half_width, time}:中心位置、半寬、離判定結束還有幾秒。
+func ai_hazards() -> Array[Dictionary]:
+	return []
+
+
 ## 給電腦對手的提示:技能一、技能二在離對手多遠以內才值得使用。預設不限距離。
 func ai_skill_range() -> float:
 	return INF

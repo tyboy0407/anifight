@@ -108,6 +108,20 @@ func ai_skill2_range() -> float:
 	return CLEAVE_RANGE
 
 
+## 伏魔御廚子還沒落完的斬擊。
+func ai_hazards() -> Array[Dictionary]:
+	var hazards: Array[Dictionary] = []
+	for slash in _domain_slashes:
+		if slash.hit:
+			continue
+		hazards.append({
+			"x": slash.x,
+			"half_width": DOMAIN_SLASH_SIZE.x / 2.0,
+			"time": DOMAIN_SLASH_WARN + DOMAIN_SLASH_ACTIVE - slash.age,
+		})
+	return hazards
+
+
 # ---------- 解 ----------
 
 func _release_dismantle() -> void:
