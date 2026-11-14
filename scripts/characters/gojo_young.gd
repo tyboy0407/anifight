@@ -169,12 +169,12 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 
 
 ## 定身類的招式(例如無量空處)也算一次命中。
-func stun(duration: float, damage: int = 0) -> void:
+func stun(duration: float, damage: int = 0, damage_scale: float = 1.0) -> void:
 	if in_infinity():
 		if not is_invulnerable():
 			_absorb_hit(opponent)
 		return
-	super(duration, damage)
+	super(duration, damage, damage_scale)
 
 
 ## 不造成傷害的打斷效果直接無效,不扣時間。

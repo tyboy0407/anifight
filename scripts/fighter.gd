@@ -84,6 +84,7 @@ var _state_time := 0.0
 var _dash_cooldown := 0.0
 var _dash_dir := 1
 var _stun_time := 0.0
+var _stun_damage_scale := 1.0
 var _move: AttackData
 var _combo_step := 0  # 地面連段的第幾段;-1 代表空中攻擊
 var _combo_queued := false
@@ -399,11 +400,14 @@ func _start_cast(duration: float, release_at: float, callback: Callable, animati
 
 
 ## 被定身:期間無法行動,仍會受到攻擊。幽步、脫出與 KO 期間無效。
-func stun(duration: float, damage: int = 0) -> void:
+## damage_scale 是定身期間受到傷害的倍率(定身本身的 damage 不套用)。
+func stun(duration: float, damage: int = 0, damage_scale: float = 1.0) -> void:
 	if state in [State.KO, State.TELEPORT, State.BURST]:
 		return
 	_set_hitbox(false)
+	_stun_damage_scale = 1.0
 	_set_health(health - _register_hit(damage))
+	_stun_damage_scale = damage_scale
 	if health <= 0:
 		velocity = Vector2(0.0, -300.0)
 		_set_state(State.KO, true)
@@ -631,6 +635,8 @@ func _set_state(new_state: State, force: bool = false) -> void:
 ## 記錄一次受擊,回傳套用連段衰減後的實際傷害。
 func _register_hit(raw_damage: int) -> int:
 	var scale_factor := maxf(1.0 - COMBO_DAMAGE_STEP * _combo_hits, COMBO_DAMAGE_FLOOR)
+	if state == State.STUNNED:
+		scale_factor *= _stun_damage_scale
 	var damage := maxi(int(round(raw_damage * scale_factor)), 1) if raw_damage > 0 else 0
 	_combo_hits += 1
 	_combo_damage += damage

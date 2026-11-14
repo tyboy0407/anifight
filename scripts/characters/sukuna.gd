@@ -3,7 +3,7 @@ extends Fighter
 ## 以兩面宿儺為藍本的角色。
 ## 解(skill):遠距離斬擊,判定高、飛得遠、傷害低。不耗氣,有冷卻。
 ## 捌(上 + skill):只有近身才能發動的多段斬擊,傷害高,最後一擊擊飛。耗 1 格氣。
-## 領域展開・伏魔御廚子(下 + special):開放型領域,10 秒內場上隨機位置不斷落下斬擊。耗 3 格氣。
+## 領域展開・伏魔御廚子(下 + special):開放型領域,15 秒內斬擊不斷落在對手當下的位置。耗 3 格氣。
 
 const SLASH_COLOR := Color(1.0, 0.95, 0.95)
 const BLOOD_COLOR := Color(0.9, 0.15, 0.2)
@@ -27,8 +27,10 @@ const CLEAVE_HITS := 6
 # 伏魔御廚子
 const DOMAIN_CAST := 0.85
 const DOMAIN_RELEASE := 0.55
-const DOMAIN_DURATION := 10.0
-const DOMAIN_SLASH_INTERVAL := 0.16
+const DOMAIN_DURATION := 15.0
+# 斬擊瞄準對手,間隔太短的話對手一中招就會被連續鎖到結束;
+# 這個間隔讓對手硬直結束後還來得及走開或防禦。
+const DOMAIN_SLASH_INTERVAL := 0.5
 const DOMAIN_SLASH_WARN := 0.30  # 斬擊落下前的預兆時間,讓對手有機會閃
 const DOMAIN_SLASH_ACTIVE := 0.10
 const DOMAIN_SLASH_SIZE := Vector2(130, 700)
@@ -217,9 +219,12 @@ func _tick_domain(delta: float) -> void:
 		_domain_slashes.erase(slash)
 
 
-## 在場上隨機位置落下一道斬擊:先出現半透明預兆,之後才有判定。
+## 在對手當下的位置落下一道斬擊:先出現半透明預兆,之後才有判定。
+## 位置在預兆出現時就定下來,對手在預兆期間離開就躲得掉。
 func _spawn_domain_slash() -> void:
-	var x := _rng.randf_range(arena_min_x, arena_max_x)
+	if opponent == null:
+		return
+	var x := opponent.global_position.x
 	var center := Vector2(x, _domain_floor_y - DOMAIN_SLASH_SIZE.y / 2.0)
 	# z = -1:畫在領域背景之上、角色之後,斬擊落下時仍看得到角色。
 	var node := _spawn_rect(DOMAIN_SLASH_SIZE, Color(BLOOD_COLOR, 0.28), center, -1)

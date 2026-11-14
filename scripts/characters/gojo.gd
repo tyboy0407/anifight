@@ -3,7 +3,8 @@ extends Fighter
 ## 以五條悟為藍本的角色。
 ## 蒼(skill):在前方生成吸引點,把對手拉過去並造成多段小傷害。不耗氣,有冷卻。
 ## 赫(上 + skill):向前射出排斥彈,命中造成大傷害並擊飛。耗 1 格氣。
-## 領域展開・無量空處(下 + special):定身對手一段時間。耗 3 格氣,取代通用超必殺。
+## 領域展開・無量空處(下 + special):定身對手 5 秒,期間對手受到的傷害變成 1.5 倍。
+##   耗 3 格氣,取代通用超必殺。
 
 # 蒼
 const BLUE_COOLDOWN := 2.0
@@ -29,8 +30,9 @@ const RED_COLOR := Color(1.0, 0.25, 0.25)
 # 領域展開
 const DOMAIN_CAST := 0.90
 const DOMAIN_RELEASE := 0.55
-const DOMAIN_STUN := 2.6
+const DOMAIN_STUN := 5.0
 const DOMAIN_DAMAGE := 120
+const DOMAIN_VULNERABILITY := 1.5  # 定身期間對手受到的傷害倍率
 const DOMAIN_FADE := 0.25
 
 var _blue_cooldown := 0.0
@@ -174,7 +176,7 @@ func _release_domain() -> void:
 	_clear_domain()
 	_domain_node = _make_domain_effect()
 	if opponent != null:
-		opponent.stun(DOMAIN_STUN, DOMAIN_DAMAGE)
+		opponent.stun(DOMAIN_STUN, DOMAIN_DAMAGE, DOMAIN_VULNERABILITY)
 
 
 func _make_domain_effect() -> Node2D:
