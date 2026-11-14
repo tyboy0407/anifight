@@ -41,6 +41,13 @@ const STYLES := [
 		"pants": Color(0.12, 0.13, 0.22), "sash": Color(0, 0, 0, 0),
 		"hood": Color(0.85, 0.16, 0.18),
 	},
+	{
+		"id": "megumi",
+		"hair": Color(0.1, 0.11, 0.17), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.15, 0.17, 0.3), "sleeve": Color(0.15, 0.17, 0.3),
+		"pants": Color(0.12, 0.13, 0.23), "sash": Color(0, 0, 0, 0),
+		"tall_hair": true,
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -264,6 +271,13 @@ func _draw_head(center: Vector2i) -> void:
 		for dx: int in [-3, -1, 1, 3]:
 			_plot(center + Vector2i(dx, -6), hair)
 		_plot(center + Vector2i(-5, -4), hair)
+	if _style.get("tall_hair", false):
+		# 往上、往後炸開的刺蝟頭
+		for dx: int in [-4, -2, 0, 2, 4]:
+			_fill(center + Vector2i(dx, -7), Vector2i(1, 2), hair)
+		_plot(center + Vector2i(-3, -8), hair)
+		_plot(center + Vector2i(1, -8), hair)
+		_fill(center + Vector2i(-6, -5), Vector2i(2, 3), hair)
 
 	if _style.blindfold:
 		_fill(center + Vector2i(-4, -1), Vector2i(9, 2), Color(0.08, 0.08, 0.11))

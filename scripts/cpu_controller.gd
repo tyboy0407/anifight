@@ -63,7 +63,7 @@ func _decide() -> void:
 			# 連段:繼續按攻擊,偶爾取消接大招。
 			if roll < 0.7:
 				_press("attack", TAP)
-			elif roll < 0.8 and me.energy >= Fighter.SPECIAL_COST:
+			elif roll < 0.8 and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
 				_press("special", TAP)
 			return
 
@@ -71,6 +71,11 @@ func _decide() -> void:
 		# 對手倒地或無敵時不浪費招式,保持中距離。
 		if distance < 200.0:
 			_move(away, 0.2)
+		return
+
+	if me.ai_wants_super() and roll < 0.5:
+		_press("down", 0.12)
+		_press("special", TAP)
 		return
 
 	if foe.state == Fighter.State.ATTACK and distance < 170.0 and roll < 0.55:
@@ -107,7 +112,7 @@ func _decide() -> void:
 			# 上 + 技能:近身型技能(例如捌)在這個距離才放得出來
 			_press("up", 0.12)
 			_press("skill", TAP)
-		elif roll < 0.68 and me.energy >= Fighter.SPECIAL_COST:
+		elif roll < 0.68 and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
 			_press("special", TAP)
 		elif roll < 0.75 and me.energy >= me.super_cost():
 			_press("down", 0.12)

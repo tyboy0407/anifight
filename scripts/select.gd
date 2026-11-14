@@ -3,8 +3,8 @@ extends Control
 ## P2 為電腦時,P1 確認自己的角色後,接著用同一組按鍵替電腦選角色。
 ## 也可以直接用滑鼠或手指點角色卡片:第一下選自己,第二下選對手。
 
-const CARD_SIZE := Vector2(244, 330)
-const CARD_GAP := 26  # 四張卡片加間距要放得進 1152 寬的畫面
+const CARD_SIZE := Vector2(204, 330)
+const CARD_GAP := 18  # 五張卡片加間距要放得進 1152 寬的畫面
 const CONFIRM_DELAY := 0.6
 
 var _cursor: Array[int] = [0, 1]

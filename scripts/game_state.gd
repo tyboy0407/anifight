@@ -40,6 +40,14 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["逕庭拳(1格)", "格檔(1格)", "黑閃(3格)"],
 		"summary": "被動:攻擊 1% 機率黑閃\n逕庭拳:延遲的衝擊波\n格檔:擋下近身攻擊並反擊\n黑閃:必定黑閃的一拳",
 	},
+	{
+		"name": "伏黑惠",
+		"scene": "res://scenes/characters/megumi.tscn",
+		"sprites": "res://assets/characters/megumi",
+		"hair": Color(0.1, 0.11, 0.16),
+		"skills": ["鷲(2格)", "玉犬(2格)", "式神合擊(需兩隻式神)"],
+		"summary": "氣量上限 5 格\n式神在場時持續回氣\n鷲:式神定期俯衝\n玉犬:式神定期撲咬\n式神合擊:進入咒力高漲",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。

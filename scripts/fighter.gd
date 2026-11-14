@@ -433,6 +433,16 @@ func ai_skill2_range() -> float:
 	return INF
 
 
+## 給電腦對手的提示:要保留多少氣給角色專屬招式,不花在通用大招上。
+func ai_energy_reserve() -> int:
+	return 0
+
+
+## 給電腦對手的提示:現在是不是該優先放超必殺(例如條件難得湊齊的招式)。
+func ai_wants_super() -> bool:
+	return false
+
+
 ## 倒地、起身、幽步、脫出與 KO 期間無敵。被擊飛在空中時仍然可以被追打,
 ## 只有連段到達上限的那次擊飛例外。
 func is_invulnerable() -> bool:
