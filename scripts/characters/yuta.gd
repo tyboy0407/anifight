@@ -201,7 +201,7 @@ func _skill_cost(base_cost: int) -> int:
 func _tick_overflow(delta: float) -> void:
 	var now := overflowing()
 	if now and not _was_overflowing and state != State.KO:
-		_callout("咒力滿盈", CURSE_COLOR)
+		_callout("咒力滿盈", CURSE_COLOR, "overflow")
 	_was_overflowing = now
 	# 滿盈期間緩慢回氣。氣量是整數,不足 1 點的部分先存著。
 	if not now or state == State.KO or energy_sealed():
@@ -274,7 +274,7 @@ func _start_super() -> void:
 # ---------- 飛走吧! ----------
 
 func _release_speech() -> void:
-	_callout("飛走吧!", SPEECH_COLOR)
+	_callout("飛走吧!", SPEECH_COLOR, "speech")
 	var origin := global_position + Vector2(0, SPEECH_OFFSET.y)
 	# 聲波:三道由小到大、往前擴散的波紋
 	for i in 3:
@@ -292,7 +292,7 @@ func _release_speech() -> void:
 
 ## 先原地蓄力,蓄力結束的瞬間向前衝出揮拳。蓄力中被打會中斷,氣不退還。
 func _start_friend_punch() -> void:
-	_callout("不准欺負我的朋友!", BLACK_FLASH_COLOR)
+	_callout("不准欺負我的朋友!", BLACK_FLASH_COLOR, "friend_charge")
 	_start_cast(FRIEND_CHARGE + 0.1, FRIEND_CHARGE, _release_friend_punch)
 	# 拳頭上凝聚的咒力:由小變大的暗紅色方塊
 	var glow := _spawn_rect(Vector2(16, 16), Color(BLACK_FLASH_COLOR, 0.8), global_position + Vector2(facing * 40.0, -66.0), 2)
@@ -311,7 +311,7 @@ func _release_friend_punch() -> void:
 
 func _release_buff() -> void:
 	_buff_time = BUFF_DURATION
-	_callout("我也可以!", CURSE_COLOR)
+	_callout("我也可以!", CURSE_COLOR, "powerup")
 
 
 ## 強化期間,刀的普通攻擊(地面與空中)傷害提升;里香的追擊與耗氣招式不受影響。
@@ -336,7 +336,7 @@ func _is_normal_attack(move: AttackData) -> bool:
 func _enter_rika() -> void:
 	_rika_time = RIKA_DURATION
 	_ground_moves = _rika_chain
-	_callout("來吧,里香!", RIKA_COLOR)
+	_callout("來吧,里香!", RIKA_COLOR, "rika_summon")
 	if not is_instance_valid(_rika_node):
 		_rika_node = _make_rika()
 		_rika_node.global_position = global_position + Vector2(RIKA_FOLLOW_OFFSET.x * facing, RIKA_FOLLOW_OFFSET.y - 60)
@@ -403,6 +403,7 @@ func _rika_strike() -> void:
 
 ## 里香撲到目標身旁揮爪的演出(不含傷害)。
 func _rika_claw(target: Fighter, claw_length: float) -> void:
+	Sfx.play("rika_claw")
 	var side := int(signf(target.global_position.x - global_position.x))
 	if side == 0:
 		side = facing
@@ -471,7 +472,7 @@ func _begin_cannon() -> void:
 	_cannon = Cannon.CHARGING
 	_cannon_time = CANNON_CHARGE
 	_rika_strike_timer = -1.0
-	_callout("真是失禮,這可是純愛", RIKA_COLOR)
+	_callout("真是失禮,這可是純愛", RIKA_COLOR, "cannon_charge")
 	_cannon_charge_node = _spawn_rect(Vector2(20, 20), RIKA_COLOR, _cannon_charge_point(), 2)
 
 
@@ -515,6 +516,7 @@ func _tick_cannon(delta: float) -> void:
 
 
 func _fire_cannon() -> void:
+	Sfx.play("cannon_fire")
 	_cannon = Cannon.FIRING
 	_cannon_time = CANNON_FIRE
 	_cannon_tick = 0.0

@@ -156,7 +156,7 @@ func in_infinity() -> bool:
 
 func _release_infinity() -> void:
 	_infinity_time = INFINITY_DURATION
-	_callout("無下限", INFINITY_COLOR)
+	_callout("無下限", INFINITY_COLOR, "infinity")
 
 
 ## 無下限期間被任何招式打中:攻擊停在身前、不造成任何效果,但每一下會讓無下限少 0.5 秒。
@@ -219,7 +219,7 @@ func _start_push() -> void:
 	fade.tween_callback(afterimage.queue_free)
 	if opponent != null:
 		_move_behind_opponent(PUSH_BLINK_OFFSET)
-	_callout("蒼放", BLUE_COLOR)
+	_callout("蒼放", BLUE_COLOR, "blue")
 	_push_gathering = true
 	_push_node = _spawn_rect(Vector2(PUSH_ORB_START, PUSH_ORB_START), BLUE_COLOR, _push_hand_point(), 2)
 	_start_cast(PUSH_CAST, PUSH_RELEASE, _release_push)
@@ -288,7 +288,7 @@ func _clear_push() -> void:
 
 func _release_orb() -> void:
 	_clear_orb()
-	_callout("術式順轉「蒼」", BLUE_COLOR)
+	_callout("術式順轉「蒼」", BLUE_COLOR, "blue")
 	_orb = Orb.PULLING
 	_orb_time = ORB_DURATION
 	_orb_tick = 0.0

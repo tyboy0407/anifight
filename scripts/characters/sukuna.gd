@@ -149,7 +149,7 @@ func _release_dismantle() -> void:
 	var center := global_position + Vector2(DISMANTLE_OFFSET.x * facing, DISMANTLE_OFFSET.y)
 	_dismantle_node = _spawn_rect(DISMANTLE_SIZE, SLASH_COLOR, center)
 	_dismantle_node.rotation = 0.25 * facing
-	_callout("解", SLASH_COLOR)
+	_callout("解", SLASH_COLOR, "slash")
 
 
 func _tick_dismantle(delta: float) -> void:
@@ -184,7 +184,7 @@ func _opponent_in_cleave_range(range_scale: float) -> bool:
 func _begin_cleave() -> void:
 	_cleave_hits_left = CLEAVE_HITS
 	_cleave_timer = 0.0
-	_callout("捌", BLOOD_COLOR)
+	_callout("捌", BLOOD_COLOR, "slash")
 
 
 func _tick_cleave(delta: float) -> void:
@@ -212,6 +212,7 @@ func _tick_cleave(delta: float) -> void:
 # ---------- 領域展開・伏魔御廚子 ----------
 
 func _release_domain() -> void:
+	Sfx.play("domain_shrine")
 	_end_domain()
 	_domain_time = DOMAIN_DURATION
 	_domain_slash_timer = 0.0
@@ -254,6 +255,7 @@ func _tick_domain(delta: float) -> void:
 ## 在對手當下的位置落下一道斬擊:先出現半透明預兆,之後才有判定。
 ## 位置在預兆出現時就定下來,對手在預兆期間離開就躲得掉。
 func _spawn_domain_slash() -> void:
+	Sfx.play("slash")
 	if opponent == null:
 		return
 	var x := opponent.global_position.x

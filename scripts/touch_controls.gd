@@ -330,16 +330,28 @@ func _build_menu() -> void:
 	add_child(root)
 	_menu_root = root
 
+	# 計時器下方並排兩個小按鈕:回選角、音效開關
 	_menu_button = _make_menu_button("回選角", 18, Vector2(96, 40))
 	_menu_button.anchor_left = 0.5
 	_menu_button.anchor_right = 0.5
-	_menu_button.offset_left = -48
-	_menu_button.offset_right = 48
+	_menu_button.offset_left = -100
+	_menu_button.offset_right = -4
 	_menu_button.offset_top = 74
 	_menu_button.offset_bottom = 114
 	_menu_button.modulate.a = 0.75
 	_menu_button.pressed.connect(func() -> void: back_requested.emit())
 	root.add_child(_menu_button)
+
+	var sound := _make_menu_button(Sfx.button_text(), 18, Vector2(96, 40))
+	sound.anchor_left = 0.5
+	sound.anchor_right = 0.5
+	sound.offset_left = 4
+	sound.offset_right = 100
+	sound.offset_top = 74
+	sound.offset_bottom = 114
+	sound.modulate.a = 0.75
+	Sfx.setup_button(sound)
+	root.add_child(sound)
 
 	_match_over_box = VBoxContainer.new()
 	_match_over_box.add_theme_constant_override("separation", 16)
@@ -367,6 +379,7 @@ func _make_menu_button(text: String, font_size: int, minimum_size: Vector2) -> B
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = minimum_size
 	button.add_theme_font_size_override("font_size", font_size)
+	button.pressed.connect(func() -> void: Sfx.play("ui_confirm"))
 	return button
 
 

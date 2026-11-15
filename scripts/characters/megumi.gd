@@ -228,11 +228,13 @@ func _effective_move(move: AttackData) -> AttackData:
 
 func _summon_owl() -> void:
 	_callout("鷲", OWL_COLOR)
+	Sfx.play("shikigami", 0)
 	_summon(_owl, _make_owl(), global_position + Vector2(OWL_HOVER.x * facing, OWL_HOVER.y), OWL_FIRST_ATTACK)
 
 
 func _summon_dog() -> void:
 	_callout("玉犬", DOG_COLOR)
+	Sfx.play("shikigami", 1)
 	_summon(_dog, _make_dog(), Vector2(global_position.x + DOG_HEEL * facing, _ground_y), DOG_FIRST_ATTACK)
 
 
@@ -391,7 +393,7 @@ func _impact(center: Vector2, color: Color, count: int, length: float) -> void:
 func _release_combine() -> void:
 	if not (_owl.active() and _dog.active()):
 		return  # 施法途中式神剛好消失
-	_callout("式神合擊", SURGE_COLOR)
+	_callout("式神合擊", SURGE_COLOR, "combine")
 	_surge_time = SURGE_DURATION
 	_combine = Combine.STRIKES
 	# 玉犬先撲上去咬住,鷲緊接著俯衝;合擊中的式神會追著對手跑

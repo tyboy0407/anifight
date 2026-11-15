@@ -214,7 +214,7 @@ func _tick_flow(delta: float) -> void:
 # ---------- 逕庭拳 ----------
 
 func _release_divergent() -> void:
-	_callout("逕庭拳", CURSE_COLOR)
+	_callout("逕庭拳", CURSE_COLOR, "divergent")
 	var center := global_position + Vector2(DIVERGENT_REACH_OFFSET.x * facing, DIVERGENT_REACH_OFFSET.y)
 	if not _rect_hits_opponent(center, DIVERGENT_REACH_SIZE):
 		return
@@ -266,7 +266,7 @@ func _clear_divergent() -> void:
 
 func _start_parry() -> void:
 	_parrying = true
-	_callout("格檔", Color(0.9, 0.9, 1.0))
+	_callout("格檔", Color(0.9, 0.9, 1.0), "parry")
 	# release 時間設在結束之後,所以只會維持架式,不會觸發 callback
 	_start_cast(PARRY_DURATION, PARRY_DURATION + 1.0, func() -> void: pass, "guard")
 

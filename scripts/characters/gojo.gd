@@ -143,7 +143,7 @@ func _release_blue() -> void:
 	_blue_tick = 0.0
 	# 球體比角色大,畫成半透明才看得到被吸進去的對手
 	_blue_node = _make_orb(BLUE_SIZE, Color(BLUE_COLOR, 0.7), _blue_position)
-	_callout("蒼", BLUE_COLOR)
+	_callout("蒼", BLUE_COLOR, "blue")
 
 
 func _tick_blue(delta: float) -> void:
@@ -217,7 +217,7 @@ func _fire_red(charge: float) -> void:
 	_red_time = RED_LIFETIME
 	_cast_fired = true
 	_cast_duration = _state_time + RED_RECOVERY
-	_callout("赫", RED_COLOR)
+	_callout("赫", RED_COLOR, "red")
 
 
 ## 調整凝聚中的球體大小。球體靠近自己的那一側固定不動,變大時往前、往上長。
@@ -261,6 +261,7 @@ func _clear_red() -> void:
 # ---------- 領域展開・無量空處 ----------
 
 func _release_domain() -> void:
+	Sfx.play("domain_void")
 	_clear_domain()
 	_domain_node = _make_domain_effect()
 	if opponent != null:

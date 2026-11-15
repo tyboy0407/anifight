@@ -234,6 +234,7 @@ func _tick_ground() -> void:
 		_start_attack(_ground_moves[0], 0)
 		return
 	if _pressed("jump"):
+		Sfx.play("jump")
 		velocity.y = JUMP_VELOCITY
 		_set_state(State.JUMP)
 		return
@@ -255,6 +256,7 @@ func _tick_air() -> void:
 		_start_attack(_air_move, -1)
 		return
 	if _landed():
+		Sfx.play("land")
 		_set_state(State.IDLE)
 
 
@@ -352,6 +354,7 @@ func _tick_launched(delta: float) -> void:
 		_tick_tumble(delta)
 	elif _state_time > 0.05 and _landed():
 		velocity.x = 0.0
+		Sfx.play("down")
 		_set_state(State.DOWN)
 
 
@@ -394,6 +397,7 @@ func _tick_tumble(delta: float) -> void:
 			_tumble_bounces += 1
 			_spawn_dust(global_position, 10, 1.0)
 			screen_shake.emit(6.0)
+			Sfx.play("bounce")
 		else:
 			# 彈不起來了:貼著地面滾到停
 			velocity.x = move_toward(velocity.x, 0.0, TUMBLE_ROLL_FRICTION * delta)
@@ -401,6 +405,7 @@ func _tick_tumble(delta: float) -> void:
 				_stop_tumble()
 				if state == State.LAUNCHED:
 					velocity.x = 0.0
+					Sfx.play("down")
 					_set_state(State.DOWN)
 				return
 	_tumble_dust_timer -= delta
@@ -434,6 +439,7 @@ func _tumble_hit_wall() -> void:
 	if _tumble_floor_y < INF:
 		_spawn_dust(Vector2(global_position.x, _tumble_floor_y), 14, 1.5)
 	screen_shake.emit(18.0)
+	Sfx.play("wall_crash")
 	velocity = Vector2(-_tumble_dir * TUMBLE_WALL_REBOUND.x, TUMBLE_WALL_REBOUND.y)
 	_stop_tumble()
 
@@ -654,6 +660,7 @@ func can_escape() -> bool:
 ## 幽步:瞬間移動到對手背後。
 func _start_teleport() -> void:
 	_set_hitbox(false)
+	Sfx.play("teleport")
 	_move_behind_opponent(TELEPORT_OFFSET)
 	_set_state(State.TELEPORT, true)
 
@@ -676,6 +683,7 @@ func _move_behind_opponent(offset: float) -> void:
 ## 受擊脫出:無敵並把附近的對手彈開,不造成傷害。
 func _start_burst() -> void:
 	velocity = Vector2.ZERO
+	Sfx.play("burst")
 	_set_state(State.BURST, true)
 	var burst_size := Vector2(BURST_RADIUS, BURST_RADIUS) * 2.0
 	_hit_visual.color = Color(1, 1, 1, 0.45)
@@ -700,6 +708,7 @@ func blown_away(source: Fighter) -> void:
 func _start_dash() -> void:
 	var axis := _axis()
 	_dash_dir = int(signf(axis)) if axis != 0.0 else facing
+	Sfx.play("dash")
 	_set_state(State.DASH)
 
 
@@ -724,6 +733,7 @@ func _start_attack(move: AttackData, combo_step: int) -> void:
 	if combo_step >= 0:
 		velocity.x = facing * move.lunge
 	_set_state(State.ATTACK, true)
+	Sfx.play("special" if combo_step == SPECIAL_STEP else "swing")
 
 
 func _end_attack() -> void:
@@ -767,6 +777,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 	if state == State.GUARD and facing == -away:
 		# 防禦成功:只吃少量傷害,不會被防禦傷害打倒。
 		_set_health(maxi(health - int(move.damage * GUARD_DAMAGE_SCALE), 1))
+		Sfx.play("guard")
 		velocity.x = away * 160.0
 		add_energy(int(move.damage * ENERGY_PER_DAMAGE_BLOCKED))
 		if move.builds_energy:
@@ -778,6 +789,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 	var tumbles := move.launches and move.tumbles
 	var damage := _register_hit(move.damage)
 	_set_health(health - damage)
+	Sfx.play("ko" if health <= 0 else ("hit_heavy" if move.launches else "hit_light"))
 	add_energy(int(damage * ENERGY_PER_DAMAGE_TAKEN))
 	if move.builds_energy:
 		attacker.add_energy(int(damage * ENERGY_PER_DAMAGE_DEALT))
@@ -941,8 +953,10 @@ func _spawn_rect(rect_size: Vector2, color: Color, center: Vector2, z: int = 1) 
 	return rect
 
 
-## 招式名稱浮字。
-func _callout(text: String, color: Color) -> void:
+## 招式名稱浮字。sound 是同時要播的音效名稱(見 Sfx.SOUNDS),留空就不播。
+func _callout(text: String, color: Color, sound: String = "") -> void:
+	if not sound.is_empty():
+		Sfx.play(sound)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.text = text
@@ -963,7 +977,7 @@ func _callout(text: String, color: Color) -> void:
 
 ## 黑閃的演出:招式名稱浮字,加上黑色與紅色交錯的閃電狀線條。
 func _black_flash_effect(center: Vector2) -> void:
-	_callout("黑閃", BLACK_FLASH_COLOR)
+	_callout("黑閃", BLACK_FLASH_COLOR, "black_flash")
 	for i in 7:
 		var bolt := _spawn_rect(Vector2(randf_range(120, 210), 7), Color(0.05, 0.02, 0.04) if i % 2 == 0 else BLACK_FLASH_COLOR, center, 3)
 		bolt.rotation = randf_range(-PI, PI)

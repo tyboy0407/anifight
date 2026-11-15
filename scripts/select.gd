@@ -26,6 +26,7 @@ var _popup: Control  # 型態視窗;沒開啟時是 null
 
 func _ready() -> void:
 	GameState.setup_input()
+	Sfx.warm_up()
 	_cursor = GameState.selection.duplicate()
 	for player_index in 2:
 		_form[player_index] = GameState.forms[player_index] if GameState.forms[player_index] < GameState.form_count(_cursor[player_index]) else 0
@@ -54,6 +55,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			and not GameState.touch_enabled:
 		GameState.cpu_enabled = not GameState.cpu_enabled
 		_confirmed[1] = false
+		Sfx.play("ui_move")
 		_refresh()
 		return
 
@@ -77,6 +79,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cycle_form(target, 1)
 		elif event.is_action_pressed(GameState.action(player_id, "attack")):
 			_confirmed[target] = true
+			Sfx.play("ui_confirm")
 			_refresh()
 			_try_start()
 		else:
@@ -116,6 +119,7 @@ func _pick(card_index: int, form_index: int) -> void:
 	_cursor[target] = card_index
 	_form[target] = form_index
 	_confirmed[target] = true
+	Sfx.play("ui_confirm")
 	_refresh()
 	_try_start()
 
@@ -129,6 +133,7 @@ func _toggle_fullscreen() -> void:
 func _move_cursor(target: int, step: int) -> void:
 	_cursor[target] = posmod(_cursor[target] + step, GameState.CHARACTERS.size())
 	_form[target] = 0
+	Sfx.play("ui_move")
 	_refresh()
 
 
@@ -137,6 +142,7 @@ func _cycle_form(target: int, step: int) -> void:
 	if count <= 1:
 		return
 	_form[target] = posmod(_form[target] + step, count)
+	Sfx.play("ui_move")
 	_refresh()
 
 
@@ -147,6 +153,7 @@ func _try_start() -> void:
 	GameState.selection = [_cursor[0], _cursor[1]]
 	GameState.forms = [_form[0], _form[1]]
 	_status_label.text = "對戰開始!  %s  VS  %s" % [_picked_name(0), _picked_name(1)]
+	Sfx.play("ui_start")
 	await get_tree().create_timer(CONFIRM_DELAY).timeout
 	get_tree().change_scene_to_file(GameState.FIGHT_SCENE)
 
@@ -207,6 +214,7 @@ func _show_form(card_index: int, form_index: int) -> void:
 # ---------- 型態視窗 ----------
 
 func _open_form_popup(card_index: int) -> void:
+	Sfx.play("ui_move")
 	_popup = Control.new()
 	_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_popup)
@@ -326,8 +334,29 @@ func _build_ui() -> void:
 	_mode_label.modulate = Color(1, 1, 1, 0.7)
 	column.add_child(_mode_label)
 
+	_build_sound_button()
 	if GameState.touch_enabled:
 		_build_touch_extras(column)
+
+
+## 左上角的音效開關(鍵盤也可以按 M)。
+func _build_sound_button() -> void:
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(overlay)
+	get_viewport().size_changed.connect(func() -> void: GameState.fit_to_safe_area(overlay))
+	GameState.fit_to_safe_area(overlay)
+
+	var sound := Button.new()
+	sound.focus_mode = Control.FOCUS_NONE
+	sound.add_theme_font_size_override("font_size", 20)
+	sound.offset_left = 30
+	sound.offset_right = 150
+	sound.offset_top = 24
+	sound.offset_bottom = 72
+	Sfx.setup_button(sound)
+	overlay.add_child(sound)
 
 
 ## 觸控模式的附加介面:全螢幕按鈕,或是 iPhone 上改用「加入主畫面」的提示。

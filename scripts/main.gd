@@ -13,7 +13,7 @@ const ROUNDS_TO_WIN := 2
 const ROUND_TIME := 150.0
 const ROUND_END_DELAY := 2.2
 const SHAKE_TIME := 0.28
-const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   Esc 回選角"
+const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   M 音效開關   Esc 回選角"
 
 var _fighters: Array[Fighter] = []
 var _wins: Array[int] = [0, 0]
@@ -35,6 +35,7 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	Sfx.warm_up()
 	_build_backdrop()
 	_spawn_fighters()
 	_cpu = CpuController.new()
@@ -177,6 +178,7 @@ func _start_round() -> void:
 	_hud.set_time(_time_left)
 	_round_active = true
 	_hud.show_message("ROUND %d" % _round_number, 1.2)
+	Sfx.play("round_start")
 
 
 func _on_health_changed(current: int, maximum: int, player_index: int) -> void:
@@ -202,6 +204,9 @@ func _on_time_up() -> void:
 		winner = 0
 	elif diff < 0:
 		winner = 1
+	# 打倒對手的音效由角色自己播;時間到沒有人倒下,另外播提示音
+	if _round_active:
+		Sfx.play("time_up")
 	_end_round(winner, "TIME UP")
 
 
@@ -218,6 +223,7 @@ func _end_round(winner: int, headline: String) -> void:
 
 	if winner >= 0 and _wins[winner] >= ROUNDS_TO_WIN:
 		_match_over = true
+		Sfx.play("victory")
 		var result_text := "%s\nP%d %s 獲勝" % [headline, winner + 1, GameState.character(winner).name]
 		if _touch != null:
 			_touch.set_match_over(true)
