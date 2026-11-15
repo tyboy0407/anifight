@@ -1,11 +1,11 @@
 class_name GojoFighter
 extends Fighter
-## 以五條悟為藍本的角色。
+## 以五條悟為藍本的角色。氣量上限是 5 格(在 gojo.tscn 設定 max_energy = 500)。
 ## 蒼(skill):在前方生成吸引點,把對手拉過去並造成多段小傷害。不耗氣,有冷卻。
 ## 赫(上 + skill):向前射出排斥彈,命中造成大傷害並擊飛。耗 1 格氣。
 ##   按住可以凝聚最多 2.5 秒,球體越大、傷害越高;放開就射出。
 ## 領域展開・無量空處(下 + special):定身對手 5 秒,期間對手受到的傷害變成 1.5 倍,
-##   並讓對手「氣閉」20 秒(無法累積氣量)。耗 3 格氣,取代通用超必殺。
+##   並讓對手「氣閉」20 秒(無法累積氣量)。耗 4 格氣,取代通用超必殺。
 
 # 蒼
 const BLUE_COOLDOWN := 4.0  # 從出招算起;比吸引點的持續時間長,所以不能無縫連放
@@ -33,8 +33,8 @@ const RED_DAMAGE := 180
 const RED_DAMAGE_MAX := 400
 const RED_COLOR := Color(1.0, 0.25, 0.25)
 const AI_CHARGE_DISTANCE := 380.0  # 電腦:離對手超過這個距離才會凝聚
-const AI_CHARGE_MAX := 1.2         # 電腦:平常最多凝聚幾秒
-# 領域展開
+const AI_CHARGE_MAX := 1.2         # 電腦:平常最多凝聚幾秒# 領域展開
+const DOMAIN_COST := 400
 const DOMAIN_CAST := 0.90
 const DOMAIN_RELEASE := 0.55
 const DOMAIN_STUN := 5.0
@@ -100,8 +100,26 @@ func _try_character_actions() -> bool:
 	return false
 
 
+func super_cost() -> int:
+	return DOMAIN_COST
+
+
 func _start_super() -> void:
 	_start_cast(DOMAIN_CAST, DOMAIN_RELEASE, _release_domain)
+
+
+## 電腦操作時:決定存氣的回合不放赫,存滿 4 格馬上開領域。
+func ai_saving_energy() -> bool:
+	return ai_saves_this_round and energy < DOMAIN_COST
+
+
+func ai_wants_super() -> bool:
+	return energy >= DOMAIN_COST and opponent != null and opponent.state != State.STUNNED
+
+
+## 領域的施法時間長,被打斷就白白損失 4 格氣。
+func ai_super_is_safe() -> bool:
+	return _ai_opponent_cannot_interrupt()
 
 
 ## 電腦操作時赫要凝聚多久:對手被定身就凝聚到滿,離得遠就隨意凝聚一下,近身直接射。

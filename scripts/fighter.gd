@@ -35,6 +35,11 @@ const AIR_HIT_PUSH_SCALE := 0.3
 const CHAIN_LAUNCH := Vector2(250, -700)
 ## 耗氣招式用的連段編號:視為地面招式,但不能再接下一段。
 const SPECIAL_STEP := 99
+## 黑閃:傷害倍率與演出用的顏色(虎杖的被動、乙骨的「不准欺負我的朋友!」共用)。
+const BLACK_FLASH_DAMAGE_SCALE := 2.0
+const BLACK_FLASH_COLOR := Color(0.85, 0.08, 0.12)
+## 電腦操作時,每回合有這個機率選擇存氣放超必殺(只對超必殺很貴的角色有意義)。
+const AI_SAVE_CHANCE := 0.6
 
 const MOVE_SPEED := 320.0
 const JUMP_VELOCITY := -720.0
@@ -55,6 +60,9 @@ const LYING_SIZE := Vector2(110, 36)
 @export var max_health: int = 2500
 ## 氣量上限(每格 100)。預設三格,個別角色可以在場景裡調整。
 @export var max_energy: int = MAX_ENERGY
+## 電腦操作時,這一回合要不要存氣放超必殺。每回合開始時隨機決定,
+## 所以電腦有的回合會存氣開領域,有的回合有氣就用。
+var ai_saves_this_round := false
 ## 角色素材資料夾(內含 sheet.png 與 sheet.json)。留空或沒有素材時以色塊顯示。
 @export_dir var sprite_dir: String = ""
 
@@ -153,6 +161,7 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	facing = spawn_facing
 	health = max_health
 	_dash_cooldown = 0.0
+	ai_saves_this_round = randf() < AI_SAVE_CHANCE
 	_energy_seal_time = 0.0
 	_update_seal_label()
 	_set_hitbox(false)
@@ -456,6 +465,26 @@ func ai_skill2_range() -> float:
 ## 給電腦對手的提示:要保留多少氣給角色專屬招式,不花在通用大招上。
 func ai_energy_reserve() -> int:
 	return 0
+
+
+## 給電腦對手的提示:現在是不是在存氣(先不放耗氣的招式),準備放耗氣量大的超必殺。
+## 超必殺很貴的角色覆寫這個函式,並參考 ai_saves_this_round。
+func ai_saving_energy() -> bool:
+	return false
+
+
+## 給電腦對手的提示:現在放超必殺會不會被打斷。施法時間長、耗氣又多的角色覆寫。
+func ai_super_is_safe() -> bool:
+	return true
+
+
+## 對手離得夠遠,或被擊飛、倒地、定身,來不及打斷自己施法。
+func _ai_opponent_cannot_interrupt(room: float = 420.0) -> bool:
+	if opponent == null:
+		return true
+	if opponent.state in [State.LAUNCHED, State.DOWN, State.STUNNED]:
+		return true
+	return absf(opponent.global_position.x - global_position.x) > room
 
 
 ## 給電腦對手的提示:現在是不是該優先放超必殺(例如條件難得湊齊的招式)。
@@ -778,6 +807,17 @@ func _callout(text: String, color: Color) -> void:
 	tween.tween_property(label, "position:y", label.position.y - 40.0, 0.7)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, 0.7)
 	tween.tween_callback(label.queue_free)
+
+
+## 黑閃的演出:招式名稱浮字,加上黑色與紅色交錯的閃電狀線條。
+func _black_flash_effect(center: Vector2) -> void:
+	_callout("黑閃", BLACK_FLASH_COLOR)
+	for i in 7:
+		var bolt := _spawn_rect(Vector2(randf_range(120, 210), 7), Color(0.05, 0.02, 0.04) if i % 2 == 0 else BLACK_FLASH_COLOR, center, 3)
+		bolt.rotation = randf_range(-PI, PI)
+		var tween := bolt.create_tween()
+		tween.tween_property(bolt, "modulate:a", 0.0, 0.28)
+		tween.tween_callback(bolt.queue_free)
 
 
 ## 以 center、rect_size 描述的矩形是否碰到對手的身體(對手無敵時為 false)。

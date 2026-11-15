@@ -1,9 +1,9 @@
 class_name SukunaFighter
 extends Fighter
-## 以兩面宿儺為藍本的角色。
+## 以兩面宿儺為藍本的角色。氣量上限是 5 格(在 sukuna.tscn 設定 max_energy = 500)。
 ## 解(skill):遠距離斬擊,判定高、飛得遠、傷害低。不耗氣,有冷卻。
 ## 捌(上 + skill):只有近身才能發動的多段斬擊,傷害高,最後一擊擊飛。耗 1 格氣。
-## 領域展開・伏魔御廚子(下 + special):開放型領域,15 秒內斬擊不斷落在對手當下的位置。耗 3 格氣。
+## 領域展開・伏魔御廚子(下 + special):開放型領域,15 秒內斬擊不斷落在對手當下的位置。耗 4 格氣。
 
 const SLASH_COLOR := Color(1.0, 0.95, 0.95)
 const BLOOD_COLOR := Color(0.9, 0.15, 0.2)
@@ -25,6 +25,7 @@ const CLEAVE_FIRST_HIT := 0.15
 const CLEAVE_INTERVAL := 0.11
 const CLEAVE_HITS := 6
 # 伏魔御廚子
+const DOMAIN_COST := 400
 const DOMAIN_CAST := 0.85
 const DOMAIN_RELEASE := 0.55
 const DOMAIN_DURATION := 15.0
@@ -34,7 +35,6 @@ const DOMAIN_SLASH_INTERVAL := 0.5
 const DOMAIN_SLASH_WARN := 0.30  # 斬擊落下前的預兆時間,讓對手有機會閃
 const DOMAIN_SLASH_ACTIVE := 0.10
 const DOMAIN_SLASH_SIZE := Vector2(130, 700)
-
 var _dismantle_cooldown := 0.0
 var _dismantle_time := 0.0
 var _dismantle_direction := 1
@@ -100,12 +100,30 @@ func _try_character_actions() -> bool:
 	return false
 
 
+func super_cost() -> int:
+	return DOMAIN_COST
+
+
 func _start_super() -> void:
 	_start_cast(DOMAIN_CAST, DOMAIN_RELEASE, _release_domain)
 
 
 func ai_skill2_range() -> float:
 	return CLEAVE_RANGE
+
+
+## 電腦操作時:決定存氣的回合不放捌,存滿 4 格馬上開領域。
+func ai_saving_energy() -> bool:
+	return ai_saves_this_round and energy < DOMAIN_COST
+
+
+func ai_wants_super() -> bool:
+	return energy >= DOMAIN_COST and _domain_time <= 0.0
+
+
+## 領域的施法時間長,被打斷就白白損失 4 格氣。
+func ai_super_is_safe() -> bool:
+	return _ai_opponent_cannot_interrupt()
 
 
 ## 伏魔御廚子還沒落完的斬擊。

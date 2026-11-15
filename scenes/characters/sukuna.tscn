@@ -5,6 +5,7 @@
 
 [node name="Fighter" instance=ExtResource("1_base")]
 script = ExtResource("2_sukuna")
+max_energy = 500
 sprite_dir = "res://assets/characters/sukuna"
 
 [node name="Hair" type="ColorRect" parent="."]

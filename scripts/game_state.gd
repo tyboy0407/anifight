@@ -13,8 +13,8 @@ const CHARACTERS: Array[Dictionary] = [
 		"scene": "res://scenes/characters/gojo.tscn",
 		"sprites": "res://assets/characters/gojo",
 		"hair": Color(0.95, 0.96, 1.0),
-		"skills": ["蒼", "赫(1格)", "無量空處(3格)"],
-		"summary": "蒼:吸引對手\n赫:長按蓄力,遠程擊飛\n無量空處:定身 5 秒\n受傷 1.5 倍、氣閉 20 秒",
+		"skills": ["蒼", "赫(1格)", "無量空處(4格)"],
+		"summary": "氣量上限 5 格\n蒼:吸引對手\n赫:長按蓄力,遠程擊飛\n無量空處:定身 5 秒\n受傷 1.5 倍、氣閉 20 秒",
 		# 同一個角色的其他時期 / 型態。選角畫面長按角色卡片可以切換。
 		"forms": [
 			{
@@ -23,7 +23,7 @@ const CHARACTERS: Array[Dictionary] = [
 				"sprites": "res://assets/characters/gojo_young",
 				"hair": Color(0.95, 0.96, 1.0),
 				"skills": ["蒼放(1格)", "無下限(2格)", "順轉「蒼」(3格)"],
-				"summary": "開場 10 秒無下限\n蒼放:閃到背後甩出蒼球\n無下限:10 秒攻擊無效\n順轉「蒼」:吸入後甩出",
+				"summary": "氣量上限 5 格\n開場 10 秒無下限\n蒼放:閃到背後甩出蒼球\n無下限:10 秒攻擊無效\n順轉「蒼」:吸入後甩出",
 			},
 		],
 	},
@@ -32,16 +32,16 @@ const CHARACTERS: Array[Dictionary] = [
 		"scene": "res://scenes/characters/sukuna.tscn",
 		"sprites": "res://assets/characters/sukuna",
 		"hair": Color(0.95, 0.6, 0.65),
-		"skills": ["解", "捌(1格,需近身)", "伏魔御廚子(3格)"],
-		"summary": "解:遠距離斬擊\n捌:近身多段斬\n伏魔御廚子:15 秒追蹤斬擊",
+		"skills": ["解", "捌(1格,需近身)", "伏魔御廚子(4格)"],
+		"summary": "氣量上限 5 格\n解:遠距離斬擊\n捌:近身多段斬\n伏魔御廚子:15 秒追蹤斬擊",
 	},
 	{
 		"name": "乙骨憂太",
 		"scene": "res://scenes/characters/yuta.tscn",
 		"sprites": "res://assets/characters/yuta",
 		"hair": Color(0.13, 0.13, 0.17),
-		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(3格)/純愛砲"],
-		"summary": "氣量上限 5 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒",
+		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(5格)/純愛砲"],
+		"summary": "氣量上限 8 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒\n氣超過 5 格:咒力滿盈\n招式一變黑閃拳,耗氣加倍",
 	},
 	{
 		"name": "虎杖悠仁",
@@ -57,7 +57,7 @@ const CHARACTERS: Array[Dictionary] = [
 		"sprites": "res://assets/characters/megumi",
 		"hair": Color(0.1, 0.11, 0.16),
 		"skills": ["鷲(2格)", "玉犬(2格)", "式神合擊(需兩隻式神)"],
-		"summary": "氣量上限 5 格\n式神在場時持續回氣\n鷲:式神定期俯衝\n玉犬:式神定期撲咬\n式神合擊:進入咒力高漲",
+		"summary": "氣量上限 4 格\n式神在場時持續回氣\n鷲:式神定期俯衝\n玉犬:式神定期撲咬\n式神合擊:進入咒力高漲",
 	},
 ]
 

@@ -5,7 +5,7 @@
 
 [node name="Fighter" instance=ExtResource("1_base")]
 script = ExtResource("2_megumi")
-max_energy = 500
+max_energy = 400
 sprite_dir = "res://assets/characters/megumi"
 
 [node name="Hair" type="ColorRect" parent="."]

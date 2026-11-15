@@ -53,10 +53,13 @@ func _decide() -> void:
 	var toward := "right" if dx > 0.0 else "left"
 	var away := "left" if dx > 0.0 else "right"
 	var roll := randf()
+	# 存氣中:先不放耗氣的招式(脫出與超必殺不受影響)
+	var saving := me.ai_saving_energy()
 
 	if me.can_escape():
 		# 地面硬直或在空中被追打
-		if me.energy >= Fighter.ESCAPE_COST and roll < 0.2:
+		# 存氣中比較捨不得用氣脫出
+		if me.energy >= Fighter.ESCAPE_COST and roll < (0.05 if saving else 0.2):
 			_press("escape", TAP)
 		return
 	match me.state:
@@ -68,7 +71,7 @@ func _decide() -> void:
 			# 連段:繼續按攻擊,偶爾取消接大招。
 			if roll < 0.7:
 				_press("attack", TAP)
-			elif roll < 0.8 and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
+			elif roll < 0.8 and not saving and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
 				_press("special", TAP)
 			return
 
@@ -77,15 +80,25 @@ func _decide() -> void:
 		_dodge(hazard)
 		return
 
+	# 排在「對手無敵就不出招」之前:對手倒地正是放超必殺的好時機
+	if me.ai_wants_super():
+		if me.ai_super_is_safe():
+			if roll < 0.5:
+				_press("down", 0.12)
+				_press("special", TAP)
+				return
+		elif roll < 0.35 and not foe.is_invulnerable():
+			# 現在放會被打斷:先拉開距離
+			_release("down")
+			_release("up")
+			_move(away, 0.3)
+			_press("dash", TAP)
+			return
+
 	if foe.is_invulnerable():
 		# 對手倒地或無敵時不浪費招式,保持中距離。
 		if distance < 200.0:
 			_move(away, 0.2)
-		return
-
-	if me.ai_wants_super() and roll < 0.5:
-		_press("down", 0.12)
-		_press("special", TAP)
 		return
 
 	if foe.state == Fighter.State.ATTACK and distance < 170.0 and roll < 0.55:
@@ -95,7 +108,7 @@ func _decide() -> void:
 		return
 
 	if distance > FAR:
-		if roll < 0.2 and me.energy >= Fighter.SPECIAL_COST and distance <= me.ai_skill2_range():
+		if roll < 0.2 and not saving and me.energy >= Fighter.SPECIAL_COST and distance <= me.ai_skill2_range():
 			_press("up", 0.12)
 			_press("skill", maxf(TAP, me.ai_skill2_hold()))
 		elif roll < 0.5 and distance <= me.ai_skill_range():
@@ -116,15 +129,15 @@ func _decide() -> void:
 	else:
 		if roll < 0.44:
 			_press("attack", TAP)
-		elif roll < 0.5:
+		elif roll < 0.5 and distance <= me.ai_skill_range():
 			_press("skill", TAP)
-		elif roll < 0.6 and me.energy >= Fighter.SPECIAL_COST:
+		elif roll < 0.6 and not saving and me.energy >= Fighter.SPECIAL_COST:
 			# 上 + 技能:近身型技能(例如捌)在這個距離才放得出來
 			_press("up", 0.12)
 			_press("skill", maxf(TAP, me.ai_skill2_hold()))
-		elif roll < 0.68 and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
+		elif roll < 0.68 and not saving and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
 			_press("special", TAP)
-		elif roll < 0.75 and me.energy >= me.super_cost():
+		elif roll < 0.75 and me.energy >= me.super_cost() and me.ai_super_is_safe():
 			_press("down", 0.12)
 			_press("special", TAP)
 		elif roll < 0.88:

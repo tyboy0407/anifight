@@ -3,7 +3,7 @@ extends Fighter
 ## 以伏黑惠為藍本的角色。本人徒手三連擊,主要靠式神協同作戰。
 ##
 ## 被動
-##   氣量上限是 5 格(在 megumi.tscn 設定 max_energy = 500)。
+##   氣量上限是 4 格(在 megumi.tscn 設定 max_energy = 400)。
 ##   場上有式神時持續回復氣量。
 ## 招式
 ##   式神「鷲」(skill,2 格):召喚貓頭鷹式神 15 秒,定期俯衝攻擊對手。
@@ -175,7 +175,7 @@ func ai_energy_reserve() -> int:
 
 ## 兩隻式神同時在場的時間不長,湊齊了就優先放合擊。
 func ai_wants_super() -> bool:
-	return can_combine()
+	return can_combine() and opponent != null and not opponent.is_invulnerable()
 
 
 # ---------- 被動與咒力高漲 ----------

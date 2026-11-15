@@ -12,13 +12,12 @@ extends Fighter
 ##   格檔(上 + skill,1 格):舉手格檔 1 秒,期間被近身攻擊會抵銷該次傷害並反擊兩拳。
 ##   黑閃(下 + special,3 格):向前揮拳,命中必定觸發黑閃。
 
-const FLASH_COLOR := Color(0.85, 0.08, 0.12)
+const FLASH_COLOR := BLACK_FLASH_COLOR
 const CURSE_COLOR := Color(0.35, 0.65, 1.0)
 
 # 黑閃 / 心流
 const BLACK_FLASH_CHANCE := 0.01
 const FLOW_BLACK_FLASH_CHANCE := 0.10
-const BLACK_FLASH_DAMAGE_SCALE := 2.0
 const FLOW_DURATION := 30.0
 const FLOW_ENERGY_PER_SECOND := 10.0
 # 逕庭拳
@@ -176,8 +175,7 @@ func _finish_strike(target: Fighter) -> void:
 	# 防禦中的對手剩 1 滴血時不會再扣血,但仍然算是打在防禦上
 	if target.health >= _strike_health and target.state != State.GUARD:
 		return
-	_callout("黑閃", FLASH_COLOR)
-	_spark(target.global_position + Vector2(0, -60))
+	_black_flash_effect(target.global_position + Vector2(0, -60))
 	if not in_flow():
 		# 心流期間再觸發黑閃不會刷新時間
 		_flow_time = FLOW_DURATION
@@ -211,16 +209,6 @@ func _tick_flow(delta: float) -> void:
 		var whole := int(_flow_energy)
 		_flow_energy -= whole
 		add_energy(whole)
-
-
-## 黑閃的火花:黑色與紅色交錯的閃電狀線條。
-func _spark(center: Vector2) -> void:
-	for i in 7:
-		var bolt := _spawn_rect(Vector2(randf_range(120, 210), 7), Color(0.05, 0.02, 0.04) if i % 2 == 0 else FLASH_COLOR, center, 3)
-		bolt.rotation = randf_range(-PI, PI)
-		var tween := bolt.create_tween()
-		tween.tween_property(bolt, "modulate:a", 0.0, 0.28)
-		tween.tween_callback(bolt.queue_free)
 
 
 # ---------- 逕庭拳 ----------

@@ -1,6 +1,7 @@
 class_name GojoYoungFighter
 extends Fighter
 ## 五條悟的另一個型態:青年五條悟。在選角畫面長按五條悟的卡片可以選到。
+## 氣量上限是 5 格(在 gojo_young.tscn 設定 max_energy = 500)。
 ##
 ## 被動
 ##   每回合開場有 10 秒「無下限」:期間對手的所有攻擊都無效,
