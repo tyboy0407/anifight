@@ -14,6 +14,8 @@ extends Resource
 @export var knockback: Vector2 = Vector2(220, 0)
 @export var hitstun: float = 0.30
 @export var launches: bool = false
+## launches 的招式專用:對手不是飛出去就倒地,而是落地後一路翻滾彈跳到場邊,沿途揚起沙土
+@export var tumbles: bool = false
 ## 出招時自身往前踏的速度
 @export var lunge: float = 120.0
 ## 命中時攻擊方是否累積氣量(耗氣招式設為 false)

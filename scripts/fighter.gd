@@ -7,6 +7,8 @@ signal energy_changed(current: int, maximum: int)
 signal defeated(fighter: Fighter)
 ## 自己「被」連段的狀況:hits 為連續受擊數,damage 為這段連段的累計傷害。歸零代表連段結束。
 signal combo_changed(hits: int, damage: int)
+## 要求畫面震動(重擊命中、摔在地上、撞到場邊)。strength 是震動的最大位移(像素)。
+signal screen_shake(strength: float)
 
 enum State { IDLE, MOVE, JUMP, DASH, ATTACK, GUARD, HITSTUN, LAUNCHED, DOWN, GETUP, KO, TELEPORT, BURST, CAST, STUNNED }
 
@@ -40,6 +42,17 @@ const BLACK_FLASH_DAMAGE_SCALE := 2.0
 const BLACK_FLASH_COLOR := Color(0.85, 0.08, 0.12)
 ## 電腦操作時,每回合有這個機率選擇存氣放超必殺(只對超必殺很貴的角色有意義)。
 const AI_SAVE_CHANCE := 0.6
+# 翻滾擊飛(AttackData.tumbles):落地後彈跳幾次,彈不起來就貼地翻滾,撞到場邊或停下來才倒地。
+const TUMBLE_BOUNCES: Array[float] = [-400.0, -310.0, -220.0]  # 每次著地彈起的速度
+const TUMBLE_BOUNCE_KEEP := 0.85       # 每次著地保留的水平速度比例
+const TUMBLE_ROLL_FRICTION := 1500.0   # 貼地翻滾時的減速
+const TUMBLE_STOP_SPEED := 140.0       # 慢到這個速度就停下來倒地
+const TUMBLE_SPIN := 15.0              # 翻滾的旋轉速度(弧度 / 秒)
+const TUMBLE_WALL_REBOUND := Vector2(170, -330)  # 撞到場邊後彈回來的速度
+const TUMBLE_DUST_INTERVAL := 0.04     # 貼近地面時每隔多久揚起一次沙土
+const TUMBLE_DUST_HEIGHT := 70.0       # 離地多高以內算貼近地面
+const DUST_COLORS: Array[Color] = [Color(0.80, 0.68, 0.46), Color(0.62, 0.50, 0.33), Color(0.90, 0.82, 0.62)]
+const DEBRIS_COLORS: Array[Color] = [Color(0.55, 0.55, 0.6), Color(0.38, 0.38, 0.43), Color(0.80, 0.68, 0.46)]
 
 const MOVE_SPEED := 320.0
 const JUMP_VELOCITY := -720.0
@@ -112,6 +125,14 @@ var _combo_hits := 0
 var _combo_damage := 0
 ## 連段到達上限後的那次擊飛:落地前不能再被追打。一般的擊飛則可以在空中被連擊。
 var _launch_protected := false
+# 翻滾擊飛中
+var _tumbling := false
+var _tumble_dir := 1          # 飛出去的方向
+var _tumble_bounces := 0      # 已經在地上彈了幾次
+var _tumble_angle := 0.0      # 目前轉到的角度
+var _tumble_floor_y := INF    # 地面高度;還沒著地過就不知道
+var _tumble_dust_timer := 0.0
+var _sprite_offset := Vector2.ZERO  # 素材原本的位移,翻滾時要暫時改成以身體中心為軸
 var _has_sprite := false
 var _current_anim := ""
 var _anim_restart := false
@@ -186,10 +207,10 @@ func _physics_process(delta: float) -> void:
 		State.ATTACK: _tick_attack(delta)
 		State.GUARD: _tick_guard(delta)
 		State.HITSTUN: _tick_hitstun(delta)
-		State.LAUNCHED: _tick_launched()
+		State.LAUNCHED: _tick_launched(delta)
 		State.DOWN: _tick_down(delta)
 		State.GETUP: _tick_getup()
-		State.KO: _apply_friction(delta)
+		State.KO: _tick_ko(delta)
 		State.TELEPORT: _tick_teleport()
 		State.BURST: _tick_burst()
 		State.CAST: _tick_cast(delta)
@@ -197,6 +218,7 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_update_visual()
+	_apply_spin()
 
 
 # ---------- 各狀態 ----------
@@ -323,12 +345,126 @@ func _tick_stunned(delta: float) -> void:
 		_set_state(State.IDLE)
 
 
-func _tick_launched() -> void:
+func _tick_launched(delta: float) -> void:
 	if can_escape() and _pressed("escape") and _spend_energy(ESCAPE_COST):
 		_start_burst()
+	elif _tumbling:
+		_tick_tumble(delta)
 	elif _state_time > 0.05 and _landed():
 		velocity.x = 0.0
 		_set_state(State.DOWN)
+
+
+func _tick_ko(delta: float) -> void:
+	if _tumbling:
+		_tick_tumble(delta)
+	else:
+		_apply_friction(delta)
+
+
+# ---------- 翻滾擊飛 ----------
+
+func _begin_tumble(direction: int) -> void:
+	_tumbling = true
+	_tumble_dir = direction
+	_tumble_bounces = 0
+	_tumble_angle = 0.0
+	_tumble_dust_timer = 0.0
+	_tumble_floor_y = global_position.y if is_on_floor() else INF
+
+
+func _stop_tumble() -> void:
+	_tumbling = false
+	_tumble_angle = 0.0
+
+
+## 被翻滾擊飛的招式打中後:低空飛出、著地彈跳、貼地翻滾,撞到場邊或停下來為止。
+func _tick_tumble(delta: float) -> void:
+	_tumble_angle += _tumble_dir * TUMBLE_SPIN * delta
+	var at_edge := global_position.x >= arena_max_x - 1.0 if _tumble_dir > 0 else global_position.x <= arena_min_x + 1.0
+	if at_edge:
+		_tumble_hit_wall()
+		return
+	if _state_time > 0.05 and _landed():
+		_tumble_floor_y = global_position.y
+		if _tumble_bounces < TUMBLE_BOUNCES.size():
+			# 重重摔在地上再彈起來
+			velocity.y = TUMBLE_BOUNCES[_tumble_bounces]
+			velocity.x *= TUMBLE_BOUNCE_KEEP
+			_tumble_bounces += 1
+			_spawn_dust(global_position, 10, 1.0)
+			screen_shake.emit(6.0)
+		else:
+			# 彈不起來了:貼著地面滾到停
+			velocity.x = move_toward(velocity.x, 0.0, TUMBLE_ROLL_FRICTION * delta)
+			if absf(velocity.x) < TUMBLE_STOP_SPEED:
+				_stop_tumble()
+				if state == State.LAUNCHED:
+					velocity.x = 0.0
+					_set_state(State.DOWN)
+				return
+	_tumble_dust_timer -= delta
+	if _tumble_dust_timer <= 0.0 and global_position.y >= _tumble_floor_y - TUMBLE_DUST_HEIGHT:
+		_tumble_dust_timer = TUMBLE_DUST_INTERVAL
+		_spawn_dust(Vector2(global_position.x, _tumble_floor_y), 2, 0.55)
+
+
+## 撞上場邊:碎石與沙塵炸開、畫面震動,人被彈回來後倒地。
+func _tumble_hit_wall() -> void:
+	var wall := Vector2(global_position.x + _tumble_dir * BODY_SIZE.x / 2.0, global_position.y - BODY_SIZE.y / 2.0)
+	# 撞擊點的裂痕
+	for i in 5:
+		var crack := _spawn_rect(Vector2(randf_range(70, 150), 5), Color(1, 1, 1, 0.9), wall, 3)
+		crack.rotation = PI / 2.0 + randf_range(-1.0, 1.0)
+		var crack_tween := crack.create_tween()
+		crack_tween.tween_property(crack, "modulate:a", 0.0, 0.3)
+		crack_tween.tween_callback(crack.queue_free)
+	# 往場內噴的碎石
+	for i in 16:
+		var piece_size := randf_range(8, 22)
+		var piece := _spawn_rect(Vector2(piece_size, piece_size), DEBRIS_COLORS[i % DEBRIS_COLORS.size()], wall + Vector2(0, randf_range(-50, 50)), 3)
+		piece.rotation = randf_range(-PI, PI)
+		var drift := Vector2(-_tumble_dir * randf_range(60, 300), randf_range(-190, 90))
+		var time := randf_range(0.4, 0.7)
+		var tween := piece.create_tween()
+		tween.tween_property(piece, "position", piece.position + drift, time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.parallel().tween_property(piece, "rotation", piece.rotation + randf_range(-5.0, 5.0), time)
+		tween.parallel().tween_property(piece, "modulate:a", 0.0, time)
+		tween.tween_callback(piece.queue_free)
+	if _tumble_floor_y < INF:
+		_spawn_dust(Vector2(global_position.x, _tumble_floor_y), 14, 1.5)
+	screen_shake.emit(18.0)
+	velocity = Vector2(-_tumble_dir * TUMBLE_WALL_REBOUND.x, TUMBLE_WALL_REBOUND.y)
+	_stop_tumble()
+
+
+## 揚起沙土:一把大小不一的土色方塊往上、往兩旁散開後淡出。
+func _spawn_dust(at: Vector2, amount: int, spread: float) -> void:
+	for i in amount:
+		var dust_size := randf_range(7, 17) * minf(spread + 0.4, 1.4)
+		var dust := _spawn_rect(Vector2(dust_size, dust_size), Color(DUST_COLORS[randi() % DUST_COLORS.size()], 0.85), at + Vector2(randf_range(-22, 22) * spread, -dust_size / 2.0), 1)
+		dust.rotation = randf_range(-PI, PI)
+		var drift := Vector2(randf_range(-80, 80), randf_range(-95, -20)) * spread
+		var time := randf_range(0.3, 0.55)
+		var tween := dust.create_tween()
+		tween.tween_property(dust, "position", dust.position + drift, time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.parallel().tween_property(dust, "scale", Vector2(1.7, 1.7), time)
+		tween.parallel().tween_property(dust, "modulate:a", 0.0, time)
+		tween.tween_callback(dust.queue_free)
+
+
+## 翻滾時讓角色以身體中心為軸旋轉;平常角度是 0,等於沒有作用。
+func _apply_spin() -> void:
+	var pivot := BODY_SIZE.y / 2.0 if _tumbling else 0.0
+	if _has_sprite:
+		_sprite.rotation = _tumble_angle
+		_sprite.position = Vector2(0, -pivot)
+		_sprite.offset = _sprite_offset + Vector2(0, pivot / _sprite.scale.y)
+	else:
+		_body.pivot_offset = _body.size / 2.0
+		_body.rotation = _tumble_angle
+		if _tumbling:
+			_eye.visible = false
 
 
 func _tick_down(delta: float) -> void:
@@ -440,6 +576,11 @@ func stagger(duration: float) -> void:
 	velocity.x = 0.0
 	_stun_time = duration
 	_set_state(State.HITSTUN, true)
+
+
+## 給觸控按鈕的提示:招式一現在是不是強化版(是的話按鈕周圍會冒出黑閃的光芒)。
+func skill1_empowered() -> bool:
+	return false
 
 
 ## 給電腦對手的提示:技能二要按住幾秒(可以蓄力的招式用)。預設點一下就好。
@@ -633,23 +774,32 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 		return
 
 	_set_hitbox(false)
+	_stop_tumble()
+	var tumbles := move.launches and move.tumbles
 	var damage := _register_hit(move.damage)
 	_set_health(health - damage)
 	add_energy(int(damage * ENERGY_PER_DAMAGE_TAKEN))
 	if move.builds_energy:
 		attacker.add_energy(int(damage * ENERGY_PER_DAMAGE_DEALT))
 	if health <= 0:
-		velocity = Vector2(away * 350.0, -450.0)
+		# 被翻滾擊飛的招式打倒:一樣滾到場邊
+		velocity = Vector2(away * move.knockback.x, move.knockback.y) if tumbles else Vector2(away * 350.0, -450.0)
 		_set_state(State.KO, true)
+		if tumbles:
+			_begin_tumble(away)
 		defeated.emit(self)
 	elif _combo_hits >= COMBO_HIT_LIMIT:
 		# 連段到達上限:強制擊飛倒地,落地前不能再被追打,結束這段連段。
 		velocity = Vector2(away * move.knockback.x, move.knockback.y) if move.launches else Vector2(away * 320.0, -420.0)
 		_set_state(State.LAUNCHED, true)
 		_launch_protected = true
+		if tumbles:
+			_begin_tumble(away)
 	elif move.launches:
 		velocity = Vector2(away * move.knockback.x, move.knockback.y)
 		_set_state(State.LAUNCHED, true)
+		if tumbles:
+			_begin_tumble(away)
 	elif state == State.LAUNCHED or not is_on_floor():
 		# 浮空中被打:再往上彈一下,落地前可以繼續被連擊。
 		# 空中沒有地面摩擦,水平擊退要縮小,不然第二下就會被推出攻擊範圍。
@@ -673,6 +823,8 @@ func _set_state(new_state: State, force: bool = false) -> void:
 	_state_time = 0.0
 	_anim_restart = true
 	_launch_protected = false
+	if new_state != State.LAUNCHED and new_state != State.KO:
+		_stop_tumble()
 	if new_state == State.IDLE:
 		_end_combo()
 
@@ -856,7 +1008,8 @@ func _load_sprite() -> void:
 	var canvas: Vector2 = loaded.canvas
 	_sprite.sprite_frames = loaded.frames
 	_sprite.scale = Vector2.ONE * float(loaded.scale)
-	_sprite.offset = Vector2(-canvas.x / 2.0, -canvas.y + float(loaded.foot_offset))
+	_sprite_offset = Vector2(-canvas.x / 2.0, -canvas.y + float(loaded.foot_offset))
+	_sprite.offset = _sprite_offset
 	_sprite.visible = true
 	_has_sprite = true
 	_body.visible = false

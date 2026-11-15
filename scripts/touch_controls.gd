@@ -25,6 +25,12 @@ const PULSE_TIME := 0.05          # 由程式代按的動作要按住多久
 const DASH_TEXT := "衝刺"
 const TELEPORT_TEXT := "幽步"
 const ESCAPE_TEXT := "脫出"
+# 招式一變成強化版時,按鈕周圍淡淡的黑閃光芒
+const GLOW_ALPHA := 0.5            # 光芒的平均不透明度(淡淡的)
+const GLOW_PULSE := 0.18           # 明暗起伏的幅度
+const GLOW_FLICKER := 0.09         # 閃電每隔多久換一次形狀
+const GLOW_BOLTS := 6
+const GLOW_DARK := Color(0.05, 0.02, 0.04)
 
 ## 按鈕配置。offset 是按鈕中心離「所在那一側的下方角落」的距離;size 是直徑或寬高。
 const LAYOUT := [
@@ -53,6 +59,12 @@ var _dash_time := 0.0
 var _teleport_timer := 0.0
 var _teleport_done := false
 var _pulses: Dictionary = {}  # 代按中的動作 -> 剩餘秒數
+var _skill_button: TouchScreenButton
+var _skill_radius := 0.0
+var _skill_glow: Node2D
+var _glow_bolts: Array[Line2D] = []
+var _glow_time := 0.0
+var _glow_flicker := 0.0
 var _menu_root: Control
 var _menu_button: Button
 var _match_over_box: VBoxContainer
@@ -64,6 +76,7 @@ func _ready() -> void:
 		_add_button(spec)
 	_dash_button.pressed.connect(_on_dash_pressed)
 	_dash_button.released.connect(_on_dash_released)
+	_build_skill_glow()
 	_build_menu()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -94,6 +107,7 @@ func _process(delta: float) -> void:
 				_teleport_timer = TELEPORT_RETRY
 				_pulse("teleport")
 	_update_dash_label()
+	_update_skill_glow(delta)
 
 
 func set_match_over(is_over: bool) -> void:
@@ -154,6 +168,61 @@ func _update_dash_label() -> void:
 	_dash_label.modulate = color
 
 
+# ---------- 招式一的黑閃光芒 ----------
+
+## 光芒放在按鈕後面、和按鈕同一個位置(不當按鈕的子節點,才不會跟著按鈕的透明度變化)。
+func _build_skill_glow() -> void:
+	_skill_glow = Node2D.new()
+	_skill_glow.visible = false
+	add_child(_skill_glow)
+	move_child(_skill_glow, 0)
+	# 兩圈光暈:內圈紅、外圈黑
+	_skill_glow.add_child(_make_ring(_skill_radius + 7.0, 9.0, Color(Fighter.BLACK_FLASH_COLOR, 0.75)))
+	_skill_glow.add_child(_make_ring(_skill_radius + 14.0, 4.0, Color(GLOW_DARK, 0.8)))
+	# 從按鈕邊緣往外竄的閃電,黑紅交錯
+	for i in GLOW_BOLTS:
+		var bolt := Line2D.new()
+		bolt.width = 3.0
+		bolt.default_color = GLOW_DARK if i % 2 == 0 else Fighter.BLACK_FLASH_COLOR
+		bolt.joint_mode = Line2D.LINE_JOINT_ROUND
+		_skill_glow.add_child(bolt)
+		_glow_bolts.append(bolt)
+
+
+func _make_ring(radius: float, width: float, color: Color) -> Line2D:
+	var ring := Line2D.new()
+	var points := PackedVector2Array()
+	for i in 48:
+		points.append(Vector2.from_angle(TAU * i / 48.0) * radius)
+	ring.points = points
+	ring.closed = true
+	ring.width = width
+	ring.default_color = color
+	ring.joint_mode = Line2D.LINE_JOINT_ROUND
+	return ring
+
+
+func _update_skill_glow(delta: float) -> void:
+	var glowing := fighter != null and fighter.skill1_empowered()
+	_skill_glow.visible = glowing
+	if not glowing:
+		return
+	_glow_time += delta
+	_skill_glow.modulate.a = GLOW_ALPHA + GLOW_PULSE * sin(_glow_time * 7.0)
+	_glow_flicker -= delta
+	if _glow_flicker > 0.0:
+		return
+	_glow_flicker = GLOW_FLICKER
+	for bolt in _glow_bolts:
+		# 每道閃電:從按鈕邊緣出發,往外折三段
+		var angle := randf() * TAU
+		var points := PackedVector2Array()
+		for step in 4:
+			var reach := _skill_radius + 3.0 + step * randf_range(6.0, 10.0)
+			points.append(Vector2.from_angle(angle + randf_range(-0.16, 0.16) * step) * reach)
+		bolt.points = points
+
+
 # ---------- 建立按鈕 ----------
 
 func _add_button(spec: Dictionary) -> void:
@@ -210,6 +279,9 @@ func _add_button(spec: Dictionary) -> void:
 	if spec.key == "dash":
 		_dash_button = button
 		_dash_label = label
+	elif spec.key == "skill":
+		_skill_button = button
+		_skill_radius = button_size.x / 2.0
 
 
 func _make_panel(panel_size: Vector2, corner_radius: int) -> Panel:
@@ -308,3 +380,4 @@ func _layout() -> void:
 		var offset: Vector2 = entry.offset + MARGIN
 		var x := area.x + offset.x if entry.side == "left" else view.x - area.z - offset.x
 		node.position = Vector2(x, view.y - area.w - offset.y)
+	_skill_glow.position = _skill_button.position

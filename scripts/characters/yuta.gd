@@ -8,8 +8,10 @@ extends Fighter
 ##   我也可以!(上 + skill):咒力附刀,10 秒內普通攻擊傷害提升。耗 1 格氣。
 ##   來吧,里香!(下 + special):召喚里香,進入里香狀態 60 秒。耗 5 格氣。
 ## 被動「咒力滿盈」
-##   氣量超過 5 格時進入,掉回 5 格以下就解除。期間:
-##   skill 變成「不准欺負我的朋友!」:短暫蓄力後向前揮拳,必定黑閃(傷害 2 倍),把對手打飛到遠處。
+##   氣量滿 4 格時進入,掉到 4 格以下就解除。期間:
+##   氣量會緩慢自動恢復(每 20 秒 1 格)。
+##   skill 變成「不准欺負我的朋友!」:短暫蓄力後向前揮拳,必定黑閃(傷害 2 倍),
+##   對手低空飛出後在地上翻滾彈跳,一路滾到場邊。
 ##   skill 與 上 + skill 的耗氣量加倍(各 2 格);「來吧,里香!」不受影響。
 ## 里香狀態
 ##   地面連段由 3 段變 5 段,每次普攻命中里香都會追加一擊。
@@ -35,13 +37,15 @@ const BUFF_RELEASE := 0.20
 const BUFF_DURATION := 10.0
 const BUFF_DAMAGE_SCALE := 1.5
 # 咒力滿盈
-const OVERFLOW_THRESHOLD := 500   # 氣量超過這個值就進入咒力滿盈
+const OVERFLOW_THRESHOLD := 400   # 氣量到達這個值就進入咒力滿盈
 const OVERFLOW_COST_SCALE := 2    # 滿盈期間招式一、招式二的耗氣倍率
+const OVERFLOW_REGEN := 5.0       # 滿盈期間每秒自動恢復的氣量(20 秒一格)
 # 不准欺負我的朋友!(咒力滿盈時的招式一,和「飛走吧!」共用冷卻)
 const FRIEND_DAMAGE := 130        # 必定黑閃,實際是 2 倍
 const FRIEND_CHARGE := 0.40       # 揮拳前的蓄力時間
-const FRIEND_KNOCKBACK := Vector2(1200, -480)
-const FRIEND_RANGE := 300.0       # 電腦:對手在這個距離內才出拳# 來吧,里香!
+const FRIEND_KNOCKBACK := Vector2(1150, -420)  # 低空飛出,落地後翻滾彈跳到場邊
+const FRIEND_RANGE := 300.0       # 電腦:對手在這個距離內才出拳
+# 來吧,里香!
 const RIKA_COST := 500
 const RIKA_CAST := 0.80
 const RIKA_RELEASE := 0.50
@@ -69,6 +73,7 @@ var _speech_cooldown := 0.0
 var _speech_move: AttackData
 
 var _was_overflowing := false
+var _regen_bank := 0.0  # 自動回氣還沒滿 1 點的零頭
 var _friend_move: AttackData
 var _friend_health := 0  # 出拳前對手的血量,用來判斷這一拳有沒有打到
 
@@ -137,6 +142,7 @@ func _build_moves() -> void:
 	var flash_damage := int(round(FRIEND_DAMAGE * BLACK_FLASH_DAMAGE_SCALE))
 	_friend_move = AttackData.make(flash_damage, 0.05, 0.14, 0.40, Vector2(90, -62), Vector2(170, 90), FRIEND_KNOCKBACK, 0.0, true, 520.0)
 	_friend_move.builds_energy = false
+	_friend_move.tumbles = true
 	_friend_move.color = Color(0.1, 0.02, 0.04, 0.85)
 	_rika_move = AttackData.make(30, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.36, false, 0.0)
 	_protect_move = AttackData.make(PROTECT_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(720, -480), 0.0, true, 0.0)
@@ -158,6 +164,7 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_speech_cooldown = 0.0
 	_buff_time = 0.0
 	_was_overflowing = false
+	_regen_bank = 0.0
 	_cancel_cannon()
 	_exit_rika()
 	super(spawn_position, spawn_facing)
@@ -167,7 +174,7 @@ func _physics_process(delta: float) -> void:
 	super(delta)
 	_speech_cooldown = maxf(_speech_cooldown - delta, 0.0)
 	_buff_time = maxf(_buff_time - delta, 0.0)
-	_tick_overflow()
+	_tick_overflow(delta)
 	_tick_rika(delta)
 	_tick_cannon(delta)
 	_update_status()
@@ -177,9 +184,13 @@ func in_rika_state() -> bool:
 	return _rika_time > 0.0
 
 
-## 咒力滿盈:氣量超過 5 格。
+## 咒力滿盈:氣量滿 4 格。
 func overflowing() -> bool:
-	return energy > OVERFLOW_THRESHOLD
+	return energy >= OVERFLOW_THRESHOLD
+
+
+func skill1_empowered() -> bool:
+	return overflowing()
 
 
 ## 招式一、招式二實際的耗氣量:咒力滿盈時加倍。
@@ -187,11 +198,20 @@ func _skill_cost(base_cost: int) -> int:
 	return base_cost * OVERFLOW_COST_SCALE if overflowing() else base_cost
 
 
-func _tick_overflow() -> void:
+func _tick_overflow(delta: float) -> void:
 	var now := overflowing()
 	if now and not _was_overflowing and state != State.KO:
 		_callout("咒力滿盈", CURSE_COLOR)
 	_was_overflowing = now
+	# 滿盈期間緩慢回氣。氣量是整數,不足 1 點的部分先存著。
+	if not now or state == State.KO or energy_sealed():
+		_regen_bank = 0.0
+		return
+	_regen_bank += OVERFLOW_REGEN * delta
+	var whole := int(_regen_bank)
+	if whole > 0:
+		_regen_bank -= whole
+		add_energy(whole)
 
 
 func _try_character_actions() -> bool:
@@ -201,7 +221,7 @@ func _try_character_actions() -> bool:
 			return true
 		return false
 	if _skill1_pressed() and _speech_cooldown <= 0.0:
-		# 先記下是不是滿盈:扣完氣可能就掉回 5 格以下了
+		# 先記下是不是滿盈:扣完氣可能就掉到 4 格以下了
 		var empowered := overflowing()
 		if not _spend_energy(_skill_cost(SPEECH_COST)):
 			return false
@@ -221,9 +241,10 @@ func super_cost() -> int:
 	return 0 if in_rika_state() else RIKA_COST
 
 
-## 電腦操作時:決定存氣的回合先不用招式,存到 5 格召喚里香;超過 5 格(咒力滿盈)才又開始用招式。
+## 電腦操作時:決定存氣的回合先不用招式,存到 5 格召喚里香;里香出來之後才又開始用招式。
+## (滿 4 格就是咒力滿盈,這時用招式要 2 格,一用就存不到 5 格了。)
 func ai_saving_energy() -> bool:
-	return ai_saves_this_round and not overflowing()
+	return ai_saves_this_round and not in_rika_state()
 
 
 ## 電腦操作時:還沒召喚里香的話,氣夠了就先召喚。
@@ -365,6 +386,7 @@ func _on_attack_hit(target: Fighter, move: AttackData) -> void:
 	if move == _friend_move:
 		if target.health < _friend_health or target.state == State.GUARD:
 			_black_flash_effect(target.global_position + Vector2(0, -60))
+			screen_shake.emit(10.0)
 		return
 	if in_rika_state() and _cannon == Cannon.NONE and _is_normal_attack(move):
 		_rika_strike_timer = RIKA_STRIKE_DELAY

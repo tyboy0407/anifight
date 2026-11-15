@@ -12,6 +12,7 @@ const SPAWN_GAP := 220.0
 const ROUNDS_TO_WIN := 2
 const ROUND_TIME := 150.0
 const ROUND_END_DELAY := 2.2
+const SHAKE_TIME := 0.28
 const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   Esc 回選角"
 
 var _fighters: Array[Fighter] = []
@@ -20,6 +21,8 @@ var _round_number := 0
 var _time_left := ROUND_TIME
 var _round_active := false
 var _match_over := false
+var _shake_time := 0.0
+var _shake_strength := 0.0
 var _cpu: CpuController
 var _touch: TouchControls  # 只有觸控模式才會建立
 
@@ -71,12 +74,28 @@ func _back_to_select() -> void:
 
 
 func _process(delta: float) -> void:
+	_tick_shake(delta)
 	if not _round_active:
 		return
 	_time_left -= delta
 	_hud.set_time(_time_left)
 	if _time_left <= 0.0:
 		_on_time_up()
+
+
+## 畫面震動:鏡頭的位置每個物理影格都會重設,所以震動加在 offset 上。
+func _on_screen_shake(strength: float) -> void:
+	if strength >= _shake_strength * _shake_time / SHAKE_TIME:
+		_shake_strength = strength
+		_shake_time = SHAKE_TIME
+
+
+func _tick_shake(delta: float) -> void:
+	if _shake_time <= 0.0:
+		return
+	_shake_time = maxf(_shake_time - delta, 0.0)
+	var amount := _shake_strength * _shake_time / SHAKE_TIME
+	_camera.offset = Vector2(randf_range(-amount, amount), randf_range(-amount, amount))
 
 
 func _physics_process(_delta: float) -> void:
@@ -115,6 +134,7 @@ func _spawn_fighters() -> void:
 		_fighters[i].health_changed.connect(_on_health_changed.bind(i))
 		_fighters[i].energy_changed.connect(_on_energy_changed.bind(i))
 		_fighters[i].defeated.connect(_on_defeated)
+		_fighters[i].screen_shake.connect(_on_screen_shake)
 		# 角色回報的是「自己被連段」,所以顯示在對手(攻擊方)那一側。
 		_fighters[i].combo_changed.connect(_on_combo_changed.bind(1 - i))
 
