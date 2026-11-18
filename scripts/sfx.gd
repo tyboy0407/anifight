@@ -30,7 +30,7 @@ const SOUNDS := {
 	"black_flash": 1, "domain_void": 1, "domain_shrine": 1, "slash": 2, "blue": 1, "red": 1,
 	"infinity": 1, "overflow": 1, "powerup": 1, "speech": 1, "friend_charge": 1, "rika_summon": 1,
 	"rika_claw": 1, "cannon_charge": 1, "cannon_fire": 1, "shikigami": 2, "combine": 1,
-	"divergent": 1, "parry": 1,
+	"divergent": 1, "parry": 1, "weapon_swap": 1, "bind": 1,
 }
 
 static var muted := false

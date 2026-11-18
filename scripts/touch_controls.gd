@@ -156,7 +156,7 @@ func _update_dash_label() -> void:
 	if _is_hit():
 		text = ESCAPE_TEXT
 		# 氣不夠脫出時顯示得暗一點
-		var affordable := fighter.energy >= Fighter.ESCAPE_COST
+		var affordable := fighter.energy >= fighter.escape_cost()
 		color = Color(1.0, 0.75, 0.35) if affordable else Color(0.6, 0.6, 0.6)
 	elif _dash_held:
 		# 按住時逐漸變色,提示快要變成幽步

@@ -4,6 +4,8 @@ extends SceneTree
 ##
 ## 執行方式(在專案資料夾):
 ##   godot --headless --path . --script tools/generate_placeholder_sprites.gd
+##   godot --headless --path . --script tools/generate_placeholder_sprites.gd -- toji toji_dagger
+## 第二種只重畫指定的角色,不會動到其他已經換成正式素材的角色。
 ##
 ## 角色面向右。每個姿勢用幾個關節點描述,再用粗線連成四肢與軀幹。
 
@@ -55,6 +57,25 @@ const STYLES := [
 		"pants": Color(0.13, 0.14, 0.24), "sash": Color(0, 0, 0, 0),
 		"eye": Color(0.2, 0.62, 1.0),  # 六眼的蒼藍色,不戴眼罩也不戴墨鏡
 	},
+	# 伏黑甚爾:黑色緊身上衣、露出手臂、淺色寬褲、嘴角有疤。兩把武器各一套圖。
+	{
+		"id": "toji",
+		"hair": Color(0.09, 0.09, 0.12), "spiky": false, "blindfold": false, "marks": false,
+		"top": Color(0.1, 0.1, 0.13), "sleeve": Color(0.9, 0.76, 0.66),
+		"pants": Color(0.84, 0.83, 0.79), "sash": Color(0, 0, 0, 0),
+		"scar": true,
+		# 狼牙刀:又長又寬的大砍刀
+		"sword": true, "blade_length": 17, "blade_width": 4, "blade_color": Color(0.72, 0.76, 0.84),
+	},
+	{
+		"id": "toji_dagger",
+		"hair": Color(0.09, 0.09, 0.12), "spiky": false, "blindfold": false, "marks": false,
+		"top": Color(0.1, 0.1, 0.13), "sleeve": Color(0.9, 0.76, 0.66),
+		"pants": Color(0.84, 0.83, 0.79), "sash": Color(0, 0, 0, 0),
+		"scar": true,
+		# 天逆牟:短刀
+		"sword": true, "blade_length": 7, "blade_width": 2, "blade_color": Color(0.96, 0.88, 0.55),
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -72,8 +93,11 @@ var _style: Dictionary
 
 
 func _initialize() -> void:
+	# 只想重畫某幾個角色時,把 id 接在 -- 後面;不指定就全部重畫
+	var only := OS.get_cmdline_user_args()
 	for style: Dictionary in STYLES:
-		_generate(style)
+		if only.is_empty() or only.has(style.id):
+			_generate(style)
 	quit()
 
 
@@ -256,8 +280,8 @@ func _draw_sword(arm_from: Vector2i, hand: Vector2i) -> void:
 	if direction.length() < 0.5:
 		direction = Vector2.RIGHT
 	direction = direction.normalized()
-	var tip := hand + Vector2i((direction * 13.0).round())
-	_draw_line(hand, tip, Color(0.86, 0.92, 0.98), 2)
+	var tip := hand + Vector2i((direction * float(_style.get("blade_length", 13))).round())
+	_draw_line(hand, tip, _style.get("blade_color", Color(0.86, 0.92, 0.98)), _style.get("blade_width", 2))
 	# 護手
 	var guard := Vector2i((direction.orthogonal() * 2.0).round())
 	_draw_line(hand - guard, hand + guard, Color(0.5, 0.42, 0.2), 1)
@@ -304,6 +328,11 @@ func _draw_head(center: Vector2i) -> void:
 		_plot(center + Vector2i(2, -2), mark)
 	# 嘴
 	_plot(center + Vector2i(3, 3), Color(0.55, 0.3, 0.3))
+	if _style.get("scar", false):
+		# 嘴角往下的一道疤
+		_plot(center + Vector2i(2, 2), Color(0.62, 0.36, 0.34))
+		_plot(center + Vector2i(2, 3), Color(0.62, 0.36, 0.34))
+		_plot(center + Vector2i(2, 4), Color(0.62, 0.36, 0.34))
 
 
 func _draw_limb(from: Vector2i, joint: Variant, to: Vector2i, color: Color, thickness: int) -> void:

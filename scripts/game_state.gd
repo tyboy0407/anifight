@@ -59,6 +59,14 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["鷲(2格)", "玉犬(2格)", "式神合擊(需兩隻式神)"],
 		"summary": "氣量上限 4 格\n式神在場時持續回氣\n鷲:式神定期俯衝\n玉犬:式神定期撲咬\n式神合擊:進入咒力高漲",
 	},
+	{
+		"name": "伏黑甚爾",
+		"scene": "res://scenes/characters/toji.tscn",
+		"sprites": "res://assets/characters/toji",
+		"hair": Color(0.08, 0.08, 0.1),
+		"skills": ["狼牙刀", "天逆牟", "咒縛狀態(冷卻30秒)"],
+		"summary": "沒有氣格,招式不耗氣\n跑得快,緩慢回血\n狼牙刀:兩刀後踢飛\n天逆牟:四刀後閃到背後\n再按一次:旋斬 / 破防背刺\n咒縛狀態:10 秒強化",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。

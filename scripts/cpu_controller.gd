@@ -59,7 +59,7 @@ func _decide() -> void:
 	if me.can_escape():
 		# 地面硬直或在空中被追打
 		# 存氣中比較捨不得用氣脫出
-		if me.energy >= Fighter.ESCAPE_COST and roll < (0.05 if saving else 0.2):
+		if me.energy >= me.escape_cost() and roll < (0.05 if saving else 0.2):
 			_press("escape", TAP)
 		return
 	match me.state:
@@ -108,7 +108,7 @@ func _decide() -> void:
 		return
 
 	if distance > FAR:
-		if roll < 0.2 and not saving and me.energy >= Fighter.SPECIAL_COST and distance <= me.ai_skill2_range():
+		if roll < 0.2 and not saving and me.ai_skill2_ready() and distance <= me.ai_skill2_range():
 			_press("up", 0.12)
 			_press("skill", maxf(TAP, me.ai_skill2_hold()))
 		elif roll < 0.5 and distance <= me.ai_skill_range():
@@ -131,7 +131,7 @@ func _decide() -> void:
 			_press("attack", TAP)
 		elif roll < 0.5 and distance <= me.ai_skill_range():
 			_press("skill", TAP)
-		elif roll < 0.6 and not saving and me.energy >= Fighter.SPECIAL_COST:
+		elif roll < 0.6 and not saving and me.ai_skill2_ready() and distance <= me.ai_skill2_range():
 			# 上 + 技能:近身型技能(例如捌)在這個距離才放得出來
 			_press("up", 0.12)
 			_press("skill", maxf(TAP, me.ai_skill2_hold()))

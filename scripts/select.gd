@@ -4,8 +4,10 @@ extends Control
 ## 也可以直接用滑鼠或手指點角色卡片:第一下選自己,第二下選對手。
 ## 有多種型態的角色:長按卡片會彈出型態視窗,鍵盤則用上 / 下切換。
 
-const CARD_SIZE := Vector2(204, 330)
-const CARD_GAP := 18  # 五張卡片加間距要放得進 1152 寬的畫面
+const CARD_SIZE := Vector2(178, 330)
+const CARD_GAP := 12  # 六張卡片加間距要放得進 1152 寬的畫面
+const CARD_MARGIN := 12  # 卡片內容離邊框的距離
+const SUMMARY_FONT := 13
 const FORM_CARD_SIZE := Vector2(250, 330)
 const CONFIRM_DELAY := 0.6
 const LONG_PRESS := 0.45  # 按住卡片這麼久就算長按
@@ -206,7 +208,7 @@ func _show_form(card_index: int, form_index: int) -> void:
 	var info := GameState.form_info(card_index, form_index)
 	(parts.name as Label).text = info.name
 	(parts.summary as Label).text = info.summary
-	_fill_portrait(parts.portrait, info, CARD_SIZE.x)
+	_fill_portrait(parts.portrait, info, CARD_SIZE.x - CARD_MARGIN * 2)
 	var count := GameState.form_count(card_index)
 	(parts.tag as Label).text = "型態 %d / %d" % [form_index + 1, count] if count > 1 else ""
 
@@ -289,7 +291,7 @@ func _build_form_card(card_index: int, form_index: int) -> PanelContainer:
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait.custom_minimum_size = Vector2(0, 140)
 	box.add_child(portrait)
-	_fill_portrait(portrait, info, FORM_CARD_SIZE.x)
+	_fill_portrait(portrait, info, FORM_CARD_SIZE.x - 32)
 	box.add_child(_label(info.name, 28))
 	var summary := _label(info.summary, 15)
 	summary.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
@@ -398,7 +400,7 @@ func _build_card(card_index: int) -> PanelContainer:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.17, 0.19, 0.28)
 	style.set_corner_radius_all(10)
-	style.set_content_margin_all(16)
+	style.set_content_margin_all(CARD_MARGIN)
 	card.add_theme_stylebox_override("panel", style)
 
 	# 整張卡片都可以點;內部的容器不攔截點擊
@@ -428,7 +430,7 @@ func _build_card(card_index: int) -> PanelContainer:
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait.custom_minimum_size = Vector2(0, 130)
 	box.add_child(portrait)
-	_fill_portrait(portrait, info, CARD_SIZE.x)
+	_fill_portrait(portrait, info, CARD_SIZE.x - CARD_MARGIN * 2)
 
 	var name_label := _label(info.name, 30)
 	box.add_child(name_label)
@@ -438,10 +440,10 @@ func _build_card(card_index: int) -> PanelContainer:
 	tag.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45))
 	tag.visible = count > 1
 	box.add_child(tag)
-	var summary := _label(info.summary, 14)
+	var summary := _label(info.summary, SUMMARY_FONT)
 	# 太長的說明自動換行,不要把卡片撐寬
 	summary.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-	summary.custom_minimum_size.x = CARD_SIZE.x - 32
+	summary.custom_minimum_size.x = CARD_SIZE.x - CARD_MARGIN * 2
 	summary.modulate = Color(1, 1, 1, 0.8)
 	box.add_child(summary)
 
@@ -451,12 +453,12 @@ func _build_card(card_index: int) -> PanelContainer:
 
 
 ## 在 portrait 裡畫出角色示意圖:有素材就播待機動畫,沒有就用色塊。
-## card_width 是所在卡片的寬度,用來把圖置中。
-func _fill_portrait(portrait: Control, info: Dictionary, card_width: float) -> void:
+## inner_width 是卡片扣掉內邊距後的寬度,用來把圖置中。
+func _fill_portrait(portrait: Control, info: Dictionary, inner_width: float) -> void:
 	for child in portrait.get_children():
 		child.queue_free()
 	var bottom := portrait.custom_minimum_size.y
-	var center_x := card_width / 2.0 - 16
+	var center_x := inner_width / 2.0
 	var loaded := SpriteSheetLoader.load_character(info.get("sprites", ""))
 	if loaded.is_empty():
 		# 沒有素材時的後備:身體色塊 + 頭髮色塊

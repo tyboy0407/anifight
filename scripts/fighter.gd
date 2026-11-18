@@ -246,12 +246,12 @@ func _tick_ground() -> void:
 		_set_state(State.GUARD)
 		return
 	var axis := _axis()
-	velocity.x = axis * MOVE_SPEED
+	velocity.x = axis * move_speed()
 	_set_state(State.MOVE if axis != 0.0 else State.IDLE)
 
 
 func _tick_air() -> void:
-	velocity.x = _axis() * MOVE_SPEED
+	velocity.x = _axis() * move_speed()
 	if _pressed("attack"):
 		_start_attack(_air_move, -1)
 		return
@@ -313,7 +313,7 @@ func _tick_guard(delta: float) -> void:
 
 func _tick_hitstun(delta: float) -> void:
 	_apply_friction(delta)
-	if _pressed("escape") and _spend_energy(ESCAPE_COST):
+	if _pressed("escape") and _spend_energy(escape_cost()):
 		_start_burst()
 	elif _state_time >= _stun_time:
 		_set_state(State.IDLE)
@@ -348,7 +348,7 @@ func _tick_stunned(delta: float) -> void:
 
 
 func _tick_launched(delta: float) -> void:
-	if can_escape() and _pressed("escape") and _spend_energy(ESCAPE_COST):
+	if can_escape() and _pressed("escape") and _spend_energy(escape_cost()):
 		_start_burst()
 	elif _tumbling:
 		_tick_tumble(delta)
@@ -501,7 +501,7 @@ func _try_energy_actions() -> bool:
 			_start_attack(_special_move, SPECIAL_STEP)
 			return true
 	if _teleport_pressed() and opponent != null:
-		if _spend_energy(TELEPORT_COST):
+		if _spend_energy(teleport_cost()):
 			_start_teleport()
 			return true
 	return false
@@ -607,6 +607,11 @@ func ai_skill_range() -> float:
 
 func ai_skill2_range() -> float:
 	return INF
+
+
+## 給電腦對手的提示:技能二現在放不放得出來。預設要有 1 格氣;不用氣的角色覆寫。
+func ai_skill2_ready() -> bool:
+	return energy >= SPECIAL_COST
 
 
 ## 給電腦對手的提示:要保留多少氣給角色專屬招式,不花在通用大招上。
@@ -766,6 +771,26 @@ func super_cost() -> int:
 	return SUPER_COST
 
 
+## 幽步、受擊脫出的耗氣量。不用氣的角色可以覆寫成 0,並改用冷卻時間限制
+## (冷卻中回傳比氣量上限還大的數字,就等於放不出來)。
+func teleport_cost() -> int:
+	return TELEPORT_COST
+
+
+func escape_cost() -> int:
+	return ESCAPE_COST
+
+
+## 移動速度。天生跑得快、或有加速狀態的角色覆寫。
+func move_speed() -> float:
+	return MOVE_SPEED
+
+
+## 受到傷害的倍率。有減傷狀態的角色覆寫。
+func _damage_taken_scale() -> float:
+	return 1.0
+
+
 ## 被招式命中。倒地、起身、幽步、脫出與 KO 期間無敵;浮空時可以被連擊。
 func take_hit(move: AttackData, attacker: Fighter) -> void:
 	if is_invulnerable():
@@ -774,9 +799,9 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 	if away == 0:
 		away = attacker.facing
 
-	if state == State.GUARD and facing == -away:
-		# 防禦成功:只吃少量傷害,不會被防禦傷害打倒。
-		_set_health(maxi(health - int(move.damage * GUARD_DAMAGE_SCALE), 1))
+	if state == State.GUARD and facing == -away and not move.unblockable:
+		# 防禦成功:只吃少量傷害,不會被防禦傷害打倒。(破防的招式擋不住,照常受擊。)
+		_set_health(maxi(health - int(move.damage * GUARD_DAMAGE_SCALE * _damage_taken_scale()), 1))
 		Sfx.play("guard")
 		velocity.x = away * 160.0
 		add_energy(int(move.damage * ENERGY_PER_DAMAGE_BLOCKED))
@@ -846,6 +871,7 @@ func _register_hit(raw_damage: int) -> int:
 	var scale_factor := maxf(1.0 - COMBO_DAMAGE_STEP * _combo_hits, COMBO_DAMAGE_FLOOR)
 	if state == State.STUNNED:
 		scale_factor *= _stun_damage_scale
+	scale_factor *= _damage_taken_scale()
 	var damage := maxi(int(round(raw_damage * scale_factor)), 1) if raw_damage > 0 else 0
 	_combo_hits += 1
 	_combo_damage += damage

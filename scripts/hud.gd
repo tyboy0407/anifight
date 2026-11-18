@@ -90,7 +90,7 @@ func set_health(player_index: int, current: int, maximum: int) -> void:
 ## 氣量以每格 100 分段顯示;滿格的段落會變亮。
 func set_energy(player_index: int, current: int, maximum: int) -> void:
 	@warning_ignore("integer_division")
-	var segments := maxi(maximum / ENERGY_PER_SEGMENT, 1)
+	var segments := maximum / ENERGY_PER_SEGMENT  # 沒有氣格的角色是 0:不顯示氣量格
 	if _energy_bars[player_index].size() != segments:
 		# 氣量上限因角色而異,格數不同時重建這一側的氣量格
 		for old: ProgressBar in _energy_bars[player_index]:

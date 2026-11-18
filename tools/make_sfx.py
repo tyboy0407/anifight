@@ -412,6 +412,23 @@ def parry(v: int) -> np.ndarray:
     return finish(mix(ting, highpass(noise(0.015), 3000) * decay(0.015, 150) * 0.6), 0.40, 0.03)
 
 
+def weapon_swap(v: int) -> np.ndarray:
+    dur = 0.16
+    x = t(dur) / dur
+    scrape = highpass(lowpass(noise(dur), 7000 - 3000 * x), 2600) * decay(dur, 16)
+    ring = (osc(2200, dur) + osc(3300, dur) * 0.6) * decay(dur, 22) * 0.5
+    return finish(mix(scrape, ring), 0.38)
+
+
+def bind(v: int) -> np.ndarray:
+    # 咒縛狀態:兩下沉重的心跳,接著往上衝的低吼
+    beats = mix(thump(85, 40, 0.22, 14), at(thump(95, 42, 0.26, 12) * 1.2, 0.20))
+    dur = 0.55
+    x = t(dur)
+    surge = lowpass(osc(glide(55, 210, dur), dur, "saw"), 1100) * (0.6 + 0.4 * np.sin(2 * np.pi * 26 * x)) * swell(dur, 0.25, 0.2)
+    return finish(drive(mix(beats, at(surge, 0.18), at(highpass(noise(0.3), 2500) * decay(0.3, 9) * 0.3, 0.42)), 1.7), 0.65, 0.05)
+
+
 # 音效名稱 -> (產生函式, 變化版數量)。和 scripts/sfx.gd 的 SOUNDS 對應。
 SOUNDS = {
     "swing": (swing, 2), "hit_light": (hit_light, 3), "hit_heavy": (hit_heavy, 2), "guard": (guard, 1),
@@ -424,7 +441,7 @@ SOUNDS = {
     "powerup": (powerup, 1), "speech": (speech, 1), "friend_charge": (friend_charge, 1),
     "rika_summon": (rika_summon, 1), "rika_claw": (rika_claw, 1), "cannon_charge": (cannon_charge, 1),
     "cannon_fire": (cannon_fire, 1), "shikigami": (shikigami, 2), "combine": (combine, 1),
-    "divergent": (divergent, 1), "parry": (parry, 1),
+    "divergent": (divergent, 1), "parry": (parry, 1), "weapon_swap": (weapon_swap, 1), "bind": (bind, 1),
 }
 
 
