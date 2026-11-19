@@ -97,6 +97,7 @@ var _status_label: Label
 
 func _ready() -> void:
 	super()
+	_preload_sheet(SUMMONS_FX_DIR)
 	_ground_y = global_position.y
 	_status_label = Label.new()
 	_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

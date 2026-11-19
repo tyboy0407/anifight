@@ -5,10 +5,12 @@ pixelfx(https://github.com/patch-gg/pixelfx,MIT 授權)是一套用程式畫的�
 再裁切、抽格、對齊,每一組合成一張遊戲讀得懂的圖(格式見 scripts/sprite_sheet_loader.gd):
 
     assets/effects_fx/   招式特效(刀光、火花、斬擊、爪痕…),多半是灰階,由遊戲染色
-    assets/summons_fx/   召喚物(鷲、玉犬、里香),用自己的顏色
+    assets/summons_fx/   召喚物(鷲、玉犬、里香)與純愛砲的光束,用自己的顏色
+    assets/domain_void_fx/、assets/domain_shrine_fx/   領域展開的背景(無量空處、伏魔御廚子)
 
     python tools/import_pixelfx.py            # 全部重做
-    python tools/import_pixelfx.py --preview <資料夾>  # 另外輸出放大的預覽圖,方便檢查
+    python tools/import_pixelfx.py --only summons_fx,domain_void_fx   # 只重做其中幾組
+    python tools/import_pixelfx.py --preview <資料夾>  # 另外輸出預覽圖,方便檢查
 
 需要:Node 18 以上、numpy、Pillow,以及放在 .claude/pixelfx/ 的 pixelfx 原始碼
 (這個資料夾不在版本控制裡;沒有的話要先取得 pixelfx 放進去)。
@@ -84,10 +86,35 @@ SUMMONS = {
     "rika": dict(id="anifight/rika", loop=True),
     # 揮爪:舉手、抓下去各一格
     "rika_strike": dict(id="anifight/rika", opts={"mode": "strike"}, stride=4, speed=3.0),
+    # 純愛砲的光束(循環):自己寫的。圖長 440 像素,對齊點在光束正中間;遊戲裡橫向拉到判定的長度
+    "beam": dict(id="anifight/love-beam", anchor=(220, 0), loop=True),
 }
 
-# 輸出資料夾(assets 底下) -> 裡面有哪些動畫
-SETS = {"effects_fx": EFFECTS, "summons_fx": SUMMONS}
+# 領域展開的背景,整片鋪在場景後面,所以用比較大的顯示倍率。只有會開領域的角色才載入。
+ICE = ["#070a1c", "#141c44", "#24357a", "#3f62b8", "#6c9ce8", "#a8d0ff", "#e6f4ff", "#ffffff"]
+BLOOD = ["#0a0204", "#2a060c", "#5a0c16", "#961824", "#d42c34", "#ff6a5a", "#ffc0a8", "#ffffff"]
+
+# 無量空處:滿天星斗,正中一個吸著光的黑洞
+DOMAIN_VOID = {
+    "sky": dict(id="weather/shooting-stars", anchor=(0, -90), stride=7, loop=True),
+    "hole": dict(id="shadow/black-hole", opts={"palette": ICE}, anchor="centroid", stride=4, loop=True),
+}
+
+# 伏魔御廚子:血色的日蝕,地上一圈骷髏繞著火焰轉
+DOMAIN_SHRINE = {
+    "eclipse": dict(id="shadow/eclipse", opts={"palette": BLOOD, "pearl": ["#7a1c20", "#e0564a", "#ffc4b0", "#fff4ea"]},
+                    stride=4, loop=True),
+    "skulls": dict(id="shadow/necro-skulls", opts={"palette": BLOOD, "bone": ["#1c0a0c", "#5a2c2c", "#a06a60", "#e0c0b0", "#fff0e6"]},
+                   stride=3, loop=True),
+}
+
+# 輸出資料夾(assets 底下) -> 裡面有哪些動畫、遊戲裡的顯示倍率
+SETS = {
+    "effects_fx": dict(effects=EFFECTS, scale=3.0),
+    "summons_fx": dict(effects=SUMMONS, scale=3.0),
+    "domain_void_fx": dict(effects=DOMAIN_VOID, scale=4.0),
+    "domain_shrine_fx": dict(effects=DOMAIN_SHRINE, scale=4.0),
+}
 
 
 def sync_custom() -> None:
@@ -165,11 +192,12 @@ def main() -> None:
     if "--preview" in sys.argv:
         preview = pathlib.Path(sys.argv[sys.argv.index("--preview") + 1])
         preview.mkdir(parents=True, exist_ok=True)
-    for folder, effects in SETS.items():
-        export(ASSETS / folder, effects, preview / f"{folder}.png" if preview else None)
+    only = sys.argv[sys.argv.index("--only") + 1].split(",") if "--only" in sys.argv else list(SETS)
+    for folder in only:
+        export(ASSETS / folder, SETS[folder]["effects"], SETS[folder]["scale"], preview / f"{folder}.png" if preview else None)
 
 
-def export(output: pathlib.Path, effects: dict, preview: pathlib.Path | None) -> None:
+def export(output: pathlib.Path, effects: dict, scale: float, preview: pathlib.Path | None) -> None:
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp:
         built = [build(name, spec, pathlib.Path(temp)) for name, spec in effects.items()]
@@ -180,7 +208,7 @@ def export(output: pathlib.Path, effects: dict, preview: pathlib.Path | None) ->
     width = max(min(len(b["cells"]), b["columns"]) * b["size"][0] for b in built)
     height = sum(b["rows"] * b["size"][1] for b in built)
     sheet = np.zeros((height, width, 4), dtype=np.uint8)
-    data = {"scale": 3.0, "foot_offset": 0, "align": "center", "animations": {}}
+    data = {"scale": scale, "foot_offset": 0, "align": "center", "animations": {}}
     y = 0
     for b in built:
         w, h = b["size"]

@@ -67,6 +67,7 @@ const CANNON_FIRE := 0.60
 const CANNON_TICK := 0.12
 const CANNON_SIZE := Vector2(1500, 180)
 const CANNON_HEIGHT := -70.0
+const CANNON_BEAM_ART_LENGTH := 440.0  # 光束在點陣圖上的長度(像素),見 tools/pixelfx_custom/anifight/love-beam.js
 
 enum Cannon { NONE, CHARGING, FIRING }
 
@@ -108,6 +109,7 @@ var _status_label: Label
 
 func _ready() -> void:
 	super()
+	_preload_sheet(SUMMONS_FX_DIR)
 	_status_label = Label.new()
 	_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -557,12 +559,20 @@ func _fire_cannon() -> void:
 	_cannon_charge_node = null
 	var center := _cannon_origin + Vector2(_cannon_direction * CANNON_SIZE.x / 2.0, 0)
 	_cannon_beam_node = _spawn_rect(CANNON_SIZE, Color(RIKA_COLOR, 0.9), center, 1)
-	var core := ColorRect.new()
-	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	core.color = Color(1, 1, 1, 0.9)
-	core.size = Vector2(CANNON_SIZE.x, CANNON_SIZE.y * 0.45)
-	core.position = Vector2(0, CANNON_SIZE.y * 0.275)
-	_cannon_beam_node.add_child(core)
+	var beam := _summon_sprite("beam")
+	if beam != null:
+		# 點陣的光束:色塊本身隱藏。圖長 440 像素,橫向拉到判定的長度;砲口那一端朝著里香
+		_cannon_beam_node.color = Color(RIKA_COLOR, 0.0)
+		beam.position = CANNON_SIZE / 2.0
+		beam.scale.x = _cannon_direction * CANNON_SIZE.x / CANNON_BEAM_ART_LENGTH
+		_cannon_beam_node.add_child(beam)
+	else:
+		var core := ColorRect.new()
+		core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		core.color = Color(1, 1, 1, 0.9)
+		core.size = Vector2(CANNON_SIZE.x, CANNON_SIZE.y * 0.45)
+		core.position = Vector2(0, CANNON_SIZE.y * 0.275)
+		_cannon_beam_node.add_child(core)
 	var tween := _cannon_beam_node.create_tween()
 	tween.tween_interval(CANNON_FIRE * 0.6)
 	tween.tween_property(_cannon_beam_node, "modulate:a", 0.0, CANNON_FIRE * 0.4)

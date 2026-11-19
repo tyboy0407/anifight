@@ -150,9 +150,7 @@ var _effect_frames: SpriteFrames  # 自己畫的特效(tools/make_effects.py)
 var _effect_scale := 3.0
 var _fx_frames: SpriteFrames      # pixelfx 匯出的特效(tools/import_pixelfx.py);有同名的優先用這套
 var _fx_scale := 3.0
-var _summon_frames: SpriteFrames  # 召喚物的圖;第一次用到才載入
-var _summon_scale := 3.0
-var _summon_loaded := false
+var _sheets: Dictionary = {}      # 其他幾組點陣圖(召喚物、領域背景):資料夾 -> 載入的結果;第一次用到才載入
 # 翻滾擊飛中
 var _tumbling := false
 var _tumble_dir := 1          # 飛出去的方向
@@ -1254,21 +1252,36 @@ func _dress_rect(rect: ColorRect, animation: String, color: Color, size: float =
 ## 召喚物(式神、里香)的點陣圖:回傳一個已經在播 animation 的 Sprite,由呼叫的人放進場景。
 ## 圖都朝右;原點在圖的對齊點(鷲是身體中心,玉犬與里香是腳底)。素材沒載到時回傳 null。
 func _summon_sprite(animation: String) -> AnimatedSprite2D:
-	if not _summon_loaded:
-		_summon_loaded = true
-		var data := SpriteSheetLoader.load_character(SUMMONS_FX_DIR)
-		if not data.is_empty():
-			_summon_frames = data.frames
-			_summon_scale = data.scale
-	if _summon_frames == null or not _summon_frames.has_animation(animation):
+	return _sheet_sprite(SUMMONS_FX_DIR, animation)
+
+
+## 從某一組點陣圖(資料夾裡的 sheet.png + sheet.json)拿一個已經在播 animation 的 Sprite,
+## 由呼叫的人放進場景。每一組第一次用到才載入,之後共用。素材沒載到時回傳 null。
+func _sheet_sprite(dir: String, animation: String) -> AnimatedSprite2D:
+	if not _sheets.has(dir):
+		_sheets[dir] = SpriteSheetLoader.load_character(dir)
+	var data: Dictionary = _sheets[dir]
+	if data.is_empty() or not data.frames.has_animation(animation):
 		return null
 	var sprite := AnimatedSprite2D.new()
 	sprite.name = "Sprite"
-	sprite.sprite_frames = _summon_frames
+	sprite.sprite_frames = data.frames
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale = Vector2.ONE * _summon_scale
+	sprite.scale = Vector2.ONE * data.scale
 	sprite.play(animation)
 	return sprite
+
+
+## 先把某一組點陣圖載進來,免得招式第一次放出來的那一刻才載入而頓一下。
+func _preload_sheet(dir: String) -> void:
+	if not _sheets.has(dir):
+		_sheets[dir] = SpriteSheetLoader.load_character(dir)
+
+
+## 畫面正中央在場景裡的座標(鏡頭會跟著角色移動)。領域的背景用這個對齊,才會一直鋪滿畫面。
+func _screen_center() -> Vector2:
+	var camera := get_viewport().get_camera_2d()
+	return camera.get_screen_center_position() if camera != null else global_position + Vector2(0, -250)
 
 
 ## 換召喚物正在播的動畫(已經在播同一個就不動)。figure 是裝著 Sprite 的節點;用色塊暫代的沒有 Sprite,就什麼都不做。

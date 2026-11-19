@@ -35,6 +35,7 @@ const DOMAIN_SLASH_INTERVAL := 0.5
 const DOMAIN_SLASH_WARN := 0.30  # 斬擊落下前的預兆時間,讓對手有機會閃
 const DOMAIN_SLASH_ACTIVE := 0.10
 const DOMAIN_SLASH_SIZE := Vector2(130, 700)
+const DOMAIN_FX_DIR := "res://assets/domain_shrine_fx"  # 領域背景的點陣圖:日蝕與骷髏
 var _dismantle_cooldown := 0.0
 var _dismantle_time := 0.0
 var _dismantle_direction := 1
@@ -61,6 +62,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	super()
+	_preload_sheet(DOMAIN_FX_DIR)
 	_rng.randomize()
 	_dismantle_move = AttackData.make(55, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(200, 0), 0.30, false, 0.0)
 	_cleave_move = AttackData.make(40, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.30, false, 0.0)
@@ -245,6 +247,9 @@ func _tick_domain(delta: float) -> void:
 		_end_domain()
 		return
 
+	if is_instance_valid(_domain_backdrop) and _domain_backdrop.has_node("Art"):
+		(_domain_backdrop.get_node("Art") as Node2D).global_position.x = _screen_center().x
+
 	_domain_slash_timer -= delta
 	if _domain_slash_timer <= 0.0:
 		_domain_slash_timer = DOMAIN_SLASH_INTERVAL
@@ -309,6 +314,22 @@ func _make_domain_backdrop() -> Node2D:
 	haze.position = global_position + Vector2(0, -250) - haze.size / 2.0
 	effect.add_child(haze)
 
+	# 點陣的背景:天上一輪血色的日蝕,地上一圈骷髏繞著火焰轉。整組跟著鏡頭走(見 _tick_domain)
+	var eclipse := _sheet_sprite(DOMAIN_FX_DIR, "eclipse")
+	if eclipse != null:
+		var art := Node2D.new()
+		art.name = "Art"
+		effect.add_child(art)
+		art.global_position = _screen_center()
+		eclipse.position = Vector2(230, -150)
+		art.add_child(eclipse)
+		var skulls := _sheet_sprite(DOMAIN_FX_DIR, "skulls")
+		if skulls != null:
+			# 圖的對齊點在火焰底下的地面
+			skulls.position = Vector2(0, _domain_floor_y - art.global_position.y)
+			skulls.modulate = Color(1, 1, 1, 0.85)
+			art.add_child(skulls)
+
 	var title := Label.new()
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.text = "領域展開\n伏魔御廚子"
@@ -316,8 +337,14 @@ func _make_domain_backdrop() -> Node2D:
 	title.add_theme_font_size_override("font_size", 56)
 	title.add_theme_color_override("font_color", Color(1.0, 0.8, 0.8))
 	title.size = Vector2(700, 180)
-	title.position = Vector2(global_position.x - 350, 110)
-	effect.add_child(title)
+	var backdrop_art := effect.get_node_or_null("Art") as Node2D
+	if backdrop_art != null:
+		# 標題和背景一起對齊畫面:字在左,日蝕在右,不互相擋到
+		title.position = Vector2(-610, 110 - backdrop_art.global_position.y)
+		backdrop_art.add_child(title)
+	else:
+		title.position = Vector2(global_position.x - 350, 110)
+		effect.add_child(title)
 
 	var tween := effect.create_tween()
 	tween.tween_property(effect, "modulate:a", 1.0, 0.25)

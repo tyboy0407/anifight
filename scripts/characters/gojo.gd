@@ -42,6 +42,7 @@ const DOMAIN_DAMAGE := 120
 const DOMAIN_VULNERABILITY := 1.5  # 定身期間對手受到的傷害倍率
 const DOMAIN_SEAL := 20.0          # 中招後「氣閉」幾秒:期間無法累積氣量
 const DOMAIN_FADE := 0.25
+const DOMAIN_FX_DIR := "res://assets/domain_void_fx"  # 領域背景的點陣圖:星空與黑洞
 
 var _blue_cooldown := 0.0
 var _blue_time := 0.0
@@ -65,6 +66,7 @@ var _domain_node: Node2D
 
 func _ready() -> void:
 	super()
+	_preload_sheet(DOMAIN_FX_DIR)
 	_blue_move = AttackData.make(14, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.28, false, 0.0)
 	_blue_move.builds_energy = false
 	_red_move = AttackData.make(RED_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(750, -500), 0.0, true, 0.0)
@@ -85,6 +87,9 @@ func _physics_process(delta: float) -> void:
 	_tick_blue(delta)
 	_tick_red_charge(delta)
 	_tick_red(delta)
+	# 領域的星空與黑洞跟著鏡頭走,一直鋪滿畫面
+	if is_instance_valid(_domain_node) and _domain_node.has_node("Art"):
+		(_domain_node.get_node("Art") as Node2D).global_position = _screen_center()
 
 
 func _try_character_actions() -> bool:
@@ -285,17 +290,37 @@ func _make_domain_effect() -> Node2D:
 	darkness.position = center - darkness.size / 2.0
 	effect.add_child(darkness)
 
-	# 星點
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 20261111
-	for i in 140:
-		var star := ColorRect.new()
-		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var star_size := rng.randf_range(2.0, 6.0)
-		star.size = Vector2(star_size, star_size)
-		star.position = center + Vector2(rng.randf_range(-1300, 1300), rng.randf_range(-520, 320))
-		star.color = Color(0.8, 0.9, 1.0, rng.randf_range(0.4, 1.0))
-		effect.add_child(star)
+	var sky := _sheet_sprite(DOMAIN_FX_DIR, "sky")
+	if sky != null:
+		# 點陣的星空(偶爾有流星劃過)加上正中央的黑洞,整組跟著鏡頭走。
+		# 一張星空不夠寬螢幕用,左右各再接一張鏡像的。
+		var backdrop := Node2D.new()
+		backdrop.name = "Art"
+		effect.add_child(backdrop)
+		backdrop.global_position = _screen_center()
+		var width := sky.sprite_frames.get_frame_texture("sky", 0).get_width() * sky.scale.x
+		for side in [-1, 0, 1]:
+			var piece := sky if side == 0 else _sheet_sprite(DOMAIN_FX_DIR, "sky")
+			piece.position.x = side * width
+			if side != 0:
+				piece.scale.x = -piece.scale.x
+			backdrop.add_child(piece)
+		var hole := _sheet_sprite(DOMAIN_FX_DIR, "hole")
+		if hole != null:
+			hole.position = Vector2(230, -80)
+			backdrop.add_child(hole)
+	else:
+		# 沒有點陣圖時:用色塊撒星點
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 20261111
+		for i in 140:
+			var star := ColorRect.new()
+			star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var star_size := rng.randf_range(2.0, 6.0)
+			star.size = Vector2(star_size, star_size)
+			star.position = center + Vector2(rng.randf_range(-1300, 1300), rng.randf_range(-520, 320))
+			star.color = Color(0.8, 0.9, 1.0, rng.randf_range(0.4, 1.0))
+			effect.add_child(star)
 
 	var title := Label.new()
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -304,8 +329,14 @@ func _make_domain_effect() -> Node2D:
 	title.add_theme_font_size_override("font_size", 56)
 	title.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0))
 	title.size = Vector2(700, 180)
-	title.position = Vector2(global_position.x - 350, 110)
-	effect.add_child(title)
+	var art := effect.get_node_or_null("Art") as Node2D
+	if art != null:
+		# 標題和背景一起對齊畫面:字在左,黑洞在右,不互相擋到
+		title.position = Vector2(-610, 110 - art.global_position.y)
+		art.add_child(title)
+	else:
+		title.position = Vector2(global_position.x - 350, 110)
+		effect.add_child(title)
 
 	var tween := effect.create_tween()
 	tween.tween_property(effect, "modulate:a", 1.0, DOMAIN_FADE)
