@@ -6,6 +6,7 @@ extends RefCounted
 ## {
 ##   "scale": 3.0,              // 顯示倍率
 ##   "foot_offset": 0,          // 腳底離格子底邊的像素數
+##   "align": "center",         // 選填:大小不一的格子改成上下左右都置中(特效用);預設是底邊對齊
 ##   "background": [r, g, b],   // 選填:要去背的純色背景(0-255);圖片本身透明就不用寫
 ##   "rows": [[[x, y, w, h], ...], ...],   // 選填:切圖工具輸出的各列圖塊
 ##   "animations": {
@@ -52,6 +53,7 @@ static func load_character(dir: String) -> Dictionary:
 	if resolved.is_empty():
 		return {}
 
+	var centered := str(data.get("align", "")) == "center"
 	var frames := SpriteFrames.new()
 	frames.remove_animation("default")
 	for animation_name: String in resolved:
@@ -63,9 +65,10 @@ static func load_character(dir: String) -> Dictionary:
 			var atlas := AtlasTexture.new()
 			atlas.atlas = texture
 			atlas.region = rect
-			# 用 margin 把大小不一的格子補成同一個畫布:水平置中、底邊對齊。
+			# 用 margin 把大小不一的格子補成同一個畫布:水平置中、底邊對齊(角色的腳踩在同一條線上)。
+			# 設定檔寫了 "align": "center" 的話改成上下也置中(特效以格子中心為對齊點)。
 			var extra := canvas - rect.size
-			atlas.margin = Rect2(floorf(extra.x / 2.0), extra.y, extra.x, extra.y)
+			atlas.margin = Rect2(floorf(extra.x / 2.0), floorf(extra.y / 2.0) if centered else extra.y, extra.x, extra.y)
 			frames.add_frame(animation_name, atlas)
 
 	return {

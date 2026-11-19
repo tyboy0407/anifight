@@ -154,6 +154,11 @@ func _build_moves() -> void:
 	_cannon_final_move.builds_energy = false
 
 
+## 拿刀的角色:揮擊畫成刀光。
+func _slash_effect() -> String:
+	return "slash"
+
+
 func _slash(damage: int, startup: float, recovery: float, hitstun: float, launches: bool) -> AttackData:
 	var knockback := CHAIN_LAUNCH if launches else Vector2(170, 0)
 	var move := AttackData.make(damage, startup, 0.10, recovery, Vector2(80, -62), Vector2(120, 56), knockback, hitstun, launches, 230.0 if launches else 130.0)

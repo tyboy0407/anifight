@@ -142,7 +142,7 @@ func _release_blue() -> void:
 	_blue_time = BLUE_DURATION
 	_blue_tick = 0.0
 	# 球體比角色大,畫成半透明才看得到被吸進去的對手
-	_blue_node = _make_orb(BLUE_SIZE, Color(BLUE_COLOR, 0.7), _blue_position)
+	_blue_node = _make_orb(BLUE_SIZE, Color(BLUE_COLOR, 0.7), _blue_position, "void")
 	_callout("蒼", BLUE_COLOR, "blue")
 
 
@@ -323,9 +323,9 @@ func _clear_domain() -> void:
 
 # ---------- 共用 ----------
 
-## 在場景中建立一個方形能量體(之後換成點陣特效)。
-func _make_orb(orb_size: float, color: Color, center: Vector2) -> ColorRect:
-	return _spawn_rect(Vector2(orb_size, orb_size), color, center)
+## 在場景中建立一團咒力:style 是 "orb"(光球,赫)或 "void"(把東西吸進去的漩渦,蒼)。
+func _make_orb(orb_size: float, color: Color, center: Vector2, style: String = "orb") -> ColorRect:
+	return _spawn_rect(Vector2(orb_size, orb_size), color, center, 1, style)
 
 
 func _update_visual() -> void:

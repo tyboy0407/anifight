@@ -126,6 +126,11 @@ func _build_moves() -> void:
 	_equip(weapon)
 
 
+## 拿刀的角色:揮擊畫成刀光。
+func _slash_effect() -> String:
+	return "slash"
+
+
 func _blade(damage: int, startup: float, recovery: float, offset: Vector2, hit_size: Vector2,
 		push: float, hitstun: float, lunge: float, color: Color) -> AttackData:
 	var move := AttackData.make(damage, startup, 0.10, recovery, offset, hit_size, Vector2(push, 0), hitstun, false, lunge)

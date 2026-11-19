@@ -51,6 +51,9 @@ const HITSTOP_SHAKE := 3.0    # 定格期間,挨打的一方左右抖動的幅�
 const INPUT_BUFFER := 0.12    # 按鍵提早這麼久按下也算數(收招、定格、落地前先按好)
 const BUFFERED_ACTIONS: Array[String] = ["attack", "jump", "dash", "skill", "skill2", "special", "super", "teleport", "escape"]
 const EFFECTS_DIR := "res://assets/effects"
+const EFFECTS_FX_DIR := "res://assets/effects_fx"
+# pixelfx 的光球與漩渦在圖上的直徑(像素):用來把圖縮放到招式指定的大小
+const ORB_ART_DIAMETER := {"orb": 44.0, "void": 46.0}
 const SPARK_COLOR := Color(1.0, 0.95, 0.7)
 const GUARD_SPARK_COLOR := Color(0.7, 0.86, 1.0)
 # 翻滾擊飛(AttackData.tumbles):落地後彈跳幾次,彈不起來就貼地翻滾,撞到場邊或停下來才倒地。
@@ -142,8 +145,10 @@ var _hitstop_shakes := false   # 定格中要不要左右抖(挨打的一方)
 var _hitstop_paused_sprite := false  # 定格時有沒有把動畫停住(結束時要接著播)
 var _buffer: Dictionary = {}   # 按鍵緩衝:動作名稱 -> 還記得幾秒
 var _slash_shown := false      # 這一招的刀光放過了沒
-var _effect_frames: SpriteFrames
+var _effect_frames: SpriteFrames  # 自己畫的特效(tools/make_effects.py)
 var _effect_scale := 3.0
+var _fx_frames: SpriteFrames      # pixelfx 匯出的特效(tools/import_pixelfx.py);有同名的優先用這套
+var _fx_scale := 3.0
 # 翻滾擊飛中
 var _tumbling := false
 var _tumble_dir := 1          # 飛出去的方向
@@ -174,6 +179,10 @@ func _ready() -> void:
 	if not effects.is_empty():
 		_effect_frames = effects.frames
 		_effect_scale = effects.scale
+	var fx := SpriteSheetLoader.load_character(EFFECTS_FX_DIR)
+	if not fx.is_empty():
+		_fx_frames = fx.frames
+		_fx_scale = fx.scale
 	_build_moves()
 	health = max_health
 	_set_hitbox(false)
@@ -308,13 +317,23 @@ func _hit_feedback(attacker: Fighter, heavy: bool, guarded: bool = false) -> voi
 	var at := global_position + Vector2(toward * 18.0, -BODY_SIZE.y * 0.58)
 	var knocked_out := state == State.KO
 	var duration := HITSTOP_GUARD
-	if guarded:
+	if _fx_frames != null:
+		# pixelfx 的命中特效以挨打的人腳底為原點:火花在胸口炸開、掉到地上。
+		# 圖面朝右(攻擊由左往右打);攻擊從右邊來就左右翻轉。
+		var feet := global_position + Vector2(toward * 10.0, 0.0)
+		if guarded:
+			_spawn_effect("guard", global_position, Color.WHITE, 1.0, toward < 0.0)
+		else:
+			_spawn_effect("crit" if heavy else "spark", feet, Color.WHITE, 1.0, toward > 0.0)
+	elif guarded:
 		_spawn_effect("guard", at, GUARD_SPARK_COLOR, 1.0, toward < 0.0)
 	else:
-		duration = HITSTOP_KO if knocked_out else (HITSTOP_HEAVY if heavy else HITSTOP_LIGHT)
 		_spawn_effect("spark", at, SPARK_COLOR, 1.5 if heavy else 1.0, false, randf_range(0.0, PI / 4.0))
 		if heavy:
 			_spawn_effect("ring", at, SPARK_COLOR, 1.3)
+	if not guarded:
+		duration = HITSTOP_KO if knocked_out else (HITSTOP_HEAVY if heavy else HITSTOP_LIGHT)
+		if heavy:
 			screen_shake.emit(12.0 if knocked_out else 4.0)
 	# 近身打中:雙方一起定格。遠程招式打中:只有挨打的一方頓一下
 	if attacker.state == State.ATTACK:
@@ -328,13 +347,14 @@ func _hit_feedback(attacker: Fighter, heavy: bool, guarded: bool = false) -> voi
 ## attach 為 true 時跟著角色移動(例如刀光),否則留在原地。素材沒載到時回傳 null。
 func _spawn_effect(animation: String, center: Vector2, color: Color = Color.WHITE, size: float = 1.0,
 		flip: bool = false, angle: float = 0.0, attach: bool = false) -> AnimatedSprite2D:
-	if _effect_frames == null or not _effect_frames.has_animation(animation):
+	var frames := _effect_source(animation)
+	if frames == null:
 		return null
 	var effect := AnimatedSprite2D.new()
-	effect.sprite_frames = _effect_frames
+	effect.sprite_frames = frames
 	effect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	effect.modulate = color
-	effect.scale = Vector2(-1.0 if flip else 1.0, 1.0) * _effect_scale * size
+	effect.scale = Vector2(-1.0 if flip else 1.0, 1.0) * _effect_scale_of(frames) * size
 	effect.rotation = angle
 	effect.z_index = 2
 	if attach:
@@ -344,16 +364,39 @@ func _spawn_effect(animation: String, center: Vector2, color: Color = Color.WHIT
 		get_parent().add_child(effect)
 		effect.global_position = center
 	effect.play(animation)
-	if not _effect_frames.get_animation_loop(animation):
+	if not frames.get_animation_loop(animation):
 		effect.animation_finished.connect(effect.queue_free)
 	return effect
 
 
-## 出招的那一刻在攻擊範圍畫一道刀光(拳腳也用同一道弧線表示揮動的軌跡)。
+## 某個特效動畫在哪一套素材裡:先找 pixelfx 匯出的那套,沒有再找自己畫的。都沒有就回傳 null。
+func _effect_source(animation: String) -> SpriteFrames:
+	if _fx_frames != null and _fx_frames.has_animation(animation):
+		return _fx_frames
+	if _effect_frames != null and _effect_frames.has_animation(animation):
+		return _effect_frames
+	return null
+
+
+func _effect_scale_of(frames: SpriteFrames) -> float:
+	return _fx_scale if frames == _fx_frames else _effect_scale
+
+
+## 這個角色揮擊時用哪一種軌跡:"slash" 是刀光(拿武器的角色覆寫成這個),
+## "swish" 是拳腳揮動的弧線。
+func _slash_effect() -> String:
+	return "swish"
+
+
+## 出招的那一刻畫出揮擊的軌跡。
 func _show_slash() -> void:
 	var reach := maxf(_move.hitbox_size.x, _move.hitbox_size.y * 1.3)
 	var color := Color(_move.color, 1.0).lightened(0.25)
-	_spawn_effect("slash", global_position + _hit_shape.position, color, clampf(reach / 130.0, 0.5, 1.9), facing < 0, 0.0, true)
+	if _slash_effect() == "slash" and _effect_source("slash") != null:
+		# 刀光的圖以持刀者的腳底為原點,弧線畫在身前
+		_spawn_effect("slash", global_position, color, clampf(reach / 135.0, 0.7, 1.35), facing < 0, 0.0, true)
+	else:
+		_spawn_effect("swish", global_position + _hit_shape.position, color, clampf(reach / 130.0, 0.5, 1.9), facing < 0, 0.0, true)
 
 
 # ---------- 各狀態 ----------
@@ -495,7 +538,7 @@ func _tick_launched(delta: float) -> void:
 	elif _state_time > 0.05 and _landed():
 		velocity.x = 0.0
 		Sfx.play("down")
-		_spawn_dust(global_position, 6, 0.8)
+		_spawn_landing()
 		_set_state(State.DOWN)
 
 
@@ -536,7 +579,7 @@ func _tick_tumble(delta: float) -> void:
 			velocity.y = TUMBLE_BOUNCES[_tumble_bounces]
 			velocity.x *= TUMBLE_BOUNCE_KEEP
 			_tumble_bounces += 1
-			_spawn_dust(global_position, 10, 1.0)
+			_spawn_landing()
 			screen_shake.emit(6.0)
 			Sfx.play("bounce")
 		else:
@@ -583,6 +626,12 @@ func _tumble_hit_wall() -> void:
 	Sfx.play("wall_crash")
 	velocity = Vector2(-_tumble_dir * TUMBLE_WALL_REBOUND.x, TUMBLE_WALL_REBOUND.y)
 	_stop_tumble()
+
+
+## 重重摔在地上:腳下的地面裂開、兩圈煙塵往外滾。沒有這個特效時退回一般的沙土。
+func _spawn_landing() -> void:
+	if _spawn_effect("landing", global_position, Color.WHITE, 1.0, randf() < 0.5) == null:
+		_spawn_dust(global_position, 6, 0.8)
 
 
 ## 揚起沙土:幾團點陣圖的煙塵,貼著地面冒出來。amount 越大團數越多,spread 是大小與散開的範圍。
@@ -1137,8 +1186,9 @@ func _face_opponent() -> void:
 		facing = int(signf(diff))
 
 
-## 在場景中放一個色塊(招式特效的暫代品,之後換成點陣特效)。
-func _spawn_rect(rect_size: Vector2, color: Color, center: Vector2, z: int = 1) -> ColorRect:
+## 在場景中放一個色塊。接近正方形的會自動畫成點陣的光球(orb_animation 可以改成 "void" 漩渦),
+## 長條形的維持色塊(斬擊線、光束)。
+func _spawn_rect(rect_size: Vector2, color: Color, center: Vector2, z: int = 1, orb_animation: String = "orb") -> ColorRect:
 	var rect := ColorRect.new()
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.color = color
@@ -1148,23 +1198,28 @@ func _spawn_rect(rect_size: Vector2, color: Color, center: Vector2, z: int = 1) 
 	rect.z_index = z
 	get_parent().add_child(rect)
 	# 接近正方形的色塊都是「一團咒力」:改畫成點陣的光球,色塊本身隱藏
-	if _effect_frames != null and rect_size.x >= 14.0 and absf(rect_size.x - rect_size.y) <= rect_size.x * 0.2:
-		_dress_as_orb(rect, color)
+	if rect_size.x >= 14.0 and absf(rect_size.x - rect_size.y) <= rect_size.x * 0.2 and _effect_source(orb_animation) != null:
+		_dress_as_orb(rect, color, orb_animation)
 	return rect
 
 
 ## 在色塊上貼一顆光球的圖,大小跟著色塊變(招式會改色塊的 size 來表現蓄力變大)。
-func _dress_as_orb(rect: ColorRect, color: Color) -> void:
+## animation 是 "orb"(光球)或 "void"(黑洞般的漩渦)。
+func _dress_as_orb(rect: ColorRect, color: Color, animation: String) -> void:
 	rect.color = Color(color, 0.0)
+	var frames := _effect_source(animation)
+	# 光球在圖上的直徑:pixelfx 的見 ORB_ART_DIAMETER,自己畫的約 30 像素
+	var diameter: float = ORB_ART_DIAMETER.get(animation, 30.0) if frames == _fx_frames else 30.0
 	var orb := AnimatedSprite2D.new()
-	orb.sprite_frames = _effect_frames
+	orb.sprite_frames = frames
 	orb.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	orb.modulate = color
+	# 灰階的圖染色後偏暗,把顏色提亮一點才有發光的感覺
+	orb.modulate = Color(color.lightened(0.4), maxf(color.a, 0.9)) if frames == _fx_frames else color
 	rect.add_child(orb)
-	orb.play("orb")
+	orb.play(animation)
 	var fit := func() -> void:
 		orb.position = rect.size / 2.0
-		orb.scale = Vector2.ONE * rect.size.x / 30.0  # 光球在圖上的直徑約 30 像素
+		orb.scale = Vector2.ONE * rect.size.x / diameter
 	fit.call()
 	rect.resized.connect(fit)
 

@@ -137,7 +137,7 @@ def ring() -> list[np.ndarray]:
 
 # 動畫名稱 -> (畫法, 每秒格數, 是否循環)
 ANIMATIONS = {
-    "slash": (slash, 22, False),
+    "swish": (slash, 22, False),  # 拳腳揮動的弧線;拿武器的角色改用 pixelfx 的刀光(assets/effects_fx)
     "spark": (spark, 24, False),
     "guard": (guard, 18, False),
     "dust": (dust, 12, False),
