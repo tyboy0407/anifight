@@ -1,21 +1,28 @@
-"""把 pixelfx 的特效匯出成遊戲用的 sprite sheet:assets/effects_fx/sheet.png 與 sheet.json。
+"""把 pixelfx 的特效匯出成遊戲用的 sprite sheet。
 
 pixelfx(https://github.com/patch-gg/pixelfx,MIT 授權)是一套用程式畫的點陣特效庫。
-這支工具呼叫它的算圖程式,把下面 EFFECTS 列出的特效各算成一張透明底的圖,
-再裁切、抽格、對齊,合成一張遊戲讀得懂的圖(格式見 scripts/sprite_sheet_loader.gd)。
+這支工具呼叫它的算圖程式,把下面 SETS 列出的特效各算成一張透明底的圖,
+再裁切、抽格、對齊,每一組合成一張遊戲讀得懂的圖(格式見 scripts/sprite_sheet_loader.gd):
+
+    assets/effects_fx/   招式特效(刀光、火花、斬擊、爪痕…),多半是灰階,由遊戲染色
+    assets/summons_fx/   召喚物(鷲、玉犬、里香),用自己的顏色
 
     python tools/import_pixelfx.py            # 全部重做
-    python tools/import_pixelfx.py --preview  # 另外輸出一張放大的預覽圖,方便檢查
+    python tools/import_pixelfx.py --preview <資料夾>  # 另外輸出放大的預覽圖,方便檢查
 
 需要:Node 18 以上、numpy、Pillow,以及放在 .claude/pixelfx/ 的 pixelfx 原始碼
 (這個資料夾不在版本控制裡;沒有的話要先取得 pixelfx 放進去)。
-沒有 pixelfx 也能玩遊戲:assets/effects_fx/ 已經是匯出好的結果。
+沒有 pixelfx 也能玩遊戲:assets 裡已經是匯出好的結果。
+
+pixelfx 沒有的東西(飛行的斬擊、式神、里香)是這個專案用 pixelfx 的繪圖工具自己寫的,
+原始碼在 tools/pixelfx_custom/,算圖前會複製進 pixelfx 的 src/fx/ 底下。
 
 每個特效的設定:
-    id          pixelfx 的特效編號
-    opts        傳給特效的選項(調色盤、高度…)
+    id          pixelfx 的特效編號(anifight/ 開頭的是 tools/pixelfx_custom/ 裡自己寫的)
+    opts        傳給特效的選項(調色盤、高度、模式…)
     anchor      對齊點相對於特效原點的位置(點陣圖像素,往右、往下為正)。
                 遊戲播放時,對齊點會落在指定的座標上。原點通常是角色的腳底。
+                寫 "centroid" 的話改用圖案的重心(打在目標身上的斬擊、爪痕)。
     stride      每幾格取一格(減少張數)
     max_frames  只取前面幾格(特效後段多半只剩零星火星)
     speed       播放速度倍率
@@ -26,6 +33,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -35,7 +43,8 @@ from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PIXELFX = ROOT / ".claude" / "pixelfx"
-OUTPUT = ROOT / "assets" / "effects_fx"
+CUSTOM = ROOT / "tools" / "pixelfx_custom"
+ASSETS = ROOT / "assets"
 MAX_WIDTH = 2048
 
 # 灰階調色盤:算出來的圖是黑白的,顏色由遊戲在播放時染上去,同一張圖可以給不同招式共用
@@ -56,7 +65,37 @@ EFFECTS = {
     "orb": dict(id="arcane/arcane-orb", opts={"palette": GRAY}, anchor=(0, -52), keep_radius=38, stride=3, loop=True),
     # 黑洞般的漩渦(循環):五條悟的「蒼」
     "void": dict(id="shadow/void-orb", opts={"palette": GRAY}, anchor=(0, -62), keep_radius=58, stride=3, loop=True),
+    # 三道爪痕:里香的爪、式神的撲咬
+    "claw": dict(id="melee/claw-swipe", opts={"palette": GRAY}, anchor="centroid", max_frames=16, speed=1.5),
+    # 一連串各種角度的小斬擊,最後一刀大的:宿儺的「捌」
+    "flurry": dict(id="melee/dagger-flurry", opts={"palette": GRAY}, anchor="centroid", max_frames=22, speed=0.95),
+    # 交叉的兩刀:伏魔御廚子落下的斬擊、「捌」的最後一擊
+    "cut": dict(id="melee/double-slash", opts={"palette": GRAY}, anchor="centroid", max_frames=13, speed=1.5),
+    # 飛行中的斬擊(循環):宿儺的「解」。自己寫的,見 tools/pixelfx_custom/
+    "airslash": dict(id="anifight/air-slash", opts={"palette": GRAY}, loop=True),
 }
+
+# 召喚物:都是自己寫的(tools/pixelfx_custom/),朝右。原點:鷲在身體中心,玉犬與里香在腳底(里香是尾巴底端)
+SUMMONS = {
+    "owl": dict(id="anifight/owl", speed=1.25, loop=True),
+    "owl_dive": dict(id="anifight/owl", opts={"mode": "dive"}, max_frames=2, speed=1.5, loop=True),
+    "dog": dict(id="anifight/dog", loop=True),
+    "dog_run": dict(id="anifight/dog", opts={"mode": "run"}, speed=1.8, loop=True),
+    "rika": dict(id="anifight/rika", loop=True),
+    # 揮爪:舉手、抓下去各一格
+    "rika_strike": dict(id="anifight/rika", opts={"mode": "strike"}, stride=4, speed=3.0),
+}
+
+# 輸出資料夾(assets 底下) -> 裡面有哪些動畫
+SETS = {"effects_fx": EFFECTS, "summons_fx": SUMMONS}
+
+
+def sync_custom() -> None:
+    """把自己寫的特效原始碼複製進 pixelfx(它只認 src/fx/<分類>/ 底下的檔案)。"""
+    for source in CUSTOM.glob("*/*.js"):
+        target = PIXELFX / "src" / "fx" / source.parent.name / source.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
 
 
 def render(effect_id: str, opts: dict, out_dir: pathlib.Path) -> tuple[Image.Image, dict]:
@@ -86,8 +125,14 @@ def build(name: str, spec: dict, out_dir: pathlib.Path) -> dict:
     meta = info["meta"]["pixelfx"]
     frames = frames_of(sheet, info)[: spec.get("max_frames") and spec["max_frames"] * spec.get("stride", 1)]
     frames = [f.copy() for f in frames[:: spec.get("stride", 1)]]
-    ax = meta["pivot"][0] + spec.get("anchor", (0, 0))[0]
-    ay = meta["pivot"][1] + spec.get("anchor", (0, 0))[1]
+    anchor = spec.get("anchor", (0, 0))
+    if anchor == "centroid":
+        # 圖案的重心:越不透明的像素越重,零星的火星影響不大
+        weight = np.sum([f[:, :, 3].astype(float) for f in frames], axis=0)
+        ys, xs = np.mgrid[0:weight.shape[0], 0:weight.shape[1]]
+        ax, ay = int(round((xs * weight).sum() / weight.sum())), int(round((ys * weight).sum() / weight.sum()))
+    else:
+        ax, ay = meta["pivot"][0] + anchor[0], meta["pivot"][1] + anchor[1]
     if "keep_radius" in spec:
         ys, xs = np.mgrid[0:frames[0].shape[0], 0:frames[0].shape[1]]
         outside = (xs - ax) ** 2 + (ys - ay) ** 2 > spec["keep_radius"] ** 2
@@ -115,9 +160,19 @@ def build(name: str, spec: dict, out_dir: pathlib.Path) -> dict:
 def main() -> None:
     if not (PIXELFX / "tools" / "render.mjs").exists():
         raise SystemExit(f"找不到 pixelfx:{PIXELFX}")
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+    sync_custom()
+    preview = None
+    if "--preview" in sys.argv:
+        preview = pathlib.Path(sys.argv[sys.argv.index("--preview") + 1])
+        preview.mkdir(parents=True, exist_ok=True)
+    for folder, effects in SETS.items():
+        export(ASSETS / folder, effects, preview / f"{folder}.png" if preview else None)
+
+
+def export(output: pathlib.Path, effects: dict, preview: pathlib.Path | None) -> None:
+    output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp:
-        built = [build(name, spec, pathlib.Path(temp)) for name, spec in EFFECTS.items()]
+        built = [build(name, spec, pathlib.Path(temp)) for name, spec in effects.items()]
     # 每個特效排成幾列,整張圖的寬度不超過 MAX_WIDTH(舊一點的手機貼圖上限是 2048)
     for b in built:
         b["columns"] = max(MAX_WIDTH // b["size"][0], 1)
@@ -137,15 +192,16 @@ def main() -> None:
         data["animations"][b["name"]] = {"fps": b["fps"], "loop": b["loop"], "frames": rects}
         print(f"{b['name']:8s} {b['source']:24s} {len(b['cells']):3d} 格  {w}x{h}  {b['fps']:.1f} fps  {len(b['cells']) / b['fps']:.2f} 秒")
         y += b["rows"] * h
-    Image.fromarray(sheet, "RGBA").save(OUTPUT / "sheet.png")
-    (OUTPUT / "sheet.json").write_text(json.dumps(data, indent="\t"), encoding="utf-8", newline="\n")
-    print(f"輸出到 {OUTPUT.relative_to(ROOT)}:{width}x{height}")
-    if "--preview" in sys.argv:
+    Image.fromarray(sheet, "RGBA").save(output / "sheet.png")
+    (output / "sheet.json").write_text(json.dumps(data, indent="\t"), encoding="utf-8", newline="\n")
+    print(f"輸出到 {output.relative_to(ROOT)}:{width}x{height}")
+    if height > 4096:
+        print("  注意:圖高超過 4096,有些手機載不了這麼大的貼圖")
+    if preview is not None:
         back = Image.new("RGBA", (width, height), (36, 38, 62, 255))
         back.alpha_composite(Image.fromarray(sheet, "RGBA"))
-        target = pathlib.Path(sys.argv[sys.argv.index("--preview") + 1]) if len(sys.argv) > sys.argv.index("--preview") + 1 else OUTPUT / "preview.png"
-        back.save(target)
-        print(f"預覽:{target}")
+        back.save(preview)
+        print(f"預覽:{preview}")
 
 
 if __name__ == "__main__":

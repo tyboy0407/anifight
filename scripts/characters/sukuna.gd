@@ -45,6 +45,7 @@ var _cleave_hits_left := 0
 var _cleave_timer := 0.0
 var _cleave_move: AttackData
 var _cleave_final_move: AttackData
+var _cleave_fx: AnimatedSprite2D  # 「捌」正在播的斬擊特效;被打斷時要收掉
 
 var _domain_time := 0.0
 var _domain_slash_timer := 0.0
@@ -149,6 +150,8 @@ func _release_dismantle() -> void:
 	var center := global_position + Vector2(DISMANTLE_OFFSET.x * facing, DISMANTLE_OFFSET.y)
 	_dismantle_node = _spawn_rect(DISMANTLE_SIZE, SLASH_COLOR, center)
 	_dismantle_node.rotation = 0.25 * facing
+	# 飛行的斬擊圖高 50 像素,放大後剛好是判定的高度
+	_dress_rect(_dismantle_node, "airslash", SLASH_COLOR, DISMANTLE_SIZE.y / (50.0 * _fx_scale), facing < 0)
 	_callout("解", SLASH_COLOR, "slash")
 
 
@@ -185,14 +188,21 @@ func _begin_cleave() -> void:
 	_cleave_hits_left = CLEAVE_HITS
 	_cleave_timer = 0.0
 	_callout("捌", BLOOD_COLOR, "slash")
+	# 一連串小斬擊、最後一刀大的,整段落在對手身上;長度和六下判定差不多
+	_cleave_fx = null
+	if opponent != null:
+		_cleave_fx = _spawn_effect("flurry", opponent.global_position + Vector2(0, -60), _bright(SLASH_COLOR), 1.3, facing < 0)
 
 
 func _tick_cleave(delta: float) -> void:
 	if _cleave_hits_left <= 0:
 		return
 	if state != State.CAST:
-		# 被打斷
+		# 被打斷:還沒砍完的斬擊跟著消失
 		_cleave_hits_left = 0
+		if is_instance_valid(_cleave_fx):
+			_cleave_fx.queue_free()
+		_cleave_fx = null
 		return
 	_cleave_timer -= delta
 	if _cleave_timer > 0.0:
@@ -200,13 +210,20 @@ func _tick_cleave(delta: float) -> void:
 	_cleave_timer = CLEAVE_INTERVAL
 	_cleave_hits_left -= 1
 
-	var slash_center := global_position + Vector2(facing * 85.0, -60.0) \
-			+ Vector2(_rng.randf_range(-25, 25), _rng.randf_range(-35, 35))
-	_flash_slash(slash_center, Vector2(190, 7), _rng.randf_range(-1.2, 1.2), SLASH_COLOR, 0.16)
+	if _cleave_fx == null:
+		# 沒有點陣特效時:每一下一條斬擊線
+		var slash_center := global_position + Vector2(facing * 85.0, -60.0) \
+				+ Vector2(_rng.randf_range(-25, 25), _rng.randf_range(-35, 35))
+		_flash_slash(slash_center, Vector2(190, 7), _rng.randf_range(-1.2, 1.2), SLASH_COLOR, 0.16)
 
 	# 發動後對手被打退一點也還打得到,所以判定範圍放寬。
 	if _opponent_in_cleave_range(1.4) and not opponent.is_invulnerable():
+		if _cleave_hits_left == 0:
+			# 最後一擊:一道血紅的交叉斬
+			_spawn_effect("cut", opponent.global_position + Vector2(0, -60), _bright(BLOOD_COLOR.lightened(0.25)), 1.5, facing < 0)
 		opponent.take_hit(_cleave_final_move if _cleave_hits_left == 0 else _cleave_move, self)
+	if _cleave_hits_left == 0:
+		_cleave_fx = null  # 砍完了,剩下的動畫讓它自己播完
 
 
 # ---------- 領域展開・伏魔御廚子 ----------
@@ -242,7 +259,9 @@ func _tick_domain(delta: float) -> void:
 		if slash.age >= DOMAIN_SLASH_WARN + DOMAIN_SLASH_ACTIVE:
 			finished.append(slash)
 			continue
-		node.color = SLASH_COLOR
+		if not slash.shown:
+			slash.shown = true
+			_show_domain_slash(node, slash.x)
 		var center := Vector2(slash.x, _domain_floor_y - DOMAIN_SLASH_SIZE.y / 2.0)
 		if not slash.hit and _rect_hits_opponent(center, DOMAIN_SLASH_SIZE):
 			slash.hit = true
@@ -262,7 +281,19 @@ func _spawn_domain_slash() -> void:
 	var center := Vector2(x, _domain_floor_y - DOMAIN_SLASH_SIZE.y / 2.0)
 	# z = -1:畫在領域背景之上、角色之後,斬擊落下時仍看得到角色。
 	var node := _spawn_rect(DOMAIN_SLASH_SIZE, Color(BLOOD_COLOR, 0.28), center, -1)
-	_domain_slashes.append({"node": node, "x": x, "age": 0.0, "hit": false})
+	_domain_slashes.append({"node": node, "x": x, "age": 0.0, "hit": false, "shown": false})
+
+
+## 斬擊落下的那一刻:整條範圍裡由上到下連砍三道交叉斬,預兆的色塊只淡淡閃一下。
+## 沒有點陣特效時,整條色塊變成實心的白色。
+func _show_domain_slash(node: ColorRect, x: float) -> void:
+	if _effect_source("cut") == null:
+		node.color = SLASH_COLOR
+		return
+	node.color = Color(SLASH_COLOR, 0.3)
+	for height: float in [-60.0, -250.0, -440.0]:
+		_spawn_effect("cut", Vector2(x + _rng.randf_range(-12, 12), _domain_floor_y + height), _bright(SLASH_COLOR, 1.7), 1.5,
+				_rng.randf() < 0.5, _rng.randf_range(-0.5, 0.5))
 
 
 func _make_domain_backdrop() -> Node2D:

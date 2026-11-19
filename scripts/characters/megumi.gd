@@ -35,7 +35,7 @@ const OWL_DIVE_TIME := 0.22
 const OWL_HIT_SIZE := Vector2(110, 110)
 const OWL_DAMAGE := 50
 # 玉犬:跟在主人前方,先壓低身體當預兆,再撲上去
-const DOG_HEEL := 80.0
+const DOG_HEEL := 100.0
 const DOG_FIRST_ATTACK := 0.7
 const DOG_INTERVAL := 2.0
 const DOG_WINDUP := 0.25
@@ -69,6 +69,7 @@ class Shikigami:
 	var to := Vector2.ZERO
 	var move: AttackData
 	var homing := false      # 攻擊途中是否持續追著對手
+	var moving := false      # 跟隨主人時是不是還在趕路(玉犬用來決定站著還是跑)
 
 	func active() -> bool:
 		return time > 0.0
@@ -330,6 +331,12 @@ func _tick_shikigami(shikigami: Shikigami, delta: float, is_owl: bool) -> void:
 			shikigami.phase_time -= delta
 			if shikigami.phase_time <= 0.0:
 				shikigami.phase = Phase.FOLLOW
+	# 動畫:衝出去時鷲收翅俯衝、玉犬奔跑;玉犬跟上主人的途中也用跑的
+	var rushing := shikigami.phase == Phase.STRIKE or (not is_owl and shikigami.phase == Phase.FOLLOW and shikigami.moving)
+	if is_owl:
+		_summon_play(node, "owl_dive" if rushing else "owl")
+	else:
+		_summon_play(node, "dog_run" if rushing else "dog")
 
 
 ## 回到主人身邊:鷲在後上方盤旋,玉犬在前方地面。
@@ -340,6 +347,7 @@ func _follow(shikigami: Shikigami, delta: float, is_owl: bool) -> void:
 		target.y += sin(Time.get_ticks_msec() / 220.0) * 8.0
 	else:
 		target = Vector2(clampf(global_position.x + DOG_HEEL * facing, arena_min_x, arena_max_x), _ground_y)
+	shikigami.moving = absf(target.x - shikigami.node.global_position.x) > 18.0
 	shikigami.node.global_position = shikigami.node.global_position.lerp(target, minf(FOLLOW_SPEED * delta, 1.0))
 	shikigami.node.scale = Vector2(facing, 1.0)
 
@@ -378,8 +386,10 @@ func _shikigami_hit(shikigami: Shikigami, is_owl: bool) -> void:
 	opponent.take_hit(_powered(shikigami.move), self)
 
 
-## 命中特效:幾道往外散開的線條。
+## 命中特效:三道爪痕,大小跟著 length 變。沒有點陣特效時是幾道往外散開的線條。
 func _impact(center: Vector2, color: Color, count: int, length: float) -> void:
+	if _spawn_effect("claw", center, _bright(color.lightened(0.3)), length / 75.0, randf() < 0.5, randf_range(-0.5, 0.5)) != null:
+		return
 	for i in count:
 		var streak := _spawn_rect(Vector2(length, 6), color, center, 3)
 		streak.rotation = PI * i / count + randf_range(-0.2, 0.2)
@@ -434,10 +444,14 @@ func _tick_combine(delta: float) -> void:
 	opponent.take_hit(_powered(_combine_final_move), self)
 
 
-# ---------- 式神的外觀(色塊暫代) ----------
+# ---------- 式神的外觀 ----------
+# 有點陣圖(assets/summons_fx)就用圖,沒有的話用色塊拼一隻暫代。
 
 ## 鷲:原點在身體中心,面向右。
 func _make_owl() -> Node2D:
+	var sprite := _summon_sprite("owl")
+	if sprite != null:
+		return _make_sprite_figure(sprite)
 	var feather := Color(0.74, 0.47, 0.26)
 	var wing := Color(0.55, 0.33, 0.18)
 	var bone := Color(0.95, 0.93, 0.88)
@@ -459,6 +473,9 @@ func _make_owl() -> Node2D:
 
 ## 玉犬:原點在腳底中央,面向右。
 func _make_dog() -> Node2D:
+	var sprite := _summon_sprite("dog")
+	if sprite != null:
+		return _make_sprite_figure(sprite)
 	var fur := DOG_COLOR
 	var shade := Color(0.78, 0.79, 0.86)
 	return _make_figure([
@@ -477,6 +494,14 @@ func _make_dog() -> Node2D:
 		[Vector2(32, -70), Vector2(9, 5), Color(0.82, 0.16, 0.2)],       # 額頭的紋樣
 		[Vector2(54, -44), Vector2(14, 4), Color(0.82, 0.16, 0.2)],      # 嘴
 	])
+
+
+func _make_sprite_figure(sprite: AnimatedSprite2D) -> Node2D:
+	var figure := Node2D.new()
+	figure.add_child(sprite)
+	figure.z_index = 1
+	get_parent().add_child(figure)
+	return figure
 
 
 func _make_figure(parts: Array) -> Node2D:

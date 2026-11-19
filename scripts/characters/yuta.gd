@@ -426,7 +426,11 @@ func _rika_claw(target: Fighter, claw_length: float) -> void:
 		side = facing
 	_rika_node.global_position = target.global_position + Vector2(-side * 55.0, -20.0)
 	_rika_node.scale.x = side
+	_summon_play(_rika_node, "rika_strike")
 	var claw_center := target.global_position + Vector2(0, -60)
+	# 三道爪痕;沒有點陣特效時是三條線
+	if _spawn_effect("claw", claw_center, _bright(RIKA_COLOR.lightened(0.2)), claw_length / 60.0, side < 0) != null:
+		return
 	for angle: float in [-0.5, 0.0, 0.5]:
 		var claw := _spawn_rect(Vector2(claw_length, 6), RIKA_COLOR, claw_center, 2)
 		claw.rotation = 0.9 * side + angle * 0.35
@@ -453,9 +457,18 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 	attacker.take_hit(_protect_move, self)
 
 
-## 里香的暫代外觀:用色塊拼出的大型咒靈。
+## 里香的外觀:有點陣圖(assets/summons_fx)就用圖,沒有的話用色塊拼出大型咒靈暫代。
+## 原點在她的正下方(尾巴底端),面向右。
 func _make_rika() -> Node2D:
 	var rika := Node2D.new()
+	var sprite := _summon_sprite("rika")
+	if sprite != null:
+		rika.add_child(sprite)
+		# 揮爪的動畫播完就回到漂浮待機
+		sprite.animation_finished.connect(sprite.play.bind("rika"))
+		get_parent().add_child(rika)
+		get_parent().move_child(rika, get_index())
+		return rika
 	var parts := [
 		# [位置, 大小, 顏色]
 		[Vector2(-38, -150), Vector2(76, 120), Color(0.16, 0.15, 0.2)],       # 軀幹
@@ -495,7 +508,7 @@ func _begin_cannon() -> void:
 
 ## 蓄力球的位置:里香的嘴前,在憂太身後上方,不會蓋住憂太。
 func _cannon_charge_point() -> Vector2:
-	return _rika_node.global_position + Vector2(facing * 30.0, -205.0)
+	return _rika_node.global_position + Vector2(facing * 75.0, -185.0)
 
 
 ## 砲擊的起點:里香所在位置、對手身體的高度。

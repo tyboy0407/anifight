@@ -10,7 +10,11 @@ pixelfx 以 MIT 授權釋出:
   [Sprite Fusion](https://www.spritefusion.com/pixel-art-vfx) 公開的點陣特效,MIT 授權)
 
 使用到的特效:melee/sword-slash、impacts/hit-spark、impacts/crit-hit、impacts/shield-block、
-impacts/heavy-landing、arcane/arcane-orb、shadow/void-orb。
+impacts/heavy-landing、arcane/arcane-orb、shadow/void-orb、melee/claw-swipe、melee/dagger-flurry、
+melee/double-slash。
+
+另外有一個這個專案自己寫的特效:飛行的斬擊(`tools/pixelfx_custom/anifight/air-slash.js`),
+同樣用 pixelfx 的繪圖工具寫成。
 
 MIT 授權全文:
 

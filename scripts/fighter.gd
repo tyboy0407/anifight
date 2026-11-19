@@ -52,6 +52,7 @@ const INPUT_BUFFER := 0.12    # 按鍵提早這麼久按下也算數(收招、�
 const BUFFERED_ACTIONS: Array[String] = ["attack", "jump", "dash", "skill", "skill2", "special", "super", "teleport", "escape"]
 const EFFECTS_DIR := "res://assets/effects"
 const EFFECTS_FX_DIR := "res://assets/effects_fx"
+const SUMMONS_FX_DIR := "res://assets/summons_fx"  # 召喚物的點陣圖(式神、里香)
 # pixelfx 的光球與漩渦在圖上的直徑(像素):用來把圖縮放到招式指定的大小
 const ORB_ART_DIAMETER := {"orb": 44.0, "void": 46.0}
 const SPARK_COLOR := Color(1.0, 0.95, 0.7)
@@ -149,6 +150,9 @@ var _effect_frames: SpriteFrames  # 自己畫的特效(tools/make_effects.py)
 var _effect_scale := 3.0
 var _fx_frames: SpriteFrames      # pixelfx 匯出的特效(tools/import_pixelfx.py);有同名的優先用這套
 var _fx_scale := 3.0
+var _summon_frames: SpriteFrames  # 召喚物的圖;第一次用到才載入
+var _summon_scale := 3.0
+var _summon_loaded := false
 # 翻滾擊飛中
 var _tumbling := false
 var _tumble_dir := 1          # 飛出去的方向
@@ -1222,6 +1226,58 @@ func _dress_as_orb(rect: ColorRect, color: Color, animation: String) -> void:
 		orb.scale = Vector2.ONE * rect.size.x / diameter
 	fit.call()
 	rect.resized.connect(fit)
+
+
+## 把染色用的顏色調亮(分量可以超過 1)。灰階的特效圖染色後偏暗,斬擊、爪痕這類要「發亮」的用這個。
+func _bright(color: Color, amount: float = 1.5) -> Color:
+	return Color(color.r * amount, color.g * amount, color.b * amount, color.a)
+
+
+## 在色塊上貼一張特效圖(色塊本身隱藏),圖跟著色塊移動、旋轉;判定仍然照色塊的大小算。
+## 素材沒載到就維持色塊,回傳 null。
+func _dress_rect(rect: ColorRect, animation: String, color: Color, size: float = 1.0, flip: bool = false) -> AnimatedSprite2D:
+	var frames := _effect_source(animation)
+	if frames == null:
+		return null
+	rect.color = Color(color, 0.0)
+	var sprite := AnimatedSprite2D.new()
+	sprite.sprite_frames = frames
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.modulate = color
+	sprite.position = rect.size / 2.0
+	sprite.scale = Vector2(-1.0 if flip else 1.0, 1.0) * _effect_scale_of(frames) * size
+	rect.add_child(sprite)
+	sprite.play(animation)
+	return sprite
+
+
+## 召喚物(式神、里香)的點陣圖:回傳一個已經在播 animation 的 Sprite,由呼叫的人放進場景。
+## 圖都朝右;原點在圖的對齊點(鷲是身體中心,玉犬與里香是腳底)。素材沒載到時回傳 null。
+func _summon_sprite(animation: String) -> AnimatedSprite2D:
+	if not _summon_loaded:
+		_summon_loaded = true
+		var data := SpriteSheetLoader.load_character(SUMMONS_FX_DIR)
+		if not data.is_empty():
+			_summon_frames = data.frames
+			_summon_scale = data.scale
+	if _summon_frames == null or not _summon_frames.has_animation(animation):
+		return null
+	var sprite := AnimatedSprite2D.new()
+	sprite.name = "Sprite"
+	sprite.sprite_frames = _summon_frames
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.scale = Vector2.ONE * _summon_scale
+	sprite.play(animation)
+	return sprite
+
+
+## 換召喚物正在播的動畫(已經在播同一個就不動)。figure 是裝著 Sprite 的節點;用色塊暫代的沒有 Sprite,就什麼都不做。
+func _summon_play(figure: Node2D, animation: String) -> void:
+	if not is_instance_valid(figure):
+		return
+	var sprite := figure.get_node_or_null("Sprite") as AnimatedSprite2D
+	if sprite != null and sprite.animation != animation and sprite.sprite_frames.has_animation(animation):
+		sprite.play(animation)
 
 
 ## 招式名稱浮字。sound 是同時要播的音效名稱(見 Sfx.SOUNDS),留空就不播。
