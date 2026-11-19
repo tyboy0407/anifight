@@ -26,14 +26,14 @@ const DAGGER_SPRITES := "res://assets/characters/toji_dagger"
 
 # 天與咒縛
 const SPEED_SCALE := 1.5
-const REGEN_PER_SECOND := 5.0     # 每秒回復的生命(些微:150 秒約回 750)
+const REGEN_PER_SECOND := 1.5     # 每秒回復的生命(些微:150 秒約回 225)
 const TELEPORT_COOLDOWN := 3.0
 const ESCAPE_COOLDOWN := 10.0
 # 換武器、武器招式
 const SWAP_TIME := 0.16           # 換武器的動作時間
-const SPIN_COOLDOWN := 2.5        # 狼牙刀旋轉揮砍
+const SPIN_COOLDOWN := 3.5        # 狼牙刀旋轉揮砍
 const SPIN_RANGE := 260.0         # 電腦:對手在這個距離內才用旋轉揮砍
-const BACKSTAB_COOLDOWN := 4.0    # 天逆牟瞬身背刺
+const BACKSTAB_COOLDOWN := 6.0    # 天逆牟瞬身背刺
 const BACKSTAB_OFFSET := 70.0     # 瞬身後離對手多遠
 const BACKSTAB_RANGE := 700.0     # 電腦:對手在這個距離內才用背刺
 # 咒縛狀態
@@ -93,33 +93,34 @@ func _ready() -> void:
 func _build_moves() -> void:
 	super()
 	# 狼牙刀:又重又遠的兩刀,接迴身踢把對手踢遠
-	var kick := AttackData.make(100, 0.12, 0.12, 0.32, Vector2(78, -60), Vector2(116, 60), Vector2(1050, -520), 0.0, true, 240.0)
+	# (傷害數值經過電腦對戰統計調整過:他不耗氣、跑得快又會回血,單下傷害要比別人低)
+	var kick := AttackData.make(66, 0.12, 0.12, 0.32, Vector2(78, -60), Vector2(116, 60), Vector2(1050, -520), 0.0, true, 240.0)
 	_chains[Weapon.CLEAVER] = [
-		_blade(60, 0.09, 0.22, Vector2(88, -62), Vector2(136, 66), 190.0, 0.34, 140.0, CLEAVER_COLOR),
-		_blade(70, 0.10, 0.24, Vector2(90, -60), Vector2(140, 70), 210.0, 0.36, 150.0, CLEAVER_COLOR),
+		_blade(38, 0.09, 0.22, Vector2(88, -62), Vector2(136, 66), 190.0, 0.34, 140.0, CLEAVER_COLOR),
+		_blade(44, 0.10, 0.24, Vector2(90, -60), Vector2(140, 70), 210.0, 0.36, 150.0, CLEAVER_COLOR),
 		kick,
 	]
 	# 天逆牟:又快又短的四刀,接下旋踢並閃到對手身後
-	_sweep_move = AttackData.make(60, 0.08, 0.10, 0.22, Vector2(62, -24), Vector2(104, 44), Vector2(40, -430), 0.0, true, 130.0)
+	_sweep_move = AttackData.make(38, 0.08, 0.10, 0.22, Vector2(62, -24), Vector2(104, 44), Vector2(40, -430), 0.0, true, 130.0)
 	_chains[Weapon.DAGGER] = [
-		_blade(30, 0.04, 0.14, Vector2(62, -64), Vector2(86, 44), 120.0, 0.30, 110.0, DAGGER_COLOR),
-		_blade(30, 0.04, 0.14, Vector2(64, -58), Vector2(86, 44), 120.0, 0.30, 110.0, DAGGER_COLOR),
-		_blade(35, 0.05, 0.14, Vector2(64, -66), Vector2(88, 46), 130.0, 0.30, 110.0, DAGGER_COLOR),
-		_blade(35, 0.05, 0.16, Vector2(66, -60), Vector2(90, 46), 130.0, 0.32, 120.0, DAGGER_COLOR),
+		_blade(18, 0.04, 0.14, Vector2(62, -64), Vector2(86, 44), 120.0, 0.30, 110.0, DAGGER_COLOR),
+		_blade(18, 0.04, 0.14, Vector2(64, -58), Vector2(86, 44), 120.0, 0.30, 110.0, DAGGER_COLOR),
+		_blade(21, 0.05, 0.14, Vector2(64, -66), Vector2(88, 46), 130.0, 0.30, 110.0, DAGGER_COLOR),
+		_blade(21, 0.05, 0.16, Vector2(66, -60), Vector2(90, 46), 130.0, 0.32, 120.0, DAGGER_COLOR),
 		_sweep_move,
 	]
 	_air_moves = [
-		AttackData.make(75, 0.06, 0.20, 0.10, Vector2(62, -40), Vector2(124, 74), Vector2(280, 0), 0.32, false, 0.0),
-		AttackData.make(50, 0.04, 0.20, 0.10, Vector2(52, -40), Vector2(90, 60), Vector2(220, 0), 0.30, false, 0.0),
+		AttackData.make(55, 0.06, 0.20, 0.10, Vector2(62, -40), Vector2(124, 74), Vector2(280, 0), 0.32, false, 0.0),
+		AttackData.make(38, 0.04, 0.20, 0.10, Vector2(52, -40), Vector2(90, 60), Vector2(220, 0), 0.30, false, 0.0),
 	]
 	_air_moves[Weapon.CLEAVER].color = CLEAVER_COLOR
 	_air_moves[Weapon.DAGGER].color = DAGGER_COLOR
 
 	# 狼牙刀旋轉揮砍:邊前衝邊轉,前後都掃得到
-	_spin_move = AttackData.make(110, 0.10, 0.18, 0.30, Vector2(40, -60), Vector2(240, 96), Vector2(420, -520), 0.0, true, 560.0)
+	_spin_move = AttackData.make(70, 0.10, 0.18, 0.30, Vector2(40, -60), Vector2(240, 96), Vector2(420, -520), 0.0, true, 560.0)
 	_spin_move.color = CLEAVER_COLOR
 	# 天逆牟背刺:破防,打出硬直讓自己接連段
-	_backstab_move = AttackData.make(90, 0.07, 0.10, 0.26, Vector2(62, -62), Vector2(112, 56), Vector2(240, 0), 0.42, false, 0.0)
+	_backstab_move = AttackData.make(52, 0.07, 0.10, 0.26, Vector2(62, -62), Vector2(112, 56), Vector2(240, 0), 0.36, false, 0.0)
 	_backstab_move.unblockable = true
 	_backstab_move.color = DAGGER_COLOR
 	_equip(weapon)

@@ -42,6 +42,17 @@ const BLACK_FLASH_DAMAGE_SCALE := 2.0
 const BLACK_FLASH_COLOR := Color(0.85, 0.08, 0.12)
 ## 電腦操作時,每回合有這個機率選擇存氣放超必殺(只對超必殺很貴的角色有意義)。
 const AI_SAVE_CHANCE := 0.6
+# 打擊手感
+const HITSTOP_LIGHT := 0.05   # 命中的瞬間雙方定格多久:輕攻擊
+const HITSTOP_HEAVY := 0.10   # 擊飛的重攻擊
+const HITSTOP_GUARD := 0.04   # 打在防禦上
+const HITSTOP_KO := 0.22      # 打倒對手的最後一擊
+const HITSTOP_SHAKE := 3.0    # 定格期間,挨打的一方左右抖動的幅度(像素)
+const INPUT_BUFFER := 0.12    # 按鍵提早這麼久按下也算數(收招、定格、落地前先按好)
+const BUFFERED_ACTIONS: Array[String] = ["attack", "jump", "dash", "skill", "skill2", "special", "super", "teleport", "escape"]
+const EFFECTS_DIR := "res://assets/effects"
+const SPARK_COLOR := Color(1.0, 0.95, 0.7)
+const GUARD_SPARK_COLOR := Color(0.7, 0.86, 1.0)
 # 翻滾擊飛(AttackData.tumbles):落地後彈跳幾次,彈不起來就貼地翻滾,撞到場邊或停下來才倒地。
 const TUMBLE_BOUNCES: Array[float] = [-400.0, -310.0, -220.0]  # 每次著地彈起的速度
 const TUMBLE_BOUNCE_KEEP := 0.85       # 每次著地保留的水平速度比例
@@ -125,6 +136,14 @@ var _combo_hits := 0
 var _combo_damage := 0
 ## 連段到達上限後的那次擊飛:落地前不能再被追打。一般的擊飛則可以在空中被連擊。
 var _launch_protected := false
+# 打擊手感
+var _hitstop := 0.0            # 命中定格還剩幾秒;定格中不移動、不計時
+var _hitstop_shakes := false   # 定格中要不要左右抖(挨打的一方)
+var _hitstop_paused_sprite := false  # 定格時有沒有把動畫停住(結束時要接著播)
+var _buffer: Dictionary = {}   # 按鍵緩衝:動作名稱 -> 還記得幾秒
+var _slash_shown := false      # 這一招的刀光放過了沒
+var _effect_frames: SpriteFrames
+var _effect_scale := 3.0
 # 翻滾擊飛中
 var _tumbling := false
 var _tumble_dir := 1          # 飛出去的方向
@@ -151,6 +170,10 @@ func _ready() -> void:
 	# 場景內的子資源會被所有實例共用,所以攻擊框形狀在這裡各自建立。
 	_hit_shape.shape = RectangleShape2D.new()
 	_load_sprite()
+	var effects := SpriteSheetLoader.load_character(EFFECTS_DIR)
+	if not effects.is_empty():
+		_effect_frames = effects.frames
+		_effect_scale = effects.scale
 	_build_moves()
 	health = max_health
 	_set_hitbox(false)
@@ -182,7 +205,9 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	facing = spawn_facing
 	health = max_health
 	_dash_cooldown = 0.0
-	ai_saves_this_round = randf() < AI_SAVE_CHANCE
+	_end_hitstop()
+	_buffer.clear()
+	ai_saves_this_round = randf() < _ai_save_chance()
 	_energy_seal_time = 0.0
 	_update_seal_label()
 	_set_hitbox(false)
@@ -194,6 +219,10 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_tick_input_buffer(delta)
+	if _hitstop > 0.0:
+		_tick_hitstop(delta)
+		return
 	_state_time += delta
 	_dash_cooldown = maxf(_dash_cooldown - delta, 0.0)
 	_tick_energy_seal(delta)
@@ -221,6 +250,112 @@ func _physics_process(delta: float) -> void:
 	_apply_spin()
 
 
+# ---------- 打擊手感 ----------
+
+## 命中定格:這段時間內整個人停住不動,打擊才有「打到東西」的重量。
+## shakes 為 true 時(挨打的一方)會在原地左右抖。
+func hitstop(duration: float, shakes: bool = false) -> void:
+	if duration <= 0.0:
+		return
+	if _hitstop <= 0.0:
+		# 先把這一下造成的姿勢與顏色換上去,再停住畫面
+		_update_visual()
+		_apply_spin()
+		if _has_sprite and _sprite.is_playing():
+			_sprite.pause()
+			_hitstop_paused_sprite = true
+	_hitstop = maxf(_hitstop, duration)
+	_hitstop_shakes = _hitstop_shakes or shakes
+
+
+func _tick_hitstop(delta: float) -> void:
+	_hitstop -= delta
+	if _hitstop <= 0.0:
+		_end_hitstop()
+	elif _hitstop_shakes and _has_sprite:
+		_sprite.position.x = randf_range(-HITSTOP_SHAKE, HITSTOP_SHAKE)
+
+
+func _end_hitstop() -> void:
+	if _hitstop_shakes and _has_sprite:
+		_sprite.position.x = 0.0
+	if _hitstop_paused_sprite:
+		_sprite.play()  # 不指定動畫:從剛才停住的地方繼續播
+	_hitstop = 0.0
+	_hitstop_shakes = false
+	_hitstop_paused_sprite = false
+
+
+## 記住剛按下的按鍵一小段時間。這樣在收招、定格或落地前先按好,能動的那一刻就會出招。
+func _tick_input_buffer(delta: float) -> void:
+	for action_name: String in _buffer.keys():
+		_buffer[action_name] -= delta
+		if _buffer[action_name] <= 0.0:
+			_buffer.erase(action_name)
+	if not input_enabled:
+		_buffer.clear()
+		return
+	for action_name in BUFFERED_ACTIONS:
+		if Input.is_action_just_pressed(_action(action_name)):
+			_buffer[action_name] = INPUT_BUFFER
+
+
+## 被打中(或擋下)時的回饋:火花、定格、重擊時畫面震動。
+func _hit_feedback(attacker: Fighter, heavy: bool, guarded: bool = false) -> void:
+	var toward := signf(attacker.global_position.x - global_position.x)
+	if toward == 0.0:
+		toward = -float(attacker.facing)
+	var at := global_position + Vector2(toward * 18.0, -BODY_SIZE.y * 0.58)
+	var knocked_out := state == State.KO
+	var duration := HITSTOP_GUARD
+	if guarded:
+		_spawn_effect("guard", at, GUARD_SPARK_COLOR, 1.0, toward < 0.0)
+	else:
+		duration = HITSTOP_KO if knocked_out else (HITSTOP_HEAVY if heavy else HITSTOP_LIGHT)
+		_spawn_effect("spark", at, SPARK_COLOR, 1.5 if heavy else 1.0, false, randf_range(0.0, PI / 4.0))
+		if heavy:
+			_spawn_effect("ring", at, SPARK_COLOR, 1.3)
+			screen_shake.emit(12.0 if knocked_out else 4.0)
+	# 近身打中:雙方一起定格。遠程招式打中:只有挨打的一方頓一下
+	if attacker.state == State.ATTACK:
+		attacker.hitstop(duration)
+		hitstop(duration, not guarded)
+	else:
+		hitstop(duration * 0.5, not guarded)
+
+
+## 播放一個特效(見 tools/make_effects.py)。圖是白色的,用 color 染色;size 是相對原始大小的倍率。
+## attach 為 true 時跟著角色移動(例如刀光),否則留在原地。素材沒載到時回傳 null。
+func _spawn_effect(animation: String, center: Vector2, color: Color = Color.WHITE, size: float = 1.0,
+		flip: bool = false, angle: float = 0.0, attach: bool = false) -> AnimatedSprite2D:
+	if _effect_frames == null or not _effect_frames.has_animation(animation):
+		return null
+	var effect := AnimatedSprite2D.new()
+	effect.sprite_frames = _effect_frames
+	effect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	effect.modulate = color
+	effect.scale = Vector2(-1.0 if flip else 1.0, 1.0) * _effect_scale * size
+	effect.rotation = angle
+	effect.z_index = 2
+	if attach:
+		add_child(effect)
+		effect.position = center - global_position
+	else:
+		get_parent().add_child(effect)
+		effect.global_position = center
+	effect.play(animation)
+	if not _effect_frames.get_animation_loop(animation):
+		effect.animation_finished.connect(effect.queue_free)
+	return effect
+
+
+## 出招的那一刻在攻擊範圍畫一道刀光(拳腳也用同一道弧線表示揮動的軌跡)。
+func _show_slash() -> void:
+	var reach := maxf(_move.hitbox_size.x, _move.hitbox_size.y * 1.3)
+	var color := Color(_move.color, 1.0).lightened(0.25)
+	_spawn_effect("slash", global_position + _hit_shape.position, color, clampf(reach / 130.0, 0.5, 1.9), facing < 0, 0.0, true)
+
+
 # ---------- 各狀態 ----------
 
 func _tick_ground() -> void:
@@ -235,6 +370,7 @@ func _tick_ground() -> void:
 		return
 	if _pressed("jump"):
 		Sfx.play("jump")
+		_spawn_dust(global_position, 3, 0.45)
 		velocity.y = JUMP_VELOCITY
 		_set_state(State.JUMP)
 		return
@@ -257,6 +393,7 @@ func _tick_air() -> void:
 		return
 	if _landed():
 		Sfx.play("land")
+		_spawn_dust(global_position, 3, 0.5)
 		_set_state(State.IDLE)
 
 
@@ -284,6 +421,9 @@ func _tick_attack(delta: float) -> void:
 	var active_now := _state_time >= _move.startup and _state_time < active_end
 	_set_hitbox(active_now)
 	if active_now:
+		if not _slash_shown:
+			_slash_shown = true
+			_show_slash()
 		_check_hits()
 
 	if airborne:
@@ -355,6 +495,7 @@ func _tick_launched(delta: float) -> void:
 	elif _state_time > 0.05 and _landed():
 		velocity.x = 0.0
 		Sfx.play("down")
+		_spawn_dust(global_position, 6, 0.8)
 		_set_state(State.DOWN)
 
 
@@ -444,8 +585,17 @@ func _tumble_hit_wall() -> void:
 	_stop_tumble()
 
 
-## 揚起沙土:一把大小不一的土色方塊往上、往兩旁散開後淡出。
+## 揚起沙土:幾團點陣圖的煙塵,貼著地面冒出來。amount 越大團數越多,spread 是大小與散開的範圍。
+## (沒有特效素材時退回用土色方塊。)
 func _spawn_dust(at: Vector2, amount: int, spread: float) -> void:
+	if _effect_frames != null:
+		@warning_ignore("integer_division")
+		for i in maxi((amount + 2) / 4, 1):
+			var puff_size := randf_range(0.45, 0.7) * spread
+			# 煙塵圖案的底部在格子中心下方約 20 像素處,往上移這麼多才會貼在地面
+			var center := at + Vector2(randf_range(-26.0, 26.0) * spread, -20.0 * _effect_scale * puff_size)
+			_spawn_effect("dust", center, DUST_COLORS[randi() % DUST_COLORS.size()], puff_size, randf() < 0.5)
+		return
 	for i in amount:
 		var dust_size := randf_range(7, 17) * minf(spread + 0.4, 1.4)
 		var dust := _spawn_rect(Vector2(dust_size, dust_size), Color(DUST_COLORS[randi() % DUST_COLORS.size()], 0.85), at + Vector2(randf_range(-22, 22) * spread, -dust_size / 2.0), 1)
@@ -489,7 +639,15 @@ func _tick_getup() -> void:
 # ---------- 動作 ----------
 
 ## 耗氣動作:大招(special)、超必殺(下 + special)、幽步(上或下 + dash)。
+## 有放出任何一招就把按鍵緩衝清掉,免得同一下按鍵在接下來幾個影格又觸發一次。
 func _try_energy_actions() -> bool:
+	if _do_energy_actions():
+		_buffer.clear()
+		return true
+	return false
+
+
+func _do_energy_actions() -> bool:
 	if _try_character_actions():
 		return true
 	if _super_pressed():
@@ -625,6 +783,11 @@ func ai_saving_energy() -> bool:
 	return false
 
 
+## 電腦每回合選擇存氣的機率。超必殺特別貴、存氣代價很高的角色可以調低。
+func _ai_save_chance() -> float:
+	return AI_SAVE_CHANCE
+
+
 ## 給電腦對手的提示:現在放超必殺會不會被打斷。施法時間長、耗氣又多的角色覆寫。
 func ai_super_is_safe() -> bool:
 	return true
@@ -690,11 +853,10 @@ func _start_burst() -> void:
 	velocity = Vector2.ZERO
 	Sfx.play("burst")
 	_set_state(State.BURST, true)
-	var burst_size := Vector2(BURST_RADIUS, BURST_RADIUS) * 2.0
-	_hit_visual.color = Color(1, 1, 1, 0.45)
-	_hit_visual.size = burst_size
-	_hit_visual.position = Vector2(0, -BODY_SIZE.y / 2.0) - burst_size / 2.0
-	_hit_visual.visible = true
+	# 往外擴散的衝擊波,最後擴到脫出的作用半徑
+	var center := global_position + Vector2(0, -BODY_SIZE.y / 2.0)
+	_spawn_effect("ring", center, Color(1.0, 1.0, 0.75), BURST_RADIUS / (22.5 * _effect_scale))
+	_spawn_effect("spark", center, Color(1.0, 1.0, 0.75), 2.0)
 	if opponent != null and global_position.distance_to(opponent.global_position) <= BURST_RADIUS:
 		opponent.blown_away(self)
 
@@ -714,6 +876,8 @@ func _start_dash() -> void:
 	var axis := _axis()
 	_dash_dir = int(signf(axis)) if axis != 0.0 else facing
 	Sfx.play("dash")
+	if is_on_floor():
+		_spawn_dust(global_position, 3, 0.5)
 	_set_state(State.DASH)
 
 
@@ -727,6 +891,7 @@ func _start_attack(move: AttackData, combo_step: int) -> void:
 	else:
 		_attack_anim = "super" if move == _super_move else "special"
 	_combo_queued = false
+	_slash_shown = false
 	_hit_targets.clear()
 	var shape := _hit_shape.shape as RectangleShape2D
 	shape.size = move.hitbox_size
@@ -803,6 +968,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 		# 防禦成功:只吃少量傷害,不會被防禦傷害打倒。(破防的招式擋不住,照常受擊。)
 		_set_health(maxi(health - int(move.damage * GUARD_DAMAGE_SCALE * _damage_taken_scale()), 1))
 		Sfx.play("guard")
+		_hit_feedback(attacker, false, true)
 		velocity.x = away * 160.0
 		add_energy(int(move.damage * ENERGY_PER_DAMAGE_BLOCKED))
 		if move.builds_energy:
@@ -849,6 +1015,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 		velocity.x = away * move.knockback.x
 		_stun_time = move.hitstun
 		_set_state(State.HITSTUN, true)
+	_hit_feedback(attacker, move.launches or health <= 0)
 
 
 # ---------- 工具 ----------
@@ -858,6 +1025,9 @@ func _set_state(new_state: State, force: bool = false) -> void:
 		return
 	state = new_state
 	_state_time = 0.0
+	# 開始一個新動作:之前緩衝的按鍵已經用掉了
+	if new_state in [State.ATTACK, State.JUMP, State.DASH, State.CAST, State.TELEPORT, State.BURST, State.GETUP]:
+		_buffer.clear()
 	_anim_restart = true
 	_launch_protected = false
 	if new_state != State.LAUNCHED and new_state != State.KO:
@@ -946,7 +1116,8 @@ func _spend_energy(cost: int) -> bool:
 
 func _set_hitbox(enabled: bool) -> void:
 	_hit_shape.disabled = not enabled
-	_hit_visual.visible = enabled
+	# 攻擊範圍的色塊只在沒有特效素材時當後備;平常由 _show_slash 的刀光表示
+	_hit_visual.visible = enabled and _effect_frames == null
 
 
 func _apply_friction(delta: float) -> void:
@@ -976,7 +1147,26 @@ func _spawn_rect(rect_size: Vector2, color: Color, center: Vector2, z: int = 1) 
 	rect.position = center - rect_size / 2.0
 	rect.z_index = z
 	get_parent().add_child(rect)
+	# 接近正方形的色塊都是「一團咒力」:改畫成點陣的光球,色塊本身隱藏
+	if _effect_frames != null and rect_size.x >= 14.0 and absf(rect_size.x - rect_size.y) <= rect_size.x * 0.2:
+		_dress_as_orb(rect, color)
 	return rect
+
+
+## 在色塊上貼一顆光球的圖,大小跟著色塊變(招式會改色塊的 size 來表現蓄力變大)。
+func _dress_as_orb(rect: ColorRect, color: Color) -> void:
+	rect.color = Color(color, 0.0)
+	var orb := AnimatedSprite2D.new()
+	orb.sprite_frames = _effect_frames
+	orb.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	orb.modulate = color
+	rect.add_child(orb)
+	orb.play("orb")
+	var fit := func() -> void:
+		orb.position = rect.size / 2.0
+		orb.scale = Vector2.ONE * rect.size.x / 30.0  # 光球在圖上的直徑約 30 像素
+	fit.call()
+	rect.resized.connect(fit)
 
 
 ## 招式名稱浮字。sound 是同時要播的音效名稱(見 Sfx.SOUNDS),留空就不播。
@@ -1032,7 +1222,7 @@ func _axis() -> float:
 
 
 func _pressed(action_name: String) -> bool:
-	return input_enabled and Input.is_action_just_pressed(_action(action_name))
+	return input_enabled and (_buffer.has(action_name) or Input.is_action_just_pressed(_action(action_name)))
 
 
 func _held(action_name: String) -> bool:

@@ -87,12 +87,12 @@ func _build_moves() -> void:
 		AttackData.make(40, 0.05, 0.10, 0.16, Vector2(60, -70), Vector2(70, 36), Vector2(170, 0), 0.32),
 		AttackData.make(45, 0.06, 0.10, 0.16, Vector2(62, -62), Vector2(76, 40), Vector2(180, 0), 0.32),
 		AttackData.make(55, 0.07, 0.10, 0.18, Vector2(66, -58), Vector2(86, 46), Vector2(190, 0), 0.34),
-		AttackData.make(95, 0.10, 0.12, 0.30, Vector2(72, -65), Vector2(100, 60), CHAIN_LAUNCH, 0.0, true, 230.0),
+		AttackData.make(86, 0.10, 0.12, 0.30, Vector2(72, -65), Vector2(100, 60), CHAIN_LAUNCH, 0.0, true, 230.0),
 	]
 	_ultimate_move = AttackData.make(ULTIMATE_DAMAGE, 0.16, 0.14, 0.40, Vector2(90, -62), Vector2(170, 90), Vector2(720, -560), 0.0, true, 420.0)
 	_ultimate_move.builds_energy = false
 	_ultimate_move.color = Color(0.1, 0.02, 0.04, 0.85)
-	_divergent_burst_move = AttackData.make(120, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(650, -420), 0.0, true, 0.0)
+	_divergent_burst_move = AttackData.make(105, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(650, -420), 0.0, true, 0.0)
 	_divergent_burst_move.builds_energy = false
 	_counter_move = AttackData.make(70, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(60, 0), 0.40, false, 0.0)
 	_counter_move.builds_energy = false

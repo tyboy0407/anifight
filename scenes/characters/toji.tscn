@@ -5,6 +5,7 @@
 
 [node name="Fighter" instance=ExtResource("1_base")]
 script = ExtResource("2_toji")
+max_health = 2100
 max_energy = 0
 sprite_dir = "res://assets/characters/toji"
 

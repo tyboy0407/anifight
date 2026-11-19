@@ -13,7 +13,15 @@ const ROUNDS_TO_WIN := 2
 const ROUND_TIME := 150.0
 const ROUND_END_DELAY := 2.2
 const SHAKE_TIME := 0.28
-const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   M 音效開關   Esc 回選角"
+const STAGE_DIR := "res://assets/stage/"
+const STAGE_SCALE := 3.0         # 背景點陣圖的放大倍率,和角色一樣
+const SCENERY_LEFT := -1500.0    # 景物從多左邊開始鋪(要蓋過鏡頭看得到的範圍)
+const SCENERY_WIDTH := 5400.0
+const FAR_PARALLAX := 0.25
+const MID_PARALLAX := 0.6
+const KO_SLOWMO_SCALE := 0.35  # 打倒對手時的慢動作速度
+const KO_SLOWMO_TIME := 0.6    # 慢動作持續的實際秒數
+const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   M 聲音開關   Esc 回選角"
 
 var _fighters: Array[Fighter] = []
 var _wins: Array[int] = [0, 0]
@@ -21,6 +29,8 @@ var _round_number := 0
 var _time_left := ROUND_TIME
 var _round_active := false
 var _match_over := false
+var _sky: TextureRect
+var _scenery: Array[Dictionary] = []  # 跟著鏡頭移動的景物層:{sprite, parallax}
 var _shake_time := 0.0
 var _shake_strength := 0.0
 var _cpu: CpuController
@@ -36,6 +46,7 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	Sfx.warm_up()
+	Sfx.play_music("battle")
 	_build_backdrop()
 	_spawn_fighters()
 	_cpu = CpuController.new()
@@ -103,6 +114,7 @@ func _physics_process(_delta: float) -> void:
 	var mid := (_fighters[0].global_position.x + _fighters[1].global_position.x) / 2.0
 	var cam_x := clampf(mid, STAGE_LEFT + CAMERA_HALF_WIDTH, STAGE_RIGHT - CAMERA_HALF_WIDTH)
 	_camera.global_position = Vector2(cam_x, CAMERA_Y)
+	_update_scenery(cam_x)
 	for fighter in _fighters:
 		fighter.arena_min_x = cam_x - VIEW_HALF
 		fighter.arena_max_x = cam_x + VIEW_HALF
@@ -193,7 +205,19 @@ func _on_combo_changed(hits: int, damage: int, attacker_index: int) -> void:
 	_hud.set_combo(attacker_index, hits, damage)
 
 
+## 打倒對手的那一刻短暫放慢時間,讓最後一擊看得清楚。
+func _slow_motion() -> void:
+	Engine.time_scale = KO_SLOWMO_SCALE
+	# 計時不受慢動作影響;場景中途被換掉也照樣恢復原速
+	get_tree().create_timer(KO_SLOWMO_TIME, true, false, true).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
+
+
 func _on_defeated(loser: Fighter) -> void:
+	_slow_motion()
 	_end_round(1 - _fighters.find(loser), "K.O.")
 
 
@@ -241,18 +265,61 @@ func _end_round(winner: int, headline: String) -> void:
 
 # ---------- 場景佈置 ----------
 
+## 點陣背景(圖由 tools/make_stage.py 產生):夜空固定在畫面上,遠山、中景、地面
+## 跟著鏡頭移動,越遠的移動得越慢。圖檔不在時維持場景原本的純色天空與地面。
 func _build_backdrop() -> void:
-	# 背景柱子,讓鏡頭移動時有參照物。
-	var x := STAGE_LEFT - 400.0
-	var index := 0
-	while x < STAGE_RIGHT + 400.0:
-		var pillar := ColorRect.new()
-		pillar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pillar.z_index = -5
-		var height := 220.0 + 90.0 * (index % 3)
-		pillar.size = Vector2(70, height)
-		pillar.position = Vector2(x, FLOOR_Y - height)
-		pillar.color = Color(0.2, 0.23, 0.33)
-		add_child(pillar)
-		x += 260.0
-		index += 1
+	var sky_texture := _stage_texture("sky")
+	if sky_texture != null:
+		var layer := CanvasLayer.new()
+		layer.layer = -10  # 畫在整個對戰場景後面,不受鏡頭與畫面震動影響
+		add_child(layer)
+		_sky = TextureRect.new()
+		_sky.texture = sky_texture
+		_sky.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_sky.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		_sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(_sky)
+		$Sky.visible = false
+	_add_scenery("far", FAR_PARALLAX, -6)
+	_add_scenery("mid", MID_PARALLAX, -5)
+	var ground := _add_scenery("ground", 1.0, -4)
+	if ground != null:
+		# 地面的圖從地板線往下鋪;更下面露出來的部分用圖案最底下的顏色接上
+		ground.position.y = FLOOR_Y
+		$Ground.color = Color8(46, 42, 60)
+
+
+func _stage_texture(layer_name: String) -> Texture2D:
+	var path := "%s%s.png" % [STAGE_DIR, layer_name]
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+## 加一層左右重複鋪滿整個場地的景物,底邊貼齊地板線。parallax 是跟著鏡頭移動的比例:
+## 1 = 和角色一樣固定在場地上,越小越像在遠方。
+func _add_scenery(layer_name: String, parallax: float, z: int) -> Sprite2D:
+	var texture := _stage_texture(layer_name)
+	if texture == null:
+		return null
+	var sprite := Sprite2D.new()
+	sprite.texture = texture
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	sprite.centered = false
+	sprite.scale = Vector2.ONE * STAGE_SCALE
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(0, 0, SCENERY_WIDTH / STAGE_SCALE, texture.get_height())
+	sprite.z_index = z
+	sprite.position = Vector2(SCENERY_LEFT, FLOOR_Y - texture.get_height() * STAGE_SCALE)
+	add_child(sprite)
+	_scenery.append({"sprite": sprite, "parallax": parallax})
+	return sprite
+
+
+## 依鏡頭位置移動各層景物,做出遠近的層次。
+func _update_scenery(camera_x: float) -> void:
+	for layer: Dictionary in _scenery:
+		var sprite: Sprite2D = layer.sprite
+		var parallax: float = layer.parallax
+		sprite.position.x = SCENERY_LEFT + (camera_x - (STAGE_LEFT + STAGE_RIGHT) / 2.0) * (1.0 - parallax)

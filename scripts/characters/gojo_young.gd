@@ -16,8 +16,10 @@ const BLUE_COLOR := Color(0.3, 0.55, 1.0)
 const INFINITY_COLOR := Color(0.72, 0.9, 1.0)
 
 # 無下限
+const NORMAL_DAMAGE_SCALE := 1.25   # 普通攻擊的傷害倍率(相對一般角色)
+const NORMAL_RECOVERY_SCALE := 0.85 # 普通攻擊的收招時間倍率
 const INFINITY_DURATION := 10.0
-const INFINITY_HIT_PENALTY := 0.5   # 無下限期間每被打中一下,剩餘時間少這麼多
+const INFINITY_HIT_PENALTY := 0.35  # 無下限期間每被打中一下,剩餘時間少這麼多
 const INFINITY_COST := 200
 const INFINITY_CAST := 0.5
 const INFINITY_RELEASE := 0.3
@@ -31,7 +33,7 @@ const PUSH_ORB_START := 12.0
 const PUSH_ORB_SIZE := 36.0
 const PUSH_ORB_SPEED := 900.0
 const PUSH_ORB_LIFETIME := 0.55
-const PUSH_DAMAGE := 70
+const PUSH_DAMAGE := 130
 # 術式順轉「蒼」
 const ORB_CAST_IN := 0.5
 const ORB_DURATION := 3.0
@@ -45,8 +47,8 @@ const ORB_PULL_SPEED := 520.0
 const ORB_LIFT_DISTANCE := 150.0    # 拉到這麼近之後開始往上吸進球體
 const ORB_CAPTURE_RADIUS := 95.0
 const ORB_TICK := 0.8
-const ORB_TICK_DAMAGE := 15
-const ORB_THROW_DAMAGE := 380
+const ORB_TICK_DAMAGE := 25
+const ORB_THROW_DAMAGE := 430
 
 enum Orb { NONE, PULLING, SWING }
 
@@ -101,6 +103,10 @@ func _ready() -> void:
 
 func _build_moves() -> void:
 	super()
+	# 青年時期以體術為主:普通攻擊比一般角色重,出手也快一點
+	for move in _ground_moves:
+		move.damage = int(round(move.damage * NORMAL_DAMAGE_SCALE))
+		move.recovery *= NORMAL_RECOVERY_SCALE
 	_push_move = AttackData.make(PUSH_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(620, -440), 0.0, true, 0.0)
 	_push_move.builds_energy = false
 	_orb_tick_move = AttackData.make(ORB_TICK_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.3, false, 0.0)
@@ -146,6 +152,16 @@ func _start_super() -> void:
 ## 電腦操作時:留氣給無下限與順轉「蒼」,不要花在通用大招上。
 func ai_energy_reserve() -> int:
 	return INFINITY_COST
+
+
+## 順轉「蒼」要站著吸三秒,途中被打就白費 3 格氣:氣夠了就找打不到自己的時機放。
+func ai_wants_super() -> bool:
+	return energy >= super_cost()
+
+
+## 無下限期間不怕被打斷;否則要等對手夠遠,或被擊飛、倒地、定身。
+func ai_super_is_safe() -> bool:
+	return in_infinity() or _ai_opponent_cannot_interrupt()
 
 
 # ---------- 無下限 ----------

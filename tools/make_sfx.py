@@ -160,7 +160,7 @@ def guard(v: int) -> np.ndarray:
     dur = 0.13
     ring = sum(osc(f, dur, "square") * w for f, w in [(820, 1.0), (1240, 0.7), (1710, 0.5)]) * decay(dur, 42)
     click = highpass(noise(0.02), 2500) * decay(0.02, 140)
-    return finish(lowpass(mix(ring, click), 5200), 0.40)
+    return finish(lowpass(mix(ring, click), 5200), 0.52)
 
 
 def land(v: int) -> np.ndarray:
@@ -445,6 +445,15 @@ SOUNDS = {
 }
 
 
+# 打擊、爆炸類的音效做完後再壓一次高頻(數字是保留到幾 Hz):
+# 失真會帶出很多沙沙的雜訊,壓掉之後聲音比較沉、比較有重量,連打時也不刺耳。
+SOFTEN = {
+    "hit_light": 4200, "hit_heavy": 3000, "ko": 2600, "down": 2400, "bounce": 3000, "wall_crash": 3400,
+    "burst": 3400, "black_flash": 4000, "cannon_fire": 3600, "speech": 3000, "red": 3400,
+    "domain_shrine": 3200, "bind": 3000, "special": 4200,
+}
+
+
 def write_wav(path: pathlib.Path, samples: np.ndarray) -> None:
     data = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
     with wave.open(str(path), "wb") as out:
@@ -467,6 +476,9 @@ def main() -> None:
             # 每個音效用自己固定的亂數種子:重跑的結果一樣,改一個不會影響其他的
             _rng = np.random.default_rng(zlib.crc32(f"{name}{v}".encode()))
             samples = make(v)
+            if name in SOFTEN:
+                peak = np.max(np.abs(samples))
+                samples = finish(lowpass(samples, SOFTEN[name]), peak)
             file_name = f"{name}_{v + 1}.wav" if variants > 1 else f"{name}.wav"
             write_wav(OUTPUT / file_name, samples)
             total += len(samples) * 2

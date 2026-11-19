@@ -8,7 +8,7 @@ extends Fighter
 ##   並讓對手「氣閉」20 秒(無法累積氣量)。耗 4 格氣,取代通用超必殺。
 
 # 蒼
-const BLUE_COOLDOWN := 4.0  # 從出招算起;比吸引點的持續時間長,所以不能無縫連放
+const BLUE_COOLDOWN := 5.5  # 從出招算起;比吸引點的持續時間長,所以不能無縫連放
 const BLUE_CAST := 0.45
 const BLUE_RELEASE := 0.20
 const BLUE_OFFSET := Vector2(240, -60)
@@ -29,8 +29,8 @@ const RED_SPEED := 950.0
 const RED_LIFETIME := 0.9
 const RED_SIZE := 56.0
 const RED_SIZE_MAX := 130.0
-const RED_DAMAGE := 180
-const RED_DAMAGE_MAX := 400
+const RED_DAMAGE := 160
+const RED_DAMAGE_MAX := 360
 const RED_COLOR := Color(1.0, 0.25, 0.25)
 const AI_CHARGE_DISTANCE := 380.0  # 電腦:離對手超過這個距離才會凝聚
 const AI_CHARGE_MAX := 1.2         # 電腦:平常最多凝聚幾秒# 領域展開
@@ -65,7 +65,7 @@ var _domain_node: Node2D
 
 func _ready() -> void:
 	super()
-	_blue_move = AttackData.make(25, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.28, false, 0.0)
+	_blue_move = AttackData.make(14, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.28, false, 0.0)
 	_blue_move.builds_energy = false
 	_red_move = AttackData.make(RED_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(750, -500), 0.0, true, 0.0)
 	_red_move.builds_energy = false
@@ -202,7 +202,8 @@ func _tick_red_charge(delta: float) -> void:
 		_resize_red(RED_SIZE * lerpf(0.3, 1.0, _red_charge_time / RED_RELEASE))
 	else:
 		_resize_red(lerpf(RED_SIZE, RED_SIZE_MAX, charge))
-	_red_node.color = RED_COLOR.lightened(0.3 * charge)
+	# 蓄得越久越亮(用 modulate:光球的圖是貼在這個節點底下的)
+	_red_node.modulate = Color.WHITE.lerp(Color(1.6, 1.5, 1.5), charge)
 
 	var holding := _held("skill2") or _held("skill")
 	if _red_charge_time >= RED_CHARGE_MAX or (_red_charge_time >= RED_RELEASE and not holding):

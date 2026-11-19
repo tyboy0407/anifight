@@ -15,6 +15,7 @@ extends Node
 signal muted_changed(button_label: String)
 
 const DIR := "res://assets/sfx/"
+const MUSIC_DIR := "res://assets/music/"
 const SETTINGS_PATH := "user://settings.cfg"
 const VOICES := 12          # 最多同時播放幾個聲音
 const MIN_INTERVAL := 60    # 同一個音效至少隔幾毫秒才再播(多段攻擊同一瞬間打好幾下時不會疊成爆音)
@@ -37,6 +38,9 @@ static var muted := false
 ## 每個音效被要求播放的次數(不論有沒有靜音)。給測試確認播放點用。
 static var requests: Dictionary = {}
 
+## 現在應該播的背景音樂(assets/music/ 底下的檔名,不含副檔名);空字串代表不播。
+static var music := ""
+
 static var _instance_id := 0              # 根部那個 Sfx 節點的 instance id;0 代表還沒建立
 static var _last_played: Dictionary = {}  # 名稱 -> 上次播放的時間(毫秒)
 static var _settings_loaded := false
@@ -44,6 +48,10 @@ static var _settings_loaded := false
 var _streams: Dictionary = {}  # 名稱 -> Array[AudioStream]
 var _players: Array[AudioStreamPlayer] = []
 var _next_player := 0
+var _music_player: AudioStreamPlayer
+var _music_playing := ""       # 播放器現在放的是哪一首
+var _music_streams: Dictionary = {}  # 曲名 -> AudioStream
+var _unlocked := false         # 玩家按過任何鍵 / 點過畫面了沒(瀏覽器在那之前不給播聲音)
 
 
 ## 播放一個音效。variant 指定要第幾個變化版(從 0 起算);不指定就隨機。
@@ -67,6 +75,14 @@ static func warm_up() -> void:
 	_host()
 
 
+## 換背景音樂(循環播放)。已經在播同一首就不會重頭來;傳空字串是停止。
+static func play_music(track: String) -> void:
+	music = track
+	var host := _host()
+	if host != null and host.is_inside_tree():
+		host._sync_music()
+
+
 static func set_muted(value: bool) -> void:
 	if muted == value:
 		return
@@ -80,6 +96,7 @@ static func set_muted(value: bool) -> void:
 	if muted:
 		for player in host._players:
 			player.stop()
+	host._sync_music()
 	host.muted_changed.emit(button_text())
 
 
@@ -89,7 +106,7 @@ static func toggle_muted() -> void:
 
 ## 音效按鈕上要顯示的文字。
 static func button_text() -> String:
-	return "音效:關" if muted else "音效:開"
+	return "聲音:關" if muted else "聲音:開"
 
 
 ## 把一個按鈕變成音效開關:按下切換靜音,文字跟著靜音狀態更新(用鍵盤 M 切換時也會更新)。
@@ -144,11 +161,45 @@ func _ready() -> void:
 			else:
 				streams.append(stream)
 		_streams[sound] = streams
+	_music_player = AudioStreamPlayer.new()
+	add_child(_music_player)
+	_sync_music()
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_M:
 		toggle_muted()
+	# 瀏覽器要等玩家第一次按鍵或點畫面才准播聲音:那一刻把音樂重新起頭,不然會一直沒有音樂
+	var pressed := (event is InputEventKey or event is InputEventMouseButton or event is InputEventScreenTouch) and event.is_pressed()
+	if pressed and not _unlocked:
+		_unlocked = true
+		_music_playing = ""
+		_sync_music()
+
+
+## 讓音樂播放器的狀態符合「現在該播哪一首、有沒有靜音」。
+func _sync_music() -> void:
+	var wanted := "" if muted else music
+	if wanted == _music_playing and (wanted.is_empty() or _music_player.playing):
+		return
+	_music_playing = wanted
+	_music_player.stop()
+	if wanted.is_empty():
+		return
+	if not _music_streams.has(wanted):
+		var path := "%s%s.wav" % [MUSIC_DIR, wanted]
+		var stream := load(path) as AudioStreamWAV if ResourceLoader.exists(path) else null
+		if stream != null:
+			# 從頭到尾循環
+			stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			stream.loop_begin = 0
+			stream.loop_end = int(stream.get_length() * stream.mix_rate)
+		_music_streams[wanted] = stream
+	var music_stream: AudioStream = _music_streams[wanted]
+	if music_stream == null:
+		return
+	_music_player.stream = music_stream
+	_music_player.play()
 
 
 func _play(stream: AudioStream) -> void:

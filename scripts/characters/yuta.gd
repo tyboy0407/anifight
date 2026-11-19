@@ -40,6 +40,7 @@ const BUFF_DAMAGE_SCALE := 1.5
 const OVERFLOW_THRESHOLD := 400   # 氣量到達這個值就進入咒力滿盈
 const OVERFLOW_COST_SCALE := 2    # 滿盈期間招式一、招式二的耗氣倍率
 const OVERFLOW_REGEN := 5.0       # 滿盈期間每秒自動恢復的氣量(20 秒一格)
+const ENERGY_GAIN_SCALE := 1.8    # 打人、挨打累積氣量的倍率
 # 不准欺負我的朋友!(咒力滿盈時的招式一,和「飛走吧!」共用冷卻)
 const FRIEND_DAMAGE := 130        # 必定黑閃,實際是 2 倍
 const FRIEND_CHARGE := 0.40       # 揮拳前的蓄力時間
@@ -122,9 +123,9 @@ func _build_moves() -> void:
 	super()
 	# 刀的三連擊:比徒手打得遠
 	_normal_chain = [
-		_slash(45, 0.07, 0.20, 0.32, false),
-		_slash(55, 0.08, 0.22, 0.34, false),
-		_slash(95, 0.11, 0.32, 0.0, true),
+		_slash(55, 0.06, 0.17, 0.32, false),
+		_slash(65, 0.07, 0.19, 0.34, false),
+		_slash(110, 0.10, 0.30, 0.0, true),
 	]
 	# 里香狀態的五連擊
 	_rika_chain = [
@@ -137,7 +138,7 @@ func _build_moves() -> void:
 	_ground_moves = _normal_chain
 	_air_move = AttackData.make(65, 0.05, 0.20, 0.10, Vector2(60, -40), Vector2(110, 70), Vector2(260, 0), 0.30, false, 0.0)
 
-	_speech_move = AttackData.make(20, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(900, -420), 0.0, true, 0.0)
+	_speech_move = AttackData.make(60, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(900, -420), 0.0, true, 0.0)
 	_speech_move.builds_energy = false
 	var flash_damage := int(round(FRIEND_DAMAGE * BLACK_FLASH_DAMAGE_SCALE))
 	_friend_move = AttackData.make(flash_damage, 0.05, 0.14, 0.40, Vector2(90, -62), Vector2(170, 90), FRIEND_KNOCKBACK, 0.0, true, 520.0)
@@ -211,7 +212,12 @@ func _tick_overflow(delta: float) -> void:
 	var whole := int(_regen_bank)
 	if whole > 0:
 		_regen_bank -= whole
-		add_energy(whole)
+		_set_energy(energy + whole)  # 不經過 add_energy:回氣不套用累積氣量的加成
+
+
+## 咒力量龐大:打人、挨打累積氣量的速度比別人快(8 格的氣條才存得滿)。
+func add_energy(amount: int) -> void:
+	super(int(round(amount * ENERGY_GAIN_SCALE)) if amount > 0 else amount)
 
 
 func _try_character_actions() -> bool:
@@ -247,6 +253,11 @@ func ai_saving_energy() -> bool:
 	return ai_saves_this_round and not in_rika_state()
 
 
+## 里香要 5 格氣才召喚得出來,存氣的回合幾乎整回合都不能出招,所以電腦比較少選擇存氣。
+func _ai_save_chance() -> float:
+	return 0.25
+
+
 ## 電腦操作時:還沒召喚里香的話,氣夠了就先召喚。
 func ai_wants_super() -> bool:
 	return not in_rika_state() and energy >= RIKA_COST
@@ -261,7 +272,8 @@ func ai_super_is_safe() -> bool:
 func ai_skill_range() -> float:
 	if ai_saving_energy():
 		return 0.0
-	return FRIEND_RANGE if overflowing() else INF
+	# 「飛走吧!」的聲波只到身前四百像素左右,太遠放只是浪費氣
+	return FRIEND_RANGE if overflowing() else SPEECH_OFFSET.x + SPEECH_SIZE.x / 2.0
 
 
 func _start_super() -> void:

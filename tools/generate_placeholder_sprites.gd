@@ -119,9 +119,12 @@ static func pose(changes: Dictionary = {}) -> Dictionary:
 func _animations() -> Array:
 	var straight := {"elbow_b": null, "elbow_f": null}
 	return [
-		{"name": "idle", "fps": 4, "loop": true, "frames": [
+		{"name": "idle", "fps": 6, "loop": true, "frames": [
+			# 呼吸:身體微微下沉再回來,前手跟著上下晃
 			pose(),
 			pose({"head": v(25, 14), "neck": v(24, 20), "hand_b": v(28, 26), "hand_f": v(32, 24)}),
+			pose({"head": v(25, 14), "neck": v(24, 20), "hand_b": v(28, 26), "hand_f": v(33, 24), "elbow_f": v(27, 28)}),
+			pose({"hand_f": v(33, 22), "elbow_f": v(28, 27)}),
 		]},
 		{"name": "walk", "fps": 10, "loop": true, "frames": [
 			pose({"foot_b": v(17, 46), "knee_b": v(20, 39), "foot_f": v(31, 46), "knee_f": v(28, 39)}),
@@ -192,6 +195,11 @@ func _animations() -> Array:
 			pose({"head": v(19, 14), "neck": v(21, 20), "hand_f": v(26, 27), "hand_b": v(14, 24), "elbow_b": null, "elbow_f": null}),
 			pose({"head": v(20, 15), "neck": v(22, 20), "hand_f": v(27, 28), "hand_b": v(15, 25), "elbow_b": null, "elbow_f": null}),
 		]},
+		{"name": "stunned", "fps": 5, "loop": true, "frames": [
+			# 定身:雙手垂下,頭左右晃
+			pose({"head": v(23, 15), "neck": v(23, 20), "hand_f": v(29, 31), "hand_b": v(21, 31)}.merged(straight)),
+			pose({"head": v(26, 15), "neck": v(24, 20), "hand_f": v(30, 31), "hand_b": v(22, 31)}.merged(straight)),
+		]},
 		{"name": "launched", "fps": 8, "loop": true, "frames": [
 			pose({"head": v(13, 23), "neck": v(18, 26), "hip": v(27, 30), "hand_b": v(10, 31), "hand_f": v(22, 35),
 				"foot_f": v(40, 27), "knee_f": v(34, 29), "foot_b": v(39, 33), "knee_b": v(33, 33)}.merged(straight)),
@@ -252,11 +260,17 @@ func _draw_figure(p: Dictionary) -> void:
 	_draw_limb(p.hip + Vector2i(-1, 0), p.get("knee_b"), p.foot_b, pants.darkened(1.0 - BACK_SHADE), 3)
 	_fill(p.foot_b + Vector2i(-1, -1), Vector2i(4, 2), SHOE)
 
-	# 軀幹
-	_draw_line(shoulder, p.hip, _style.top, 6)
+	# 軀幹:背側一條陰影、胸前一條受光,看起來才有厚度
+	var top: Color = _style.top
+	_draw_line(shoulder, p.hip, top, 6)
+	_draw_line(shoulder + Vector2i(-3, 1), p.hip + Vector2i(-3, -1), top.darkened(0.3), 1)
+	_draw_line(shoulder + Vector2i(2, 1), p.hip + Vector2i(2, -3), top.lightened(0.16), 1)
 	var sash: Color = _style.sash
 	if sash.a > 0.0:
 		_fill(p.hip + Vector2i(-3, -3), Vector2i(7, 2), sash)
+	else:
+		# 腰帶
+		_fill(p.hip + Vector2i(-3, -2), Vector2i(7, 1), pants.darkened(0.35))
 	_fill(p.neck + Vector2i(-1, -1), Vector2i(3, 2), SKIN)
 	if _style.has("hood"):
 		# 制服的連帽:披在肩膀與後頸
@@ -268,10 +282,20 @@ func _draw_figure(p: Dictionary) -> void:
 	# 近側的手腳
 	_draw_limb(p.hip + Vector2i(1, 0), p.get("knee_f"), p.foot_f, pants, 3)
 	_fill(p.foot_f + Vector2i(-1, -1), Vector2i(4, 2), SHOE)
+	_plot(p.foot_f + Vector2i(1, -1), SHOE.lightened(0.3))  # 鞋尖的反光
 	_draw_limb(shoulder, p.get("elbow_f"), p.hand_f, sleeve, 3)
+	# 近側手臂下緣的陰影
+	_draw_limb(shoulder + Vector2i(0, 1), _below(p.get("elbow_f")), p.hand_f + Vector2i(0, 1), sleeve.darkened(0.22), 1)
 	if _style.get("sword", false):
 		_draw_sword(p.get("elbow_f", shoulder), p.hand_f)
 	_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
+
+
+## 關節往下一個像素的位置;沒有這個關節(手臂打直)就回傳 null。
+func _below(joint: Variant) -> Variant:
+	if joint == null:
+		return null
+	return (joint as Vector2i) + Vector2i(0, 1)
 
 
 ## 刀:從近側的手沿著前臂方向往外延伸。
@@ -298,6 +322,10 @@ func _draw_head(center: Vector2i) -> void:
 	_fill(center + Vector2i(-5, -3), Vector2i(3, 6), hair)
 	_clear(center + Vector2i(-4, -5))
 	_clear(center + Vector2i(4, -5))
+	# 頭髮的高光,以及下巴後側的陰影
+	_fill(center + Vector2i(1, -4), Vector2i(2, 1), hair.lightened(0.14))
+	_plot(center + Vector2i(-2, 2), SKIN.darkened(0.14))
+	_plot(center + Vector2i(-2, 3), SKIN.darkened(0.14))
 	if _style.spiky:
 		for dx: int in [-3, -1, 1, 3]:
 			_plot(center + Vector2i(dx, -6), hair)

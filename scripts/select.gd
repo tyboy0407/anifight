@@ -52,6 +52,7 @@ var _drag_velocity := 0.0
 func _ready() -> void:
 	GameState.setup_input()
 	Sfx.warm_up()
+	Sfx.play_music("select")
 	_cursor = GameState.selection.duplicate()
 	for player_index in 2:
 		_form[player_index] = GameState.forms[player_index] if GameState.forms[player_index] < GameState.form_count(_cursor[player_index]) else 0
