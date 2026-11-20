@@ -429,6 +429,47 @@ def bind(v: int) -> np.ndarray:
     return finish(drive(mix(beats, at(surge, 0.18), at(highpass(noise(0.3), 2500) * decay(0.3, 9) * 0.3, 0.42)), 1.7), 0.65, 0.05)
 
 
+# ---------- 火影忍者系列 ----------
+
+def kunai(v: int) -> np.ndarray:
+    # 擲出苦無:短促尖銳的破風聲,帶一點金屬的顫音
+    dur = [0.12, 0.14][v]
+    x = t(dur) / dur
+    air = highpass(lowpass(noise(dur), 7500 - 3500 * x), 3000) * (1 - x) ** 1.5
+    ring = (osc([3100, 2700][v], dur) + osc([4650, 4050][v], dur) * 0.5) * decay(dur, 30) * 0.3
+    return finish(mix(air, ring), 0.36)
+
+
+def rasengan(v: int) -> np.ndarray:
+    # 螺旋丸:高速旋轉的查克拉,嗡嗡聲越轉越快、越來越亮
+    dur = 0.75
+    x = t(dur)
+    spin = np.sin(2 * np.pi * np.cumsum(glide(26, 62, dur)) / SR)
+    hum = (osc(glide(190, 330, dur), dur, "tri") + lowpass(osc(glide(95, 165, dur), dur, "saw"), 1200) * 0.6) * (0.55 + 0.45 * spin)
+    wind = highpass(lowpass(noise(dur), glide(1800, 5200, dur)), 900) * (0.5 + 0.5 * spin) * 0.7
+    return finish(mix(hum, wind) * swell(dur, 0.12, 0.12), 0.50, 0.03)
+
+
+def rasengan_burst(v: int) -> np.ndarray:
+    # 螺旋丸炸開:旋轉聲一口氣甩開,接著一聲悶響
+    whirl = whoosh(0.30, 900, 6000) * 0.9
+    blast = lowpass(noise(0.45), glide(4200, 350, 0.45)) * decay(0.45, 8)
+    return finish(drive(mix(whirl, at(mix(blast, thump(170, 40, 0.4, 9) * 1.2), 0.05)), 1.9), 0.72, 0.04)
+
+
+def mark(v: int) -> np.ndarray:
+    # 飛雷神的術式烙在對手身上:兩聲很短的高音
+    chime = notes([1320, 1980], 0.05, 0.18, "sine", 16)
+    return finish(mix(chime, highpass(noise(0.04), 4000) * decay(0.04, 80) * 0.3), 0.34, 0.03)
+
+
+def poof(v: int) -> np.ndarray:
+    # 影分身:「砰」一團白煙
+    dur = 0.30
+    puff = lowpass(noise(dur), glide(2600, 500, dur)) * decay(dur, 11)
+    return finish(mix(puff, thump(210, 90, 0.10, 30) * 0.8), 0.42, 0.03)
+
+
 # 音效名稱 -> (產生函式, 變化版數量)。和 scripts/sfx.gd 的 SOUNDS 對應。
 SOUNDS = {
     "swing": (swing, 2), "hit_light": (hit_light, 3), "hit_heavy": (hit_heavy, 2), "guard": (guard, 1),
@@ -442,6 +483,8 @@ SOUNDS = {
     "rika_summon": (rika_summon, 1), "rika_claw": (rika_claw, 1), "cannon_charge": (cannon_charge, 1),
     "cannon_fire": (cannon_fire, 1), "shikigami": (shikigami, 2), "combine": (combine, 1),
     "divergent": (divergent, 1), "parry": (parry, 1), "weapon_swap": (weapon_swap, 1), "bind": (bind, 1),
+    "kunai": (kunai, 2), "rasengan": (rasengan, 1), "rasengan_burst": (rasengan_burst, 1), "mark": (mark, 1),
+    "poof": (poof, 1),
 }
 
 
@@ -450,7 +493,7 @@ SOUNDS = {
 SOFTEN = {
     "hit_light": 4200, "hit_heavy": 3000, "ko": 2600, "down": 2400, "bounce": 3000, "wall_crash": 3400,
     "burst": 3400, "black_flash": 4000, "cannon_fire": 3600, "speech": 3000, "red": 3400,
-    "domain_shrine": 3200, "bind": 3000, "special": 4200,
+    "domain_shrine": 3200, "bind": 3000, "special": 4200, "rasengan_burst": 3600,
 }
 
 

@@ -32,6 +32,8 @@ const SOUNDS := {
 	"infinity": 1, "overflow": 1, "powerup": 1, "speech": 1, "friend_charge": 1, "rika_summon": 1,
 	"rika_claw": 1, "cannon_charge": 1, "cannon_fire": 1, "shikigami": 2, "combine": 1,
 	"divergent": 1, "parry": 1, "weapon_swap": 1, "bind": 1,
+	# 火影忍者系列
+	"kunai": 2, "rasengan": 1, "rasengan_burst": 1, "mark": 1, "poof": 1,
 }
 
 static var muted := false

@@ -7,6 +7,7 @@ pixelfx(https://github.com/patch-gg/pixelfx,MIT 授權)是一套用程式畫的�
     assets/effects_fx/   招式特效(刀光、火花、斬擊、爪痕…),多半是灰階,由遊戲染色
     assets/summons_fx/   召喚物(鷲、玉犬、里香)與純愛砲的光束,用自己的顏色
     assets/domain_void_fx/、assets/domain_shrine_fx/   領域展開的背景(無量空處、伏魔御廚子)
+    assets/naruto_fx/    火影忍者系列角色的特效(苦無、螺旋丸、飛雷神印記、影分身的白煙)
 
     python tools/import_pixelfx.py            # 全部重做
     python tools/import_pixelfx.py --only summons_fx,domain_void_fx   # 只重做其中幾組
@@ -146,6 +147,20 @@ DOMAIN_SHRINE = {
                    stride=3, loop=True),
 }
 
+# 火影忍者系列角色用的特效(目前是波風湊)。苦無、螺旋丸、印記都是自己寫的,用自己的顏色
+NARUTO = {
+    # 手上的螺旋丸與大招收尾的大型螺旋丸(循環):同一個特效算兩種大小,對齊點是球心
+    "rasengan": dict(id="anifight/rasengan", opts={"radius": 11}, loop=True),
+    "rasengan_big": dict(id="anifight/rasengan", opts={"radius": 30}, loop=True),
+    # 三叉苦無(循環),朝右,對齊點在握柄與刀身交接處:飛行中、插在定點上
+    "kunai": dict(id="anifight/kunai", loop=True),
+    "kunai_still": dict(id="anifight/kunai", opts={"mode": "still"}, stride=2, loop=True),
+    # 飛雷神的術式印記(循環):貼在被標記的對手身上。對齊點是印記中心
+    "mark": dict(id="anifight/thunder-mark", loop=True),
+    # 影分身出現、消失時的一團白煙。原點在腳底
+    "poof": dict(id="spawn/poof", stride=2, max_frames=12, speed=1.5),
+}
+
 # 輸出資料夾(assets 底下) -> 裡面有哪些動畫、遊戲裡的顯示倍率
 SETS = {
     "effects_fx": dict(effects=EFFECTS, scale=3.0),
@@ -153,6 +168,7 @@ SETS = {
     "summons_fx": dict(effects=SUMMONS, scale=3.0),
     "domain_void_fx": dict(effects=DOMAIN_VOID, scale=4.0),
     "domain_shrine_fx": dict(effects=DOMAIN_SHRINE, scale=4.0),
+    "naruto_fx": dict(effects=NARUTO, scale=3.0),
 }
 
 

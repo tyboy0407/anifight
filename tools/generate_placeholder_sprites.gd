@@ -76,6 +76,20 @@ const STYLES := [
 		# 天逆牟:短刀
 		"sword": true, "blade_length": 7, "blade_width": 2, "blade_color": Color(0.96, 0.88, 0.55),
 	},
+	# 波風湊:金色刺蝟頭與兩側長鬢角、木葉護額、白色長袍(下襬是紅色火焰)披在綠色背心外、
+	# 藍色的袖子與褲子,手上一把三叉苦無。有自己的出招動作(見 _minato_animations)。
+	{
+		"id": "minato",
+		"hair": Color(0.99, 0.84, 0.24), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.95, 0.95, 0.93), "sleeve": Color(0.17, 0.25, 0.5),
+		"pants": Color(0.15, 0.21, 0.44), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.25, 0.55, 0.98),
+		"headband": Color(0.17, 0.25, 0.5), "bangs": true,
+		"vest": Color(0.32, 0.5, 0.33), "coat_hem": Color(0.88, 0.2, 0.16),
+		"sword": true, "blade_length": 6, "blade_width": 2, "blade_color": Color(0.82, 0.87, 0.95),
+		"guard_color": Color(0.6, 0.66, 0.78),
+		"moves": "minato",
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -218,9 +232,85 @@ func _animations() -> Array:
 	]
 
 
+## 波風湊專用的動作:同名的取代通用動作,其餘的加在後面。
+## 姿勢裡的 "blade": false 代表這一格手上沒有苦無(丟出去了,或正在用螺旋丸)。
+func _minato_animations() -> Array:
+	var empty := {"blade": false}
+	# 丟苦無的瞬間:人往後跳起,手臂往前甩直
+	var throwing := {"head": v(23, 11), "neck": v(23, 17), "hip": v(23, 28),
+		"foot_b": v(16, 40), "knee_b": v(18, 35), "foot_f": v(27, 41), "knee_f": v(29, 35),
+		"hand_f": v(41, 19), "elbow_f": null, "hand_b": v(14, 21), "elbow_b": null}
+	# 由上往下的一刀、由下往上的反手一刀:揮到底的那一格
+	var cut_down := {"head": v(27, 13), "neck": v(26, 19), "hand_f": v(41, 24), "elbow_f": null}
+	var cut_up := {"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "hand_f": v(41, 17), "elbow_f": null}
+	return [
+		{"name": "attack1", "fps": 12, "loop": false, "frames": [
+			pose({"hand_f": v(30, 14), "elbow_f": v(26, 19)}),
+			pose(cut_down),
+			pose({"hand_f": v(35, 28), "elbow_f": v(30, 26)}),
+		]},
+		{"name": "attack2", "fps": 12, "loop": false, "frames": [
+			pose({"neck": v(25, 19), "hand_f": v(26, 29), "elbow_f": v(23, 26)}),
+			pose(cut_up),
+			pose({"hand_f": v(37, 15), "elbow_f": v(31, 19)}),
+		]},
+		# 普攻第四段:往後轉身跳開,同時把苦無往前丟
+		{"name": "attack4", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(22, 14), "neck": v(22, 20), "hip": v(23, 32), "hand_f": v(17, 22), "elbow_f": v(21, 25),
+				"hand_b": v(27, 26), "foot_f": v(28, 45), "knee_f": v(29, 39), "foot_b": v(18, 46), "knee_b": v(19, 40)}),
+			pose(throwing.merged(empty)),
+			pose(throwing.merged(empty).merged({"hand_f": v(40, 22)})),
+			pose({"head": v(25, 14), "neck": v(24, 20), "hip": v(24, 32), "hand_f": v(34, 25)}.merged(empty)),
+		]},
+		# 招式一:蹲低後往正上方踢
+		{"name": "upkick", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(25, 15), "neck": v(24, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40)}),
+			pose({"head": v(19, 15), "neck": v(20, 21), "hip": v(23, 31), "foot_f": v(36, 13), "knee_f": v(30, 23),
+				"hand_f": v(25, 28), "elbow_f": null, "hand_b": v(14, 25), "elbow_b": null}),
+			pose({"head": v(19, 15), "neck": v(20, 21), "hip": v(23, 31), "foot_f": v(36, 14), "knee_f": v(30, 24),
+				"hand_f": v(25, 28), "elbow_f": null, "hand_b": v(14, 26), "elbow_b": null}),
+			pose({"foot_f": v(33, 37), "knee_f": v(31, 31)}),
+		]},
+		# 以下都只有一格,由遊戲依招式的階段切換
+		{"name": "throw", "fps": 8, "loop": false, "frames": [pose(throwing.merged(empty))]},
+		{"name": "strike1", "fps": 8, "loop": false, "frames": [pose(cut_down)]},
+		{"name": "strike2", "fps": 8, "loop": false, "frames": [pose(cut_up)]},
+		# 螺旋丸:在腰側凝聚、往前推出、從上方往下砸
+		{"name": "rasengan_charge", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(25, 14), "neck": v(24, 20), "hip": v(24, 32), "hand_f": v(30, 27), "elbow_f": v(25, 28),
+				"hand_b": v(29, 23), "elbow_b": v(23, 25)}.merged(empty)),
+		]},
+		{"name": "rasengan_push", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(29, 14), "neck": v(27, 20), "hip": v(25, 31), "foot_b": v(15, 46), "knee_b": v(19, 39),
+				"hand_f": v(42, 22), "elbow_f": null, "hand_b": v(20, 27), "elbow_b": v(22, 24)}.merged(empty)),
+		]},
+		{"name": "slam", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(29, 17), "neck": v(26, 21), "hip": v(20, 27), "hand_f": v(33, 33), "elbow_f": null,
+				"hand_b": v(17, 16), "elbow_b": null, "knee_f": v(26, 31), "foot_f": v(20, 36),
+				"knee_b": v(14, 30), "foot_b": v(10, 34)}.merged(empty)),
+		]},
+	]
+
+
+## 這個角色實際要畫的動作:通用動作,加上(或換成)角色自己的。
+func _animations_for(style: Dictionary) -> Array:
+	var animations := _animations()
+	if style.get("moves", "") != "minato":
+		return animations
+	for extra: Dictionary in _minato_animations():
+		var replaced := false
+		for index in animations.size():
+			if animations[index].name == extra.name:
+				animations[index] = extra
+				replaced = true
+		if not replaced:
+			animations.append(extra)
+	return animations
+
+
 func _generate(style: Dictionary) -> void:
 	_style = style
-	var animations := _animations()
+	var animations := _animations_for(style)
 	var columns := 0
 	for animation: Dictionary in animations:
 		columns = maxi(columns, animation.frames.size())
@@ -262,9 +352,15 @@ func _draw_figure(p: Dictionary) -> void:
 
 	# 軀幹:背側一條陰影、胸前一條受光,看起來才有厚度
 	var top: Color = _style.top
+	if _style.has("coat_hem"):
+		_draw_coat_tail(shoulder, p.hip, top, _style.coat_hem)
 	_draw_line(shoulder, p.hip, top, 6)
 	_draw_line(shoulder + Vector2i(-3, 1), p.hip + Vector2i(-3, -1), top.darkened(0.3), 1)
-	_draw_line(shoulder + Vector2i(2, 1), p.hip + Vector2i(2, -3), top.lightened(0.16), 1)
+	if _style.has("vest"):
+		# 敞開的外袍底下露出的背心
+		_draw_line(shoulder + Vector2i(1, 1), p.hip + Vector2i(1, -3), _style.vest, 2)
+	else:
+		_draw_line(shoulder + Vector2i(2, 1), p.hip + Vector2i(2, -3), top.lightened(0.16), 1)
 	var sash: Color = _style.sash
 	if sash.a > 0.0:
 		_fill(p.hip + Vector2i(-3, -3), Vector2i(7, 2), sash)
@@ -286,9 +382,27 @@ func _draw_figure(p: Dictionary) -> void:
 	_draw_limb(shoulder, p.get("elbow_f"), p.hand_f, sleeve, 3)
 	# 近側手臂下緣的陰影
 	_draw_limb(shoulder + Vector2i(0, 1), _below(p.get("elbow_f")), p.hand_f + Vector2i(0, 1), sleeve.darkened(0.22), 1)
-	if _style.get("sword", false):
+	if _style.get("sword", false) and p.get("blade", true):
 		_draw_sword(p.get("elbow_f", shoulder), p.hand_f)
 	_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
+
+
+## 長袍的下襬:從腰往下垂在身後,最底下是一圈火焰花紋。方向跟著軀幹走,
+## 所以倒地時下襬是順著腿的方向攤開,不會插進地面。
+func _draw_coat_tail(shoulder: Vector2i, hip: Vector2i, coat: Color, hem: Color) -> void:
+	var along := Vector2(hip - shoulder)
+	if along.length() < 0.5:
+		along = Vector2.DOWN
+	along = along.normalized()
+	var behind := Vector2(-along.y, along.x)  # 站著的時候是往背後(左)
+	var from := hip + Vector2i((behind * 2.0).round())
+	var to := hip + Vector2i((along * 9.0 + behind * 4.0).round())
+	_draw_line(from, to, coat.darkened(0.12), 4)
+	var hem_from := hip + Vector2i((along * 8.0 + behind * 4.0).round())
+	_draw_line(hem_from, to, hem, 4)
+	# 火焰的尖端往上竄兩個像素
+	_plot(hem_from + Vector2i((-along * 1.0 - behind * 1.0).round()), hem)
+	_plot(hem_from + Vector2i((-along * 1.0 + behind * 1.0).round()), hem)
 
 
 ## 關節往下一個像素的位置;沒有這個關節(手臂打直)就回傳 null。
@@ -308,7 +422,7 @@ func _draw_sword(arm_from: Vector2i, hand: Vector2i) -> void:
 	_draw_line(hand, tip, _style.get("blade_color", Color(0.86, 0.92, 0.98)), _style.get("blade_width", 2))
 	# 護手
 	var guard := Vector2i((direction.orthogonal() * 2.0).round())
-	_draw_line(hand - guard, hand + guard, Color(0.5, 0.42, 0.2), 1)
+	_draw_line(hand - guard, hand + guard, _style.get("guard_color", Color(0.5, 0.42, 0.2)), 1)
 
 
 func _draw_head(center: Vector2i) -> void:
@@ -337,6 +451,15 @@ func _draw_head(center: Vector2i) -> void:
 		_plot(center + Vector2i(-3, -8), hair)
 		_plot(center + Vector2i(1, -8), hair)
 		_fill(center + Vector2i(-6, -5), Vector2i(2, 3), hair)
+	if _style.get("bangs", false):
+		# 垂到下巴的長鬢角,後腦的頭髮也比較長
+		_fill(center + Vector2i(0, -1), Vector2i(1, 5), hair)
+		_fill(center + Vector2i(-5, 3), Vector2i(2, 2), hair)
+		_plot(center + Vector2i(-6, -2), hair)
+	if _style.has("headband"):
+		# 護額:額頭上一條布,正面一塊金屬片;瀏海蓋在它下緣
+		_fill(center + Vector2i(-4, -3), Vector2i(9, 1), _style.headband)
+		_fill(center + Vector2i(0, -3), Vector2i(4, 1), Color(0.78, 0.83, 0.9))
 
 	if _style.blindfold:
 		_fill(center + Vector2i(-4, -1), Vector2i(9, 2), Color(0.08, 0.08, 0.11))

@@ -80,6 +80,15 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["狼牙刀", "天逆牟", "咒縛狀態(冷卻30秒)"],
 		"summary": "沒有氣格,招式不耗氣\n跑得快,緩慢回血\n狼牙刀:兩刀後踢飛\n天逆牟:四刀後閃到背後\n再按一次:旋斬 / 破防背刺\n咒縛狀態:10 秒強化",
 	},
+	{
+		"name": "波風湊",
+		"series": "naruto",
+		"scene": "res://scenes/characters/minato.tscn",
+		"sprites": "res://assets/characters/minato",
+		"hair": Color(0.99, 0.84, 0.24),
+		"skills": ["瞬身踢(1格)", "螺旋丸(2格)", "飛光連擊閃身二式(4格)"],
+		"summary": "氣量上限 5 格\n普攻最後丟出苦無\n苦無命中:對手陷入飛雷神\n瞬身踢:瞬身後往上踢\n螺旋丸:破防的連續傷害\n對手有飛雷神:招式強化",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。
