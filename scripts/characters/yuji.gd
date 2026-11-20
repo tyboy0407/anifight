@@ -180,6 +180,7 @@ func _finish_strike(target: Fighter) -> void:
 		# 心流期間再觸發黑閃不會刷新時間
 		_flow_time = FLOW_DURATION
 		_flow_energy = 0.0
+		_power_burst(BLACK_FLASH_COLOR)
 
 
 ## 不經過攻擊框、直接命中對手的招式(衝擊波、反擊)也走同一套黑閃判定。
@@ -244,8 +245,9 @@ func _tick_divergent(delta: float) -> void:
 		return
 
 	_clear_divergent()
-	# 衝擊波:由小變大的藍色方框
-	for i in 2:
+	# 衝擊波:咒力在對手身上炸開。沒有點陣特效時是兩顆由小變大的光球
+	var burst := _spawn_effect("blast", chest, _bright(CURSE_COLOR, 1.4), 0.75)
+	for i in (0 if burst != null else 2):
 		var wave := _spawn_rect(Vector2(70, 70), Color(CURSE_COLOR, 0.75 - 0.3 * i), chest, 2)
 		wave.rotation = PI / 4.0 * i
 		var tween := wave.create_tween()
@@ -314,10 +316,13 @@ func _tick_counter(delta: float) -> void:
 		return
 	if global_position.distance_to(opponent.global_position) > COUNTER_REACH:
 		return
-	var impact := _spawn_rect(Vector2(90, 40), Color(1.0, 0.95, 0.6, 0.85), opponent.global_position + Vector2(-facing * 20.0, -62), 2)
-	var tween := impact.create_tween()
-	tween.tween_property(impact, "modulate:a", 0.0, 0.14)
-	tween.tween_callback(impact.queue_free)
+	# 反擊命中:十字閃光與金色火花。沒有點陣特效時是一塊淡黃色的色塊
+	var impact_at := opponent.global_position + Vector2(-facing * 20.0, -62)
+	if _spawn_effect("parry", impact_at, Color.WHITE, 1.0, facing < 0) == null:
+		var impact := _spawn_rect(Vector2(90, 40), Color(1.0, 0.95, 0.6, 0.85), impact_at, 2)
+		var tween := impact.create_tween()
+		tween.tween_property(impact, "modulate:a", 0.0, 0.14)
+		tween.tween_callback(impact.queue_free)
 	_strike(_counter_final_move if is_last else _counter_move)
 
 

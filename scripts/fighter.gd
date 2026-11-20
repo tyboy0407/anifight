@@ -52,7 +52,9 @@ const INPUT_BUFFER := 0.12    # 按鍵提早這麼久按下也算數(收招、�
 const BUFFERED_ACTIONS: Array[String] = ["attack", "jump", "dash", "skill", "skill2", "special", "super", "teleport", "escape"]
 const EFFECTS_DIR := "res://assets/effects"
 const EFFECTS_FX_DIR := "res://assets/effects_fx"
+const EFFECTS_FX2_DIR := "res://assets/effects2_fx"  # 第一張排不下的特效;用名字找,不必管在哪一張
 const SUMMONS_FX_DIR := "res://assets/summons_fx"  # 召喚物的點陣圖(式神、里香)
+const TELEPORT_FX_COLOR := Color(0.75, 0.88, 1.0)   # 瞬身特效預設的顏色
 # pixelfx 的光球與漩渦在圖上的直徑(像素):用來把圖縮放到招式指定的大小
 const ORB_ART_DIAMETER := {"orb": 44.0, "void": 46.0}
 const SPARK_COLOR := Color(1.0, 0.95, 0.7)
@@ -150,6 +152,7 @@ var _effect_frames: SpriteFrames  # 自己畫的特效(tools/make_effects.py)
 var _effect_scale := 3.0
 var _fx_frames: SpriteFrames      # pixelfx 匯出的特效(tools/import_pixelfx.py);有同名的優先用這套
 var _fx_scale := 3.0
+var _fx2_frames: SpriteFrames     # pixelfx 匯出的第二張(倍率和第一張相同)
 var _sheets: Dictionary = {}      # 其他幾組點陣圖(召喚物、領域背景):資料夾 -> 載入的結果;第一次用到才載入
 # 翻滾擊飛中
 var _tumbling := false
@@ -185,6 +188,9 @@ func _ready() -> void:
 	if not fx.is_empty():
 		_fx_frames = fx.frames
 		_fx_scale = fx.scale
+	var fx2 := SpriteSheetLoader.load_character(EFFECTS_FX2_DIR)
+	if not fx2.is_empty():
+		_fx2_frames = fx2.frames
 	_build_moves()
 	health = max_health
 	_set_hitbox(false)
@@ -371,17 +377,33 @@ func _spawn_effect(animation: String, center: Vector2, color: Color = Color.WHIT
 	return effect
 
 
+## 建立一個正在播 animation 的特效 Sprite,但不放進場景:給要一直留在身上的循環特效用
+## (例如罩住全身的光球),由呼叫的人自己加到節點底下並決定何時顯示。素材沒載到時回傳 null。
+func _effect_sprite(animation: String) -> AnimatedSprite2D:
+	var frames := _effect_source(animation)
+	if frames == null:
+		return null
+	var sprite := AnimatedSprite2D.new()
+	sprite.sprite_frames = frames
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.scale = Vector2.ONE * _effect_scale_of(frames)
+	sprite.play(animation)
+	return sprite
+
+
 ## 某個特效動畫在哪一套素材裡:先找 pixelfx 匯出的那套,沒有再找自己畫的。都沒有就回傳 null。
 func _effect_source(animation: String) -> SpriteFrames:
 	if _fx_frames != null and _fx_frames.has_animation(animation):
 		return _fx_frames
+	if _fx2_frames != null and _fx2_frames.has_animation(animation):
+		return _fx2_frames
 	if _effect_frames != null and _effect_frames.has_animation(animation):
 		return _effect_frames
 	return null
 
 
 func _effect_scale_of(frames: SpriteFrames) -> float:
-	return _fx_scale if frames == _fx_frames else _effect_scale
+	return _fx_scale if frames == _fx_frames or frames == _fx2_frames else _effect_scale
 
 
 ## 這個角色揮擊時用哪一種軌跡:"slash" 是刀光(拿武器的角色覆寫成這個),
@@ -394,6 +416,12 @@ func _slash_effect() -> String:
 func _show_slash() -> void:
 	var reach := maxf(_move.hitbox_size.x, _move.hitbox_size.y * 1.3)
 	var color := Color(_move.color, 1.0).lightened(0.25)
+	# 通用大招:由下往上的一擊加上命中的星芒(對手會被往上打飛),取代一般的揮擊軌跡
+	if _move == _special_move and _spawn_effect("uppercut", global_position, _bright(color, 1.3), 1.5, facing < 0, 0.0, true) != null:
+		return
+	# 超必殺:攻擊範圍裡炸開一團咒力,再加上原本的揮擊軌跡
+	if _move == _super_move:
+		_spawn_effect("blast", global_position + _hit_shape.position, _bright(color, 1.4), clampf(reach / 420.0, 0.6, 1.1))
 	if _slash_effect() == "slash" and _effect_source("slash") != null:
 		# 刀光的圖以持刀者的腳底為原點,弧線畫在身前
 		_spawn_effect("slash", global_position, color, clampf(reach / 135.0, 0.7, 1.35), facing < 0, 0.0, true)
@@ -603,15 +631,16 @@ func _tick_tumble(delta: float) -> void:
 ## 撞上場邊:碎石與沙塵炸開、畫面震動,人被彈回來後倒地。
 func _tumble_hit_wall() -> void:
 	var wall := Vector2(global_position.x + _tumble_dir * BODY_SIZE.x / 2.0, global_position.y - BODY_SIZE.y / 2.0)
-	# 撞擊點的裂痕
-	for i in 5:
+	# 撞擊點一道閃光、往場內噴的火花與碎石(圖是撞上右邊的牆,撞左邊就翻轉);沒有點陣特效時用線條與方塊
+	var crashed := _spawn_effect("wallhit", wall, Color.WHITE, 2.0, _tumble_dir < 0) != null
+	for i in (0 if crashed else 5):
 		var crack := _spawn_rect(Vector2(randf_range(70, 150), 5), Color(1, 1, 1, 0.9), wall, 3)
 		crack.rotation = PI / 2.0 + randf_range(-1.0, 1.0)
 		var crack_tween := crack.create_tween()
 		crack_tween.tween_property(crack, "modulate:a", 0.0, 0.3)
 		crack_tween.tween_callback(crack.queue_free)
 	# 往場內噴的碎石
-	for i in 16:
+	for i in (0 if crashed else 16):
 		var piece_size := randf_range(8, 22)
 		var piece := _spawn_rect(Vector2(piece_size, piece_size), DEBRIS_COLORS[i % DEBRIS_COLORS.size()], wall + Vector2(0, randf_range(-50, 50)), 3)
 		piece.rotation = randf_range(-PI, PI)
@@ -880,7 +909,9 @@ func can_escape() -> bool:
 func _start_teleport() -> void:
 	_set_hitbox(false)
 	Sfx.play("teleport")
+	_vanish_effect()
 	_move_behind_opponent(TELEPORT_OFFSET)
+	_appear_effect()
 	_set_state(State.TELEPORT, true)
 
 
@@ -1315,15 +1346,45 @@ func _callout(text: String, color: Color, sound: String = "") -> void:
 	tween.tween_callback(label.queue_free)
 
 
-## 黑閃的演出:招式名稱浮字,加上黑色與紅色交錯的閃電狀線條。
+## 黑閃的演出:招式名稱浮字、整個畫面閃過黑白的集中線,接著命中點炸開黑紅色的閃電。
+## 沒有點陣特效時,是黑色與紅色交錯的閃電狀線條。
 func _black_flash_effect(center: Vector2) -> void:
 	_callout("黑閃", BLACK_FLASH_COLOR, "black_flash")
+	if _spawn_effect("blackflash", center, Color.WHITE, 1.3, randf() < 0.5) != null:
+		_impact_frame()
+		return
 	for i in 7:
 		var bolt := _spawn_rect(Vector2(randf_range(120, 210), 7), Color(0.05, 0.02, 0.04) if i % 2 == 0 else BLACK_FLASH_COLOR, center, 3)
 		bolt.rotation = randf_range(-PI, PI)
 		var tween := bolt.create_tween()
 		tween.tween_property(bolt, "modulate:a", 0.0, 0.28)
 		tween.tween_callback(bolt.queue_free)
+
+
+## 全螢幕的衝擊畫面:黑白的集中線蓋滿整個畫面,閃幾格就散開(介面仍然看得到)。
+func _impact_frame() -> void:
+	var frame := _spawn_effect("impact", _screen_center())
+	if frame == null:
+		return
+	# 圖是 320x180,放大到蓋得住整個畫面(寬螢幕手機會比 16:9 更寬)
+	var view := get_viewport().get_visible_rect().size
+	frame.scale = Vector2.ONE * maxf(view.x / 320.0, view.y / 180.0) * 1.06
+	frame.z_index = 50
+
+
+## 進入強化狀態的那一刻,從腳底湧出一陣咒力(之後的狀態只用身體變色表示)。
+func _power_burst(color: Color, size: float = 0.85) -> void:
+	_spawn_effect("powerup", global_position, _bright(color), size, false, 0.0, true)
+
+
+## 瞬身:原地留下一道散成光點的人影,出現的位置則是光點聚成人影。
+## 在移動之前呼叫 _vanish_effect(),移動之後呼叫 _appear_effect()。素材沒載到時 _vanish_effect() 回傳 false。
+func _vanish_effect(color: Color = TELEPORT_FX_COLOR) -> bool:
+	return _spawn_effect("vanish", global_position, _bright(color), 1.0, facing < 0) != null
+
+
+func _appear_effect(color: Color = TELEPORT_FX_COLOR) -> void:
+	_spawn_effect("appear", global_position, _bright(color), 1.0, facing < 0)
 
 
 ## 以 center、rect_size 描述的矩形是否碰到對手的身體(對手無敵時為 false)。

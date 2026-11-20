@@ -295,8 +295,9 @@ func _start_super() -> void:
 func _release_speech() -> void:
 	_callout("飛走吧!", SPEECH_COLOR, "speech")
 	var origin := global_position + Vector2(0, SPEECH_OFFSET.y)
-	# 聲波:三道由小到大、往前擴散的波紋
-	for i in 3:
+	# 聲波:三道由小到大、往前擴散的波紋。圖的原點在嘴邊,最遠剛好到判定的盡頭
+	var shout := _spawn_effect("shout", origin + Vector2(facing * 18.0, 0), _bright(SPEECH_COLOR, 1.4), 1.0, facing < 0)
+	for i in (0 if shout != null else 3):
 		var wave := _spawn_rect(Vector2(12, 60 + i * 45), Color(SPEECH_COLOR, 0.8), origin + Vector2(facing * (60 + i * 55), 0), 2)
 		var tween := wave.create_tween()
 		tween.tween_property(wave, "position:x", wave.position.x + facing * 160.0, 0.3)
@@ -331,6 +332,7 @@ func _release_friend_punch() -> void:
 func _release_buff() -> void:
 	_buff_time = BUFF_DURATION
 	_callout("我也可以!", CURSE_COLOR, "powerup")
+	_power_burst(CURSE_COLOR)
 
 
 ## 強化期間,刀的普通攻擊(地面與空中)傷害提升;里香的追擊與耗氣招式不受影響。

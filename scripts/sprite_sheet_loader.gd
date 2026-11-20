@@ -11,6 +11,7 @@ extends RefCounted
 ##   "rows": [[[x, y, w, h], ...], ...],   // 選填:切圖工具輸出的各列圖塊
 ##   "animations": {
 ##     "idle": {"fps": 6, "loop": true, "frames": [[x, y, w, h], ...]},
+##     "spark": {"fps": 30, "loop": false, "offset": [dx, dy], "frames": [...]},   // 選填 offset:置中時圖塊中心離對齊點多遠
 ##     "walk": {"fps": 10, "loop": true, "row": 1, "from": 0, "to": 5}   // 也可以引用 rows
 ##   }
 ## }
@@ -40,20 +41,27 @@ static func load_character(dir: String) -> Dictionary:
 
 	var rows: Array = data.get("rows", [])
 	var animations: Dictionary = data.get("animations", {})
+	var centered := str(data.get("align", "")) == "center"
 	var resolved: Dictionary = {}  # 動畫名稱 -> Array[Rect2]
+	var offsets: Dictionary = {}   # 動畫名稱 -> 圖塊中心離對齊點多遠(只有置中的特效會用到)
 	var canvas := Vector2.ZERO
 	for animation_name: String in animations:
-		var rects := _resolve_rects(animations[animation_name], rows)
+		var spec: Dictionary = animations[animation_name]
+		var rects := _resolve_rects(spec, rows)
 		if rects.is_empty():
 			continue
 		resolved[animation_name] = rects
+		var offset := Vector2.ZERO
+		if centered and spec.get("offset") is Array:
+			offset = Vector2(spec.offset[0], spec.offset[1])
+		offsets[animation_name] = offset
 		for rect in rects:
-			canvas.x = maxf(canvas.x, rect.size.x)
-			canvas.y = maxf(canvas.y, rect.size.y)
+			# 畫布要大到圖塊偏離中心之後還放得下
+			canvas.x = maxf(canvas.x, rect.size.x + absf(offset.x) * 2.0)
+			canvas.y = maxf(canvas.y, rect.size.y + absf(offset.y) * 2.0)
 	if resolved.is_empty():
 		return {}
 
-	var centered := str(data.get("align", "")) == "center"
 	var frames := SpriteFrames.new()
 	frames.remove_animation("default")
 	for animation_name: String in resolved:
@@ -66,9 +74,12 @@ static func load_character(dir: String) -> Dictionary:
 			atlas.atlas = texture
 			atlas.region = rect
 			# 用 margin 把大小不一的格子補成同一個畫布:水平置中、底邊對齊(角色的腳踩在同一條線上)。
-			# 設定檔寫了 "align": "center" 的話改成上下也置中(特效以格子中心為對齊點)。
+			# 設定檔寫了 "align": "center" 的話改成上下也置中(特效以畫布中心為對齊點),
+			# 動畫有寫 "offset" 的話再把圖塊從中心移開這麼多(圖上只存了有畫東西的範圍)。
 			var extra := canvas - rect.size
-			atlas.margin = Rect2(floorf(extra.x / 2.0), floorf(extra.y / 2.0) if centered else extra.y, extra.x, extra.y)
+			var offset: Vector2 = offsets[animation_name]
+			atlas.margin = Rect2(floorf(extra.x / 2.0) + offset.x,
+					floorf(extra.y / 2.0) + offset.y if centered else extra.y, extra.x, extra.y)
 			frames.add_frame(animation_name, atlas)
 
 	return {

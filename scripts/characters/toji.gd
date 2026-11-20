@@ -22,6 +22,7 @@ const WEAPON_NAMES: Array[String] = ["狼牙刀", "天逆牟"]
 const CLEAVER_COLOR := Color(0.75, 0.8, 0.9)
 const DAGGER_COLOR := Color(0.95, 0.85, 0.5)
 const BIND_COLOR := Color(1.0, 0.35, 0.3)
+const AFTERIMAGE_COLOR := Color(0.7, 0.72, 0.8)  # 瞬身殘影:沒有咒力,只是快到留下的灰白人影
 const DAGGER_SPRITES := "res://assets/characters/toji_dagger"
 
 # 天與咒縛
@@ -217,7 +218,10 @@ func _equip(new_weapon: Weapon) -> void:
 
 func _swap_weapon(new_weapon: Weapon) -> void:
 	_equip(new_weapon)
-	_callout(WEAPON_NAMES[new_weapon], CLEAVER_COLOR if new_weapon == Weapon.CLEAVER else DAGGER_COLOR, "weapon_swap")
+	var weapon_color := CLEAVER_COLOR if new_weapon == Weapon.CLEAVER else DAGGER_COLOR
+	_callout(WEAPON_NAMES[new_weapon], weapon_color, "weapon_swap")
+	# 手上一閃:新武器出鞘
+	_spawn_effect("flash", global_position + Vector2(facing * 34.0, -62.0), _bright(weapon_color), 1.4, false, 0.0, true)
 	# 只是一個短暫的換武器動作,沒有要在途中觸發的事
 	_start_cast(SWAP_TIME, SWAP_TIME + 1.0, func() -> void: pass, "guard")
 
@@ -247,6 +251,7 @@ func _start_backstab() -> void:
 	_backstab_cooldown = BACKSTAB_COOLDOWN
 	_afterimage()
 	_move_behind_opponent(BACKSTAB_OFFSET)
+	_appear_effect(AFTERIMAGE_COLOR)
 	Sfx.play("teleport")
 	_start_attack(_backstab_move, SPECIAL_STEP)
 
@@ -264,6 +269,7 @@ func _on_attack_hit(target: Fighter, move: AttackData) -> void:
 		return
 	_afterimage()
 	_move_behind_opponent(TELEPORT_OFFSET)
+	_appear_effect(AFTERIMAGE_COLOR)
 	Sfx.play("teleport")
 	# 人換邊了,攻擊框也要跟著翻到新的正面
 	var offset := Vector2(move.hitbox_offset.x * facing, move.hitbox_offset.y)
@@ -271,8 +277,10 @@ func _on_attack_hit(target: Fighter, move: AttackData) -> void:
 	_hit_visual.position = offset - move.hitbox_size / 2.0
 
 
-## 瞬身前留在原地的殘影。
+## 瞬身前留在原地的殘影:一道散成光點的人影。沒有點陣特效時是一塊深色的色塊。
 func _afterimage() -> void:
+	if _vanish_effect(AFTERIMAGE_COLOR):
+		return
 	var ghost := _spawn_rect(BODY_SIZE, Color(0.1, 0.1, 0.14, 0.6), global_position + Vector2(0, -BODY_SIZE.y / 2.0), 0)
 	var tween := ghost.create_tween()
 	tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
@@ -297,6 +305,7 @@ func _start_super() -> void:
 func _enter_bind() -> void:
 	_bind_time = BIND_DURATION
 	_callout("咒縛狀態", BIND_COLOR, "bind")
+	_power_burst(BIND_COLOR)
 	screen_shake.emit(8.0)
 
 

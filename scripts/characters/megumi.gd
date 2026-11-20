@@ -16,6 +16,7 @@ extends Fighter
 const OWL_COLOR := Color(1.0, 0.86, 0.4)
 const DOG_COLOR := Color(0.94, 0.94, 0.98)
 const SURGE_COLOR := Color(0.5, 0.62, 1.0)
+const SHADOW_COLOR := Color(0.42, 0.4, 0.75)  # 召喚時地上的影子
 
 # 召喚
 const SUMMON_COST := 200
@@ -250,10 +251,12 @@ func _summon(shikigami: Shikigami, node: Node2D, at: Vector2, first_attack: floa
 	# 從影子裡冒出來
 	node.modulate.a = 0.0
 	node.create_tween().tween_property(node, "modulate:a", 1.0, 0.2)
-	var shadow := _spawn_rect(Vector2(110, 14), Color(0.05, 0.05, 0.1, 0.8), Vector2(at.x, _ground_y - 4), 0)
-	var tween := shadow.create_tween()
-	tween.tween_property(shadow, "modulate:a", 0.0, 0.4)
-	tween.tween_callback(shadow.queue_free)
+	# 地上裂開一道影子的漩渦。沒有點陣特效時是一條深色的色塊
+	if _spawn_effect("summon", Vector2(at.x, _ground_y), _bright(SHADOW_COLOR), 0.8) == null:
+		var shadow := _spawn_rect(Vector2(110, 14), Color(0.05, 0.05, 0.1, 0.8), Vector2(at.x, _ground_y - 4), 0)
+		var tween := shadow.create_tween()
+		tween.tween_property(shadow, "modulate:a", 0.0, 0.4)
+		tween.tween_callback(shadow.queue_free)
 
 
 func _dismiss(shikigami: Shikigami, instantly: bool = false) -> void:
@@ -406,6 +409,7 @@ func _release_combine() -> void:
 		return  # 施法途中式神剛好消失
 	_callout("式神合擊", SURGE_COLOR, "combine")
 	_surge_time = SURGE_DURATION
+	_power_burst(SURGE_COLOR)
 	_combine = Combine.STRIKES
 	# 玉犬先撲上去咬住,鷲緊接著俯衝;合擊中的式神會追著對手跑
 	_begin_attack(_dog, 0.02, COMBINE_STRIKE_TIME, _combine_dog_move, true)

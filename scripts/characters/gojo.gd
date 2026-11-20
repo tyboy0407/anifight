@@ -298,7 +298,7 @@ func _make_domain_effect() -> Node2D:
 		backdrop.name = "Art"
 		effect.add_child(backdrop)
 		backdrop.global_position = _screen_center()
-		var width := sky.sprite_frames.get_frame_texture("sky", 0).get_width() * sky.scale.x
+		var width := (sky.sprite_frames.get_frame_texture("sky", 0) as AtlasTexture).region.size.x * sky.scale.x
 		for side in [-1, 0, 1]:
 			var piece := sky if side == 0 else _sheet_sprite(DOMAIN_FX_DIR, "sky")
 			piece.position.x = side * width

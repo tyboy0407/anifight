@@ -54,6 +54,8 @@ enum Orb { NONE, PULLING, SWING }
 
 var _infinity_time := 0.0
 var _aura: ColorRect
+var _barrier: AnimatedSprite2D  # 無下限的點陣光球;有它就不顯示 _aura
+var _barrier_tried := false
 
 var _push_gathering := false
 var _push_fly_time := 0.0
@@ -173,6 +175,7 @@ func in_infinity() -> bool:
 func _release_infinity() -> void:
 	_infinity_time = INFINITY_DURATION
 	_callout("無下限", INFINITY_COLOR, "infinity")
+	_power_burst(INFINITY_COLOR)
 
 
 ## 無下限期間被任何招式打中:攻擊停在身前、不造成任何效果,但每一下會讓無下限少 0.5 秒。
@@ -211,11 +214,13 @@ func _absorb_hit(attacker: Fighter) -> void:
 		_infinity_ripple(attacker)
 
 
-## 攻擊被無下限擋在身前的效果:一道淡藍色的屏障閃一下。
+## 攻擊被無下限擋在身前的效果:面向攻擊者的那一側亮起半圓的屏障。沒有點陣特效時是一道淡藍色的線。
 func _infinity_ripple(attacker: Fighter) -> void:
 	var side := signf(attacker.global_position.x - global_position.x)
 	if side == 0.0:
 		side = facing
+	if _spawn_effect("guard", global_position, _bright(INFINITY_COLOR, 1.3), 1.0, side < 0.0) != null:
+		return
 	var barrier := _spawn_rect(Vector2(10, 130), INFINITY_COLOR, global_position + Vector2(side * 42.0, -62), 3)
 	var tween := barrier.create_tween()
 	tween.tween_property(barrier, "scale", Vector2(2.2, 1.15), 0.2)
@@ -228,13 +233,15 @@ func _infinity_ripple(attacker: Fighter) -> void:
 ## 閃身到對手背後,開始在手邊凝聚蒼球。
 func _start_push() -> void:
 	_clear_push()
-	# 原地留下一道殘影
-	var afterimage := _spawn_rect(Vector2(BODY_SIZE.x, BODY_SIZE.y), Color(INFINITY_COLOR, 0.45), global_position + Vector2(0, -BODY_SIZE.y / 2.0), 0)
-	var fade := afterimage.create_tween()
-	fade.tween_property(afterimage, "modulate:a", 0.0, 0.25)
-	fade.tween_callback(afterimage.queue_free)
+	# 原地留下一道散成光點的殘影,人出現在對手背後。沒有點陣特效時是一塊半透明的色塊
+	if not _vanish_effect(INFINITY_COLOR):
+		var afterimage := _spawn_rect(Vector2(BODY_SIZE.x, BODY_SIZE.y), Color(INFINITY_COLOR, 0.45), global_position + Vector2(0, -BODY_SIZE.y / 2.0), 0)
+		var fade := afterimage.create_tween()
+		fade.tween_property(afterimage, "modulate:a", 0.0, 0.25)
+		fade.tween_callback(afterimage.queue_free)
 	if opponent != null:
 		_move_behind_opponent(PUSH_BLINK_OFFSET)
+		_appear_effect(INFINITY_COLOR)
 	_callout("蒼放", BLUE_COLOR, "blue")
 	_push_gathering = true
 	_push_node = _spawn_rect(Vector2(PUSH_ORB_START, PUSH_ORB_START), BLUE_COLOR, _push_hand_point(), 2)
@@ -281,7 +288,9 @@ func _tick_push(delta: float) -> void:
 	var center := _push_node.position + _push_node.size / 2.0
 	if _rect_hits_opponent(center, _push_node.size):
 		opponent.take_hit(_push_move, self)
-		for i in 4:
+		# 蒼球在對手身上炸開。沒有點陣特效時是四條散開的線
+		var burst := _spawn_effect("blast", center, _bright(BLUE_COLOR, 1.6), 0.6)
+		for i in (0 if burst != null else 4):
 			var streak := _spawn_rect(Vector2(120, 6), BLUE_COLOR, center, 3)
 			streak.rotation = PI * i / 4.0
 			var tween := streak.create_tween()
@@ -312,14 +321,18 @@ func _release_orb() -> void:
 	_orb_direction = facing
 	_orb_position = global_position + Vector2(ORB_OFFSET.x * facing, ORB_OFFSET.y)
 	_orb_position.x = clampf(_orb_position.x, arena_min_x, arena_max_x)
-	# 半透明,才看得到被吸在裡面的對手
-	_orb_node = _spawn_rect(Vector2(ORB_SIZE, ORB_SIZE), Color(BLUE_COLOR, 0.5), _orb_position, 2)
-	var core := ColorRect.new()
-	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	core.color = Color(0.05, 0.08, 0.3, 0.45)
-	core.size = Vector2(ORB_SIZE, ORB_SIZE) * 0.5
-	core.position = Vector2(ORB_SIZE, ORB_SIZE) * 0.25
-	_orb_node.add_child(core)
+	# 把東西吸進去的漩渦。半透明,才看得到被吸在裡面的對手
+	_orb_node = _spawn_rect(Vector2(ORB_SIZE, ORB_SIZE), Color(BLUE_COLOR, 0.5), _orb_position, 2, "void")
+	if _orb_node.get_child_count() > 0:
+		(_orb_node.get_child(0) as CanvasItem).modulate.a = 0.72
+	else:
+		# 沒有點陣圖時:色塊中間再疊一塊深色的球心
+		var core := ColorRect.new()
+		core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		core.color = Color(0.05, 0.08, 0.3, 0.45)
+		core.size = Vector2(ORB_SIZE, ORB_SIZE) * 0.5
+		core.position = Vector2(ORB_SIZE, ORB_SIZE) * 0.25
+		_orb_node.add_child(core)
 
 
 func _tick_orb(delta: float) -> void:
@@ -357,7 +370,9 @@ func _tick_orb(delta: float) -> void:
 	_clear_orb()
 	if not holding:
 		return
-	for i in 6:
+	# 大球帶著對手炸開。沒有點陣特效時是六條散開的線
+	var burst := _spawn_effect("blast", burst_at, _bright(BLUE_COLOR, 1.7), 1.25)
+	for i in (0 if burst != null else 6):
 		var streak := _spawn_rect(Vector2(220, 8), BLUE_COLOR if i % 2 == 0 else Color.WHITE, burst_at, 3)
 		streak.rotation = PI * i / 6.0
 		var tween := streak.create_tween()
@@ -404,7 +419,18 @@ func _clear_orb() -> void:
 func _update_visual() -> void:
 	super()
 	_hair.visible = _eye.visible
-	_aura.visible = in_infinity()
+	# 無下限的光球:第一次用到才建立(特效素材在 _ready 的後半才載入)。沒有點陣圖就用半透明的色塊
+	if in_infinity() and not _barrier_tried:
+		_barrier_tried = true
+		_barrier = _effect_sprite("barrier")
+		if _barrier != null:
+			# 圖的原點在腳底;畫在角色後面,光球才不會蓋住人
+			add_child(_barrier)
+			move_child(_barrier, 0)
+	if _barrier != null:
+		_barrier.visible = in_infinity()
+		_barrier.modulate.a = 0.8 + 0.2 * sin(Time.get_ticks_msec() / 110.0)
+	_aura.visible = in_infinity() and _barrier == null
 	if in_infinity():
 		_aura.color.a = 0.18 + 0.1 * sin(Time.get_ticks_msec() / 110.0)
 		if _has_sprite and state != State.KO:
