@@ -6,10 +6,18 @@ const SELECT_SCENE := "res://scenes/select.tscn"
 const FIGHT_SCENE := "res://scenes/main.tscn"
 const PLAYER_COLORS: Array[Color] = [Color(0.95, 0.4, 0.35), Color(0.35, 0.6, 0.95)]
 
-## 新增角色時在這裡加一筆。skills 依序是:技能、上+技能、超必殺。
+## 作品系列。選角畫面先選系列,再選裡面的角色;還沒有角色的系列不會顯示。
+## 新增系列時在這裡加一筆,角色的 "series" 填這裡的 id。
+const SERIES: Array[Dictionary] = [
+	{"id": "jjk", "name": "咒術迴戰", "color": Color(0.5, 0.42, 0.95)},
+	{"id": "naruto", "name": "火影忍者", "color": Color(1.0, 0.6, 0.2)},
+]
+
+## 新增角色時在這裡加一筆。series 是所屬系列的 id(見 SERIES);skills 依序是:技能、上+技能、超必殺。
 const CHARACTERS: Array[Dictionary] = [
 	{
 		"name": "五條悟",
+		"series": "jjk",
 		"scene": "res://scenes/characters/gojo.tscn",
 		"sprites": "res://assets/characters/gojo",
 		"hair": Color(0.95, 0.96, 1.0),
@@ -29,6 +37,7 @@ const CHARACTERS: Array[Dictionary] = [
 	},
 	{
 		"name": "兩面宿儺",
+		"series": "jjk",
 		"scene": "res://scenes/characters/sukuna.tscn",
 		"sprites": "res://assets/characters/sukuna",
 		"hair": Color(0.95, 0.6, 0.65),
@@ -37,6 +46,7 @@ const CHARACTERS: Array[Dictionary] = [
 	},
 	{
 		"name": "乙骨憂太",
+		"series": "jjk",
 		"scene": "res://scenes/characters/yuta.tscn",
 		"sprites": "res://assets/characters/yuta",
 		"hair": Color(0.13, 0.13, 0.17),
@@ -45,6 +55,7 @@ const CHARACTERS: Array[Dictionary] = [
 	},
 	{
 		"name": "虎杖悠仁",
+		"series": "jjk",
 		"scene": "res://scenes/characters/yuji.tscn",
 		"sprites": "res://assets/characters/yuji",
 		"hair": Color(0.98, 0.7, 0.62),
@@ -53,6 +64,7 @@ const CHARACTERS: Array[Dictionary] = [
 	},
 	{
 		"name": "伏黑惠",
+		"series": "jjk",
 		"scene": "res://scenes/characters/megumi.tscn",
 		"sprites": "res://assets/characters/megumi",
 		"hair": Color(0.1, 0.11, 0.16),
@@ -61,6 +73,7 @@ const CHARACTERS: Array[Dictionary] = [
 	},
 	{
 		"name": "伏黑甚爾",
+		"series": "jjk",
 		"scene": "res://scenes/characters/toji.tscn",
 		"sprites": "res://assets/characters/toji",
 		"hair": Color(0.08, 0.08, 0.1),
@@ -73,6 +86,8 @@ const CHARACTERS: Array[Dictionary] = [
 static var selection: Array[int] = [0, 1]
 ## 雙方選到的型態:0 是角色原本的樣子,1 以後是該角色 "forms" 裡的第幾個。
 static var forms: Array[int] = [0, 0]
+## 選角畫面上次看的是哪個系列(SERIES 的索引);-1 代表還沒選過,進選角畫面先看到系列清單。
+static var series: int = -1
 static var cpu_enabled: bool = true
 ## 是否顯示觸控按鈕。網頁版在觸控裝置上自動開啟;
 ## 測試時可在網址加上 ?touch=1,或在桌面版加上啟動參數 -- --touch。
@@ -81,6 +96,26 @@ static var touch_enabled: bool = false
 ## 只有觸控按鈕會用到的動作:一顆按鈕直接放出鍵盤上要搭配方向鍵的招式。
 const DIRECT_ACTIONS: Array[String] = ["skill2", "super", "teleport"]
 static var _initialized: bool = false
+
+
+## 某個系列裡的角色(CHARACTERS 的索引),依名單順序。
+static func characters_in(series_index: int) -> Array[int]:
+	var found: Array[int] = []
+	if series_index < 0 or series_index >= SERIES.size():
+		return found
+	for index in CHARACTERS.size():
+		if CHARACTERS[index].get("series", "") == SERIES[series_index].id:
+			found.append(index)
+	return found
+
+
+## 有角色的系列(SERIES 的索引),依清單順序。還沒有角色的系列不算。
+static func playable_series() -> Array[int]:
+	var found: Array[int] = []
+	for index in SERIES.size():
+		if not characters_in(index).is_empty():
+			found.append(index)
+	return found
 
 
 ## 某位玩家實際出戰的角色資料(已套用選到的型態)。
