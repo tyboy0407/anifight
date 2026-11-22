@@ -146,6 +146,7 @@ func _spawn_fighters() -> void:
 	for i in 2:
 		_fighters[i].health_changed.connect(_on_health_changed.bind(i))
 		_fighters[i].energy_changed.connect(_on_energy_changed.bind(i))
+		_fighters[i].meter_changed.connect(_on_meter_changed.bind(i))
 		_fighters[i].defeated.connect(_on_defeated)
 		_fighters[i].screen_shake.connect(_on_screen_shake)
 		# 角色回報的是「自己被連段」,所以顯示在對手(攻擊方)那一側。
@@ -199,6 +200,10 @@ func _on_health_changed(current: int, maximum: int, player_index: int) -> void:
 
 func _on_energy_changed(current: int, maximum: int, player_index: int) -> void:
 	_hud.set_energy(player_index, current, maximum)
+
+
+func _on_meter_changed(ratio: float, full: bool, player_index: int) -> void:
+	_hud.set_meter(player_index, _fighters[player_index].meter_info(), ratio, full)
 
 
 func _on_combo_changed(hits: int, damage: int, attacker_index: int) -> void:

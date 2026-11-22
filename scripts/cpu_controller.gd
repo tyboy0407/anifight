@@ -99,11 +99,10 @@ func _decide() -> void:
 			_press("dash", TAP)
 			return
 
-	# 蓄力招式的角色:趁對手被打飛、倒地的空檔先蓄(排在「對手無敵就不出招」之前)
-	if not saving and me.ai_charges_on_knockdown() and roll < 0.75:
-		_release("up")
+	# 有「某招之後按普攻追擊」的角色:時機到了就按(例如豪火球命中後的瞬身)
+	if me.ai_wants_attack() and roll < 0.8:
 		_release("down")
-		_press("skill", TAP)
+		_press("attack", TAP)
 		return
 
 	if foe.is_invulnerable():

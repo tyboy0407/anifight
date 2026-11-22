@@ -95,8 +95,8 @@ const CHARACTERS: Array[Dictionary] = [
 		"scene": "res://scenes/characters/sasuke.tscn",
 		"sprites": "res://assets/characters/sasuke",
 		"hair": Color(0.1, 0.11, 0.18),
-		"skills": ["千鳥(1格)/連段中:千鳥雷槍", "豪火球之術(1格)", "麒麟(4格)"],
-		"summary": "氣量上限 5 格\n千鳥:蓄力 1 秒後衝刺\n普攻中按招式一:千鳥雷槍\n豪火球:命中後燃燒 5 秒\n麒麟:蓄力 2 秒的落雷\n被麒麟打中會麻痺 2 秒",
+		"skills": ["千鳥(1格)/連段中:千鳥雷槍", "豪火球之術(1格)", "麒麟(5格)"],
+		"summary": "氣量上限 5 格\n千鳥:蓄力後衝刺\n普攻中按招式一:千鳥雷槍\n豪火球:命中後燃燒 5 秒\n麒麟:出拳、雷槍、落雷\n大蛇之力滿:蛇咬 / 蛇籠",
 	},
 ]
 

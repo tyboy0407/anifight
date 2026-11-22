@@ -9,6 +9,9 @@ signal defeated(fighter: Fighter)
 signal combo_changed(hits: int, damage: int)
 ## 要求畫面震動(重擊命中、摔在地上、撞到場邊)。strength 是震動的最大位移(像素)。
 signal screen_shake(strength: float)
+## 角色專屬的計量條變了(例如大蛇之力)。ratio 是 0 到 1;full 代表已經滿了、可以使用。
+## 有計量條的角色覆寫 meter_info(),介面才會在血條下方畫出來。
+signal meter_changed(ratio: float, full: bool)
 
 enum State { IDLE, MOVE, JUMP, DASH, ATTACK, GUARD, HITSTUN, LAUNCHED, DOWN, GETUP, KO, TELEPORT, BURST, CAST, STUNNED }
 
@@ -844,8 +847,13 @@ func ai_combo_skill() -> bool:
 	return false
 
 
-## 給電腦對手的提示:對手被打飛或倒地的這個空檔,要不要按招式一先蓄力(蓄力招式的角色覆寫)。
-func ai_charges_on_knockdown() -> bool:
+## 角色專屬計量條的名稱與顏色:{"name": ..., "color": ...}。沒有計量條的角色回傳空字典。
+func meter_info() -> Dictionary:
+	return {}
+
+
+## 給電腦對手的提示:現在是不是該馬上按普通攻擊(有「某招之後按普攻追擊」的角色覆寫)。
+func ai_wants_attack() -> bool:
 	return false
 
 

@@ -501,12 +501,12 @@ def fireball(v: int) -> np.ndarray:
 
 
 def kirin_charge(v: int) -> np.ndarray:
-    # 麒麟蓄力:烏雲裡悶悶的雷聲越滾越大,夾著零星的劈啪聲(配合 2 秒的蓄力)
-    dur = 2.0
+    # 麒麟蓄力:烏雲裡悶悶的雷聲越滾越大,夾著零星的劈啪聲(配合 1 秒的蓄力)
+    dur = 1.0
     x = t(dur)
     rumble = lowpass(noise(dur), glide(180, 700, dur)) * (0.6 + 0.4 * np.sin(2 * np.pi * np.cumsum(glide(4, 13, dur)) / SR))
     sub = osc(glide(42, 70, dur), dur) * 0.6
-    crackle_ = highpass(noise(dur), 3000) * (_rng.uniform(0, 1, len(x)) > 0.9985).astype(float)
+    crackle_ = highpass(noise(dur), 3000) * (_rng.uniform(0, 1, len(x)) > 0.997).astype(float)
     crackle_ = np.convolve(crackle_, decay(0.03, 120), "same") * 2.5
     return finish(drive(mix(rumble, sub, crackle_) * (0.2 + 0.8 * (x / dur) ** 1.6), 1.5), 0.55, 0.02)
 
@@ -518,6 +518,24 @@ def kirin(v: int) -> np.ndarray:
     roll = lowpass(noise(1.1), glide(3600, 180, 1.1)) * decay(1.1, 3.6) * (0.75 + 0.25 * np.sin(2 * np.pi * 9 * t(1.1)))
     boom = thump(120, 30, 0.7, 5.5) * 1.5
     return finish(drive(mix(crack, tear, roll, boom), 2.4), 0.85, 0.08)
+
+
+def snake_bite(v: int) -> np.ndarray:
+    # 蛇咬:一聲尖銳的嘶聲射出去,最後「喀」地咬住
+    dur = 0.34
+    x = t(dur) / dur
+    hiss = highpass(noise(dur), 4200) * (0.3 + 0.7 * x) * np.clip((1 - x) / 0.15, 0, 1)
+    snap = at(mix(thump(420, 160, 0.06, 50), highpass(noise(0.03), 2500) * decay(0.03, 120)), dur - 0.07)
+    return finish(mix(hiss * 0.8, snap), 0.42, 0.02)
+
+
+def snake_cage(v: int) -> np.ndarray:
+    # 蛇籠:一大群小蛇在地上爬的沙沙聲,忽大忽小
+    dur = 0.9
+    x = t(dur)
+    rustle = highpass(lowpass(noise(dur), 5200), 1800) * (0.55 + 0.45 * np.sin(2 * np.pi * 17 * x)) * (0.6 + 0.4 * np.sin(2 * np.pi * 3.1 * x))
+    low = lowpass(noise(dur), 420) * 0.35
+    return finish(mix(rustle, low) * swell(dur, 0.12, 0.35), 0.36, 0.05)
 
 
 # 音效名稱 -> (產生函式, 變化版數量)。和 scripts/sfx.gd 的 SOUNDS 對應。
@@ -535,7 +553,7 @@ SOUNDS = {
     "divergent": (divergent, 1), "parry": (parry, 1), "weapon_swap": (weapon_swap, 1), "bind": (bind, 1),
     "kunai": (kunai, 2), "rasengan": (rasengan, 1), "rasengan_burst": (rasengan_burst, 1), "mark": (mark, 1),
     "poof": (poof, 1), "chidori": (chidori, 1), "thunder": (thunder, 1), "fireball": (fireball, 1),
-    "kirin_charge": (kirin_charge, 1), "kirin": (kirin, 1),
+    "kirin_charge": (kirin_charge, 1), "kirin": (kirin, 1), "snake_bite": (snake_bite, 1), "snake_cage": (snake_cage, 1),
 }
 
 

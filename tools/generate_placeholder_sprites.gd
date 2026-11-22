@@ -353,6 +353,23 @@ func _sasuke_animations() -> Array:
 				"hand_f": v(28, 29), "elbow_f": v(26, 26)}.merged(drawn)),
 			pose({"hand_f": v(23, 29), "elbow_f": v(28, 27), "hand_b": v(21, 30), "elbow_b": v(20, 26)}),
 		]},
+		# 第六段:壓低身體手按劍柄、拔刀衝過去、停在對手身後、收刀、站直
+		{"name": "attack6", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(26, 16), "neck": v(25, 21), "hip": v(23, 33), "knee_f": v(29, 40), "knee_b": v(20, 40),
+				"hand_f": v(23, 30), "elbow_f": v(28, 28)}),
+			pose({"head": v(33, 18), "neck": v(30, 22), "hip": v(23, 32), "hand_b": v(16, 27), "elbow_b": null,
+				"hand_f": v(43, 25), "elbow_f": null, "foot_b": v(10, 44), "knee_b": v(16, 38), "foot_f": v(27, 46), "knee_f": v(28, 39)}.merged(drawn)),
+			pose({"head": v(26, 14), "neck": v(25, 20), "hand_f": v(38, 32), "elbow_f": v(31, 28)}.merged(drawn)),
+			pose({"hand_f": v(24, 29), "elbow_f": v(29, 27), "hand_b": v(21, 30), "elbow_b": v(20, 26)}),
+			pose({"hand_f": v(26, 27), "elbow_f": v(28, 26)}),
+		]},
+		# 麒麟的起手:一拳把對手打飛
+		{"name": "punch", "fps": 12, "loop": false, "frames": [
+			pose({"neck": v(25, 19), "hand_b": v(23, 24), "elbow_b": v(19, 26)}),
+			pose({"head": v(29, 14), "neck": v(27, 20), "hip": v(25, 31),
+				"hand_b": v(43, 23), "elbow_b": null, "hand_f": v(26, 24), "elbow_f": v(22, 27)}),
+			pose({"head": v(27, 13), "neck": v(26, 19), "hand_b": v(36, 25), "elbow_b": v(30, 26)}),
+		]},
 		# 千鳥雷槍的起手:蹲低後往正上方踢
 		{"name": "spear_kick", "fps": 12, "loop": false, "frames": [
 			pose({"head": v(25, 15), "neck": v(24, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40)}),
@@ -373,6 +390,15 @@ func _sasuke_animations() -> Array:
 		# 千鳥雷槍:手指向斜上方
 		{"name": "spear", "fps": 8, "loop": false, "frames": [
 			pose({"head": v(24, 13), "neck": v(24, 19), "hand_f": v(36, 10), "elbow_f": null, "hand_b": v(22, 28), "elbow_b": v(20, 24)}),
+		]},
+		# 手往正前方伸直:麒麟的雷槍、蛇咬
+		{"name": "reach", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(27, 14), "neck": v(26, 20), "hand_f": v(42, 21), "elbow_f": null, "hand_b": v(21, 27), "elbow_b": v(20, 24)}),
+		]},
+		# 蛇咬拉近之後的那一刀:橫掃到底
+		{"name": "slash_pose", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "foot_b": v(15, 46), "knee_b": v(19, 39),
+				"hand_f": v(42, 24), "elbow_f": null}.merged(drawn)),
 		]},
 		# 豪火球:身體前傾,手在嘴邊結印
 		{"name": "fire", "fps": 8, "loop": false, "frames": [

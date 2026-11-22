@@ -162,7 +162,7 @@ NARUTO = {
     "poof": dict(id="spawn/poof", stride=2, max_frames=12, speed=1.5),
 }
 
-# 宇智波佐助的特效。千鳥、雷槍、燃燒、麒麟是自己寫的;火球、雷雲、電擊是 pixelfx 內建的
+# 宇智波佐助的特效。千鳥、雷槍、燃燒、麒麟、白蛇是自己寫的;火球、雷雲、電擊是 pixelfx 內建的
 SASUKE = {
     # 千鳥:手上劈啪作響的一團雷電(循環)。對齊點是中心
     "chidori": dict(id="anifight/chidori", loop=True),
@@ -178,6 +178,14 @@ SASUKE = {
     "cloud": dict(id="lightning/storm-cloud", anchor=(0, -128), keep_radius=84, stride=6, loop=True),
     # 麒麟:龍形的雷電從天而降。原點是落雷的地面
     "kirin": dict(id="anifight/kirin"),
+    # 大蛇之力的白蛇,都是自己寫的(anifight/snakes 的四種模式)。
+    # 蛇咬:伸出去的蛇身(循環,朝右,圖長 180 像素,原點在手上)與張著嘴的蛇頭(原點在後頸)
+    "snake_body": dict(id="anifight/snakes", opts={"mode": "body"}, loop=True),
+    "snake_head": dict(id="anifight/snakes", opts={"mode": "head"}, loop=True),
+    # 蛇籠:一小段爬滿小白蛇的地面(循環,原點在地面中央),以及纏在人身上的白蛇(循環,原點在腳底)
+    # (這兩種畫在畫布的 (92, 26) 這一點周圍,所以對齊點要跟著移過去)
+    "snakelets": dict(id="anifight/snakes", opts={"mode": "crawl"}, anchor=(92, 26), loop=True),
+    "snake_wrap": dict(id="anifight/snakes", opts={"mode": "wrap"}, anchor=(92, 26), loop=True),
 }
 
 # 輸出資料夾(assets 底下) -> 裡面有哪些動畫、遊戲裡的顯示倍率
