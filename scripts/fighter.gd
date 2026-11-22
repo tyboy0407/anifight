@@ -822,6 +822,33 @@ func stagger(duration: float) -> void:
 	_set_state(State.HITSTUN, true)
 
 
+## 持續傷害(燃燒這類狀態):直接扣血,不造成硬直、不算進連段,也不會把人打倒(至少留 1 滴血)。
+func chip(amount: int) -> void:
+	if state == State.KO or amount <= 0:
+		return
+	_set_health(maxi(health - maxi(int(round(amount * _damage_taken_scale())), 1), 1))
+
+
+## 用某個招式打對手,回傳有沒有「確實打中」:被防禦住、被無下限這類效果擋下都不算。
+## 給「打中才附加狀態」的招式用(飛雷神的術式、燃燒)。
+func _land(move: AttackData) -> bool:
+	if opponent == null:
+		return false
+	var before := opponent.health
+	opponent.take_hit(move, self)
+	return opponent.health < before and opponent.state != State.GUARD
+
+
+## 給電腦對手的提示:普通攻擊打到一半時,現在要不要按招式一(連段中招式會變化的角色覆寫)。
+func ai_combo_skill() -> bool:
+	return false
+
+
+## 給電腦對手的提示:對手被打飛或倒地的這個空檔,要不要按招式一先蓄力(蓄力招式的角色覆寫)。
+func ai_charges_on_knockdown() -> bool:
+	return false
+
+
 ## 給觸控按鈕的提示:招式一現在是不是強化版(是的話按鈕周圍會冒出黑閃的光芒)。
 func skill1_empowered() -> bool:
 	return false
@@ -1300,6 +1327,37 @@ func _sheet_sprite(dir: String, animation: String) -> AnimatedSprite2D:
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2.ONE * data.scale
 	sprite.play(animation)
+	return sprite
+
+
+## 從某一組點陣圖拿一個循環播放的小道具(苦無、光球、印記…)放進場景,回傳裝著它的節點;
+## 節點的原點就是圖的對齊點。素材沒載到時用一塊 fallback_size 大小的色塊代替。
+func _sheet_prop(dir: String, animation: String, fallback_size: Vector2, color: Color) -> Node2D:
+	var holder := Node2D.new()
+	holder.z_index = 3
+	var sprite := _sheet_sprite(dir, animation)
+	if sprite != null:
+		holder.add_child(sprite)
+	else:
+		var rect := ColorRect.new()
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rect.color = color
+		rect.size = fallback_size
+		rect.position = -fallback_size / 2.0
+		holder.add_child(rect)
+	get_parent().add_child(holder)
+	return holder
+
+
+## 播放某一組點陣圖裡的一次性特效(播完自己消失),回傳那個 Sprite。素材沒載到時回傳 null。
+func _spawn_sheet_effect(dir: String, animation: String, at: Vector2) -> AnimatedSprite2D:
+	var sprite := _sheet_sprite(dir, animation)
+	if sprite == null:
+		return null
+	sprite.z_index = 3
+	get_parent().add_child(sprite)
+	sprite.global_position = at
+	sprite.animation_finished.connect(sprite.queue_free)
 	return sprite
 
 

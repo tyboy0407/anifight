@@ -89,6 +89,15 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["瞬身踢(1格)", "螺旋丸(2格)", "飛光連擊閃身二式(4格)"],
 		"summary": "氣量上限 5 格\n普攻最後丟出苦無\n苦無命中:對手陷入飛雷神\n瞬身踢:瞬身後往上踢\n螺旋丸:破防的連續傷害\n對手有飛雷神:招式強化",
 	},
+	{
+		"name": "宇智波佐助",
+		"series": "naruto",
+		"scene": "res://scenes/characters/sasuke.tscn",
+		"sprites": "res://assets/characters/sasuke",
+		"hair": Color(0.1, 0.11, 0.18),
+		"skills": ["千鳥(1格)/連段中:千鳥雷槍", "豪火球之術(1格)", "麒麟(4格)"],
+		"summary": "氣量上限 5 格\n千鳥:蓄力 1 秒後衝刺\n普攻中按招式一:千鳥雷槍\n豪火球:命中後燃燒 5 秒\n麒麟:蓄力 2 秒的落雷\n被麒麟打中會麻痺 2 秒",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。

@@ -12,7 +12,7 @@ extends SceneTree
 ## 參與統計的角色:[名稱, 角色索引, 型態索引]
 const ROSTER := [
 	["gojo", 0, 0], ["gojo_young", 0, 1], ["sukuna", 1, 0], ["yuta", 2, 0],
-	["yuji", 3, 0], ["megumi", 4, 0], ["toji", 5, 0], ["minato", 6, 0],
+	["yuji", 3, 0], ["megumi", 4, 0], ["toji", 5, 0], ["minato", 6, 0], ["sasuke", 7, 0],
 ]
 
 

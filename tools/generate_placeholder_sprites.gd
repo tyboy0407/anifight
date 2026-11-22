@@ -90,6 +90,18 @@ const STYLES := [
 		"guard_color": Color(0.6, 0.66, 0.78),
 		"moves": "minato",
 	},
+	# 宇智波佐助:往後翹的黑髮、寫輪眼、敞開的淺色上衣、紫色腰繩、深色褲子,
+	# 腰後橫插著一把草薙劍(平常收在鞘裡,出招時才拔出來)。有自己的出招動作(見 _sasuke_animations)。
+	{
+		"id": "sasuke",
+		"hair": Color(0.1, 0.11, 0.18), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.84, 0.85, 0.91), "sleeve": Color(0.84, 0.85, 0.91),
+		"pants": Color(0.17, 0.18, 0.3), "sash": Color(0.5, 0.35, 0.68),
+		"eye": Color(0.93, 0.16, 0.16), "back_hair": true,
+		"sword": true, "sheathed": true, "blade_length": 12, "blade_width": 2, "blade_color": Color(0.85, 0.9, 0.98),
+		"guard_color": Color(0.2, 0.2, 0.27),
+		"moves": "sasuke",
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -292,12 +304,99 @@ func _minato_animations() -> Array:
 	]
 
 
+## 宇智波佐助專用的動作:同名的取代通用動作,其餘的加在後面。
+## 他的劍平常收在鞘裡,姿勢裡寫了 "blade": true 的那一格才拿在手上。
+func _sasuke_animations() -> Array:
+	var drawn := {"blade": true}
+	# 高高往上踢的那一腳(千鳥雷槍的起手)
+	var kick_up := {"head": v(19, 15), "neck": v(20, 21), "hip": v(23, 31), "foot_f": v(36, 13), "knee_f": v(30, 23),
+		"hand_f": v(25, 28), "elbow_f": null, "hand_b": v(14, 25), "elbow_b": null}
+	# 往後跳到空中,後手往斜下方甩出苦無,劍收在身側
+	var air_throw := {"head": v(22, 11), "neck": v(22, 17), "hip": v(23, 28),
+		"foot_b": v(17, 40), "knee_b": v(18, 35), "foot_f": v(28, 40), "knee_f": v(29, 34),
+		"hand_b": v(36, 29), "elbow_b": null, "hand_f": v(15, 21), "elbow_f": v(19, 20)}
+	return [
+		# 第一段:手按劍柄,拔刀往前揮
+		{"name": "attack1", "fps": 12, "loop": false, "frames": [
+			pose({"neck": v(25, 19), "hand_f": v(23, 29), "elbow_f": v(28, 27)}),
+			pose({"head": v(27, 13), "neck": v(26, 19), "hand_f": v(41, 22), "elbow_f": null}.merged(drawn)),
+			pose({"hand_f": v(38, 27), "elbow_f": v(31, 25)}.merged(drawn)),
+		]},
+		# 第二段:往前踢,劍收在身後
+		{"name": "attack2", "fps": 12, "loop": false, "frames": [
+			pose({"hip": v(23, 31), "foot_f": v(27, 40), "knee_f": v(31, 34), "hand_f": v(18, 27), "elbow_f": v(21, 23)}.merged(drawn)),
+			pose({"head": v(20, 14), "neck": v(21, 20), "hip": v(23, 31), "foot_f": v(43, 26), "knee_f": v(33, 29),
+				"hand_f": v(16, 28), "elbow_f": v(20, 24), "hand_b": v(26, 24)}.merged(drawn)),
+			pose({"foot_f": v(32, 42), "knee_f": v(31, 36), "hand_f": v(20, 28), "elbow_f": v(22, 24)}.merged(drawn)),
+		]},
+		# 第三段:轉過身,劍從背後橫著掃到身前
+		{"name": "attack3", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(23, 13), "neck": v(23, 19), "hand_f": v(13, 21), "elbow_f": v(19, 22), "hand_b": v(26, 25)}.merged(drawn)),
+			pose({"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "foot_b": v(15, 46), "knee_b": v(19, 39),
+				"hand_f": v(42, 24), "elbow_f": null}.merged(drawn)),
+			pose({"head": v(27, 13), "neck": v(26, 19), "hand_f": v(39, 29), "elbow_f": v(32, 26)}.merged(drawn)),
+		]},
+		# 第四段:蹲低,由下往上挑
+		{"name": "attack4", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(26, 15), "neck": v(25, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40),
+				"hand_f": v(31, 37), "elbow_f": v(27, 32)}.merged(drawn)),
+			pose({"head": v(27, 12), "neck": v(26, 18), "hip": v(25, 30), "hand_f": v(36, 10), "elbow_f": null}.merged(drawn)),
+			pose({"head": v(26, 12), "neck": v(25, 18), "hip": v(24, 30), "hand_f": v(33, 9), "elbow_f": v(31, 15)}.merged(drawn)),
+		]},
+		# 第五段:往後跳、在空中往斜下方丟苦無、落地、收刀
+		{"name": "attack5", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(23, 15), "neck": v(23, 21), "hip": v(23, 33), "knee_f": v(29, 40), "knee_b": v(20, 40),
+				"hand_f": v(27, 30), "elbow_f": v(25, 27)}.merged(drawn)),
+			pose(air_throw.merged(drawn)),
+			pose(air_throw.merged(drawn).merged({"hand_b": v(35, 31)})),
+			pose({"head": v(25, 15), "neck": v(24, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(20, 40),
+				"hand_f": v(28, 29), "elbow_f": v(26, 26)}.merged(drawn)),
+			pose({"hand_f": v(23, 29), "elbow_f": v(28, 27), "hand_b": v(21, 30), "elbow_b": v(20, 26)}),
+		]},
+		# 千鳥雷槍的起手:蹲低後往正上方踢
+		{"name": "spear_kick", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(25, 15), "neck": v(24, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40)}),
+			pose(kick_up),
+			pose(kick_up.merged({"foot_f": v(36, 14), "knee_f": v(30, 24)})),
+		]},
+		# 以下都只有一格,由遊戲依招式的階段切換
+		# 千鳥:壓低身體,一手握住另一手的手腕,雷電聚在朝下的手掌
+		{"name": "chidori_charge", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(27, 16), "neck": v(25, 21), "hip": v(23, 33), "knee_f": v(29, 40), "knee_b": v(20, 40),
+				"hand_f": v(31, 37), "elbow_f": null, "hand_b": v(29, 31), "elbow_b": v(24, 28)}),
+		]},
+		# 千鳥:壓低身體往前衝,手往前推
+		{"name": "chidori_rush", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(34, 18), "neck": v(30, 22), "hip": v(22, 32), "hand_b": v(15, 27), "elbow_b": null,
+				"hand_f": v(43, 24), "elbow_f": null, "foot_b": v(10, 44), "knee_b": v(16, 38), "foot_f": v(27, 46), "knee_f": v(28, 39)}),
+		]},
+		# 千鳥雷槍:手指向斜上方
+		{"name": "spear", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(24, 13), "neck": v(24, 19), "hand_f": v(36, 10), "elbow_f": null, "hand_b": v(22, 28), "elbow_b": v(20, 24)}),
+		]},
+		# 豪火球:身體前傾,手在嘴邊結印
+		{"name": "fire", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(28, 14), "neck": v(26, 20), "hip": v(24, 31), "hand_f": v(32, 18), "elbow_f": v(29, 23),
+				"hand_b": v(30, 19), "elbow_b": v(26, 24)}),
+		]},
+		# 麒麟:一手高舉指向天空;雷落下時把手揮下來
+		{"name": "kirin", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(24, 13), "neck": v(24, 19), "hand_f": v(27, 4), "elbow_f": null, "hand_b": v(21, 28), "elbow_b": v(20, 24)}),
+		]},
+		{"name": "kirin_down", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(27, 14), "neck": v(26, 20), "hand_f": v(40, 27), "elbow_f": null, "hand_b": v(20, 27), "elbow_b": v(19, 23)}),
+		]},
+	]
+
+
 ## 這個角色實際要畫的動作:通用動作,加上(或換成)角色自己的。
 func _animations_for(style: Dictionary) -> Array:
 	var animations := _animations()
-	if style.get("moves", "") != "minato":
-		return animations
-	for extra: Dictionary in _minato_animations():
+	var extras: Array = []
+	match style.get("moves", ""):
+		"minato": extras = _minato_animations()
+		"sasuke": extras = _sasuke_animations()
+	for extra: Dictionary in extras:
 		var replaced := false
 		for index in animations.size():
 			if animations[index].name == extra.name:
@@ -354,6 +453,10 @@ func _draw_figure(p: Dictionary) -> void:
 	var top: Color = _style.top
 	if _style.has("coat_hem"):
 		_draw_coat_tail(shoulder, p.hip, top, _style.coat_hem)
+	var sheathed: bool = _style.get("sheathed", false)
+	var blade_in_hand: bool = _style.get("sword", false) and p.get("blade", not sheathed)
+	if sheathed:
+		_draw_scabbard(shoulder, p.hip, not blade_in_hand)
 	_draw_line(shoulder, p.hip, top, 6)
 	_draw_line(shoulder + Vector2i(-3, 1), p.hip + Vector2i(-3, -1), top.darkened(0.3), 1)
 	if _style.has("vest"):
@@ -382,9 +485,26 @@ func _draw_figure(p: Dictionary) -> void:
 	_draw_limb(shoulder, p.get("elbow_f"), p.hand_f, sleeve, 3)
 	# 近側手臂下緣的陰影
 	_draw_limb(shoulder + Vector2i(0, 1), _below(p.get("elbow_f")), p.hand_f + Vector2i(0, 1), sleeve.darkened(0.22), 1)
-	if _style.get("sword", false) and p.get("blade", true):
+	if blade_in_hand:
 		_draw_sword(p.get("elbow_f", shoulder), p.hand_f)
 	_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
+
+
+## 橫插在腰後的劍鞘:從腰帶往背後斜斜伸出去。with_sword 為 true 時劍還在鞘裡,腰前露出劍柄。
+## 方向跟著軀幹走(和長袍下襬一樣),倒地時不會插進地面。
+func _draw_scabbard(shoulder: Vector2i, hip: Vector2i, with_sword: bool) -> void:
+	var along := Vector2(hip - shoulder)
+	if along.length() < 0.5:
+		along = Vector2.DOWN
+	along = along.normalized()
+	var behind := Vector2(-along.y, along.x)  # 站著的時候是往背後(左)
+	var scabbard := Color(0.14, 0.13, 0.22)
+	_draw_line(hip + Vector2i((behind * 1.0 - along * 3.0).round()), hip + Vector2i((behind * 11.0 + along * 1.0).round()), scabbard, 2)
+	if with_sword:
+		var grip_from := hip + Vector2i((-behind * 1.0 - along * 3.0).round())
+		var grip_to := hip + Vector2i((-behind * 5.0 - along * 5.0).round())
+		_draw_line(grip_from, grip_to, Color(0.3, 0.28, 0.42), 1)
+		_plot(grip_to, Color(0.8, 0.8, 0.88))
 
 
 ## 長袍的下襬:從腰往下垂在身後,最底下是一圈火焰花紋。方向跟著軀幹走,
@@ -451,6 +571,13 @@ func _draw_head(center: Vector2i) -> void:
 		_plot(center + Vector2i(-3, -8), hair)
 		_plot(center + Vector2i(1, -8), hair)
 		_fill(center + Vector2i(-6, -5), Vector2i(2, 3), hair)
+	if _style.get("back_hair", false):
+		# 後腦往後、往上翹的頭髮
+		for point: Vector2i in [Vector2i(-6, -4), Vector2i(-7, -5), Vector2i(-6, -2), Vector2i(-7, -3), Vector2i(-8, -6),
+				Vector2i(-6, 0), Vector2i(-7, -1), Vector2i(-5, -6), Vector2i(-6, -6)]:
+			_plot(center + point, hair)
+		# 垂在臉頰旁的鬢角
+		_fill(center + Vector2i(0, -1), Vector2i(1, 4), hair)
 	if _style.get("bangs", false):
 		# 垂到下巴的長鬢角,後腦的頭髮也比較長
 		_fill(center + Vector2i(0, -1), Vector2i(1, 5), hair)

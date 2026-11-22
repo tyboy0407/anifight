@@ -312,15 +312,6 @@ func _clear_kunai() -> void:
 
 # ---------- 飛雷神 ----------
 
-## 用某個招式打對手,回傳有沒有「確實打中」:被防禦住、被無下限擋下都不算。
-func _land(move: AttackData) -> bool:
-	if opponent == null:
-		return false
-	var before := opponent.health
-	opponent.take_hit(move, self)
-	return opponent.health < before and opponent.state != State.GUARD
-
-
 func _apply_mark() -> void:
 	if opponent == null or opponent.state == State.KO:
 		return
@@ -707,7 +698,7 @@ func _begin_finish() -> void:
 
 func _spawn_clone() -> void:
 	var at := _clone_point()
-	_spawn_effect_from(FX_DIR, "poof", at)
+	_spawn_sheet_effect(FX_DIR, "poof", at)
 	Sfx.play("poof")
 	if not _has_sprite:
 		return
@@ -736,7 +727,7 @@ func _tick_clone() -> void:
 func _dismiss_clone() -> void:
 	if not is_instance_valid(_clone):
 		return
-	_spawn_effect_from(FX_DIR, "poof", _clone.global_position)
+	_spawn_sheet_effect(FX_DIR, "poof", _clone.global_position)
 	Sfx.play("poof")
 	_clone.queue_free()
 	_clone = null
@@ -820,33 +811,8 @@ func _clear_flash() -> void:
 # ---------- 共用 ----------
 
 ## 從火影系列的特效圖拿一個循環播放的小道具(苦無、螺旋丸、印記)放進場景;原點是圖的對齊點。
-## 素材沒載到時用一塊色塊代替。
 func _prop(animation: String, fallback_size: Vector2, color: Color) -> Node2D:
-	var holder := Node2D.new()
-	holder.z_index = 3
-	var sprite := _sheet_sprite(FX_DIR, animation)
-	if sprite != null:
-		holder.add_child(sprite)
-	else:
-		var rect := ColorRect.new()
-		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rect.color = color
-		rect.size = fallback_size
-		rect.position = -fallback_size / 2.0
-		holder.add_child(rect)
-	get_parent().add_child(holder)
-	return holder
-
-
-## 播放某一組點陣圖裡的一次性特效(播完自己消失)。素材沒載到時什麼都不做。
-func _spawn_effect_from(dir: String, animation: String, at: Vector2) -> void:
-	var sprite := _sheet_sprite(dir, animation)
-	if sprite == null:
-		return
-	sprite.z_index = 3
-	get_parent().add_child(sprite)
-	sprite.global_position = at
-	sprite.animation_finished.connect(sprite.queue_free)
+	return _sheet_prop(FX_DIR, animation, fallback_size, color)
 
 
 # ---------- 電腦操作 ----------

@@ -73,6 +73,10 @@ func _decide() -> void:
 				_press("attack", TAP)
 			elif roll < 0.8 and not saving and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():
 				_press("special", TAP)
+			elif roll < 0.87 and not saving and me.ai_combo_skill():
+				# 連段中招式一會變化的角色(例如千鳥雷槍)
+				_release("up")
+				_press("skill", TAP)
 			return
 
 	var hazard := _hazard_on_me()
@@ -94,6 +98,13 @@ func _decide() -> void:
 			_move(away, 0.3)
 			_press("dash", TAP)
 			return
+
+	# 蓄力招式的角色:趁對手被打飛、倒地的空檔先蓄(排在「對手無敵就不出招」之前)
+	if not saving and me.ai_charges_on_knockdown() and roll < 0.75:
+		_release("up")
+		_release("down")
+		_press("skill", TAP)
+		return
 
 	if foe.is_invulnerable():
 		# 對手倒地或無敵時不浪費招式,保持中距離。

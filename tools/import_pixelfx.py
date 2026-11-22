@@ -8,6 +8,7 @@ pixelfx(https://github.com/patch-gg/pixelfx,MIT 授權)是一套用程式畫的�
     assets/summons_fx/   召喚物(鷲、玉犬、里香)與純愛砲的光束,用自己的顏色
     assets/domain_void_fx/、assets/domain_shrine_fx/   領域展開的背景(無量空處、伏魔御廚子)
     assets/naruto_fx/    火影忍者系列角色的特效(苦無、螺旋丸、飛雷神印記、影分身的白煙)
+    assets/sasuke_fx/    宇智波佐助的特效(千鳥、雷槍、豪火球、燃燒、麒麟、麻痺)
 
     python tools/import_pixelfx.py            # 全部重做
     python tools/import_pixelfx.py --only summons_fx,domain_void_fx   # 只重做其中幾組
@@ -161,6 +162,24 @@ NARUTO = {
     "poof": dict(id="spawn/poof", stride=2, max_frames=12, speed=1.5),
 }
 
+# 宇智波佐助的特效。千鳥、雷槍、燃燒、麒麟是自己寫的;火球、雷雲、電擊是 pixelfx 內建的
+SASUKE = {
+    # 千鳥:手上劈啪作響的一團雷電(循環)。對齊點是中心
+    "chidori": dict(id="anifight/chidori", loop=True),
+    # 千鳥命中:一道電弧打進去、炸成一團亂竄的小閃電。對齊點是命中點
+    "zap": dict(id="lightning/zap-hit", stride=2, max_frames=11, speed=1.2),
+    # 千鳥雷槍(循環):朝右的一道雷電,圖長 440 像素,對齊點在手上;遊戲裡轉到要射的角度
+    "spear": dict(id="anifight/lightning-spear", loop=True),
+    # 豪火球(循環):朝右飛的火球,對齊點是火球的頭
+    "fireball": dict(id="fire/fireball", stride=3, loop=True),
+    # 燃燒狀態(循環):身上幾處冒著小火,只畫火不畫人。自己寫的。原點在腳底
+    "burning": dict(id="anifight/burn", loop=True),
+    # 麒麟蓄力時頭頂上的雷雲(循環):只留雲本身,不要底下的雨。對齊點是雲的中心
+    "cloud": dict(id="lightning/storm-cloud", anchor=(0, -128), keep_radius=84, stride=6, loop=True),
+    # 麒麟:龍形的雷電從天而降。原點是落雷的地面
+    "kirin": dict(id="anifight/kirin"),
+}
+
 # 輸出資料夾(assets 底下) -> 裡面有哪些動畫、遊戲裡的顯示倍率
 SETS = {
     "effects_fx": dict(effects=EFFECTS, scale=3.0),
@@ -169,6 +188,7 @@ SETS = {
     "domain_void_fx": dict(effects=DOMAIN_VOID, scale=4.0),
     "domain_shrine_fx": dict(effects=DOMAIN_SHRINE, scale=4.0),
     "naruto_fx": dict(effects=NARUTO, scale=3.0),
+    "sasuke_fx": dict(effects=SASUKE, scale=3.0),
 }
 
 

@@ -34,6 +34,7 @@ const SOUNDS := {
 	"divergent": 1, "parry": 1, "weapon_swap": 1, "bind": 1,
 	# 火影忍者系列
 	"kunai": 2, "rasengan": 1, "rasengan_burst": 1, "mark": 1, "poof": 1,
+	"chidori": 1, "thunder": 1, "fireball": 1, "kirin_charge": 1, "kirin": 1,
 }
 
 static var muted := false

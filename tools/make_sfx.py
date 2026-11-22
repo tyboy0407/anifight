@@ -470,6 +470,56 @@ def poof(v: int) -> np.ndarray:
     return finish(mix(puff, thump(210, 90, 0.10, 30) * 0.8), 0.42, 0.03)
 
 
+def chidori(v: int) -> np.ndarray:
+    # 千鳥:一千隻鳥在叫。又高又急的啁啾聲越來越密,底下是電流的嘶嘶聲(配合 1 秒的蓄力)
+    dur = 1.0
+    x = t(dur)
+    rate = glide(18, 46, dur)
+    chirp = np.abs(np.sin(2 * np.pi * np.cumsum(rate) / SR)) ** 3
+    birds = (osc(glide(2300, 3400, dur) * (1 + 0.12 * np.sin(2 * np.pi * np.cumsum(rate * 2) / SR)), dur, "tri")
+             + osc(glide(3500, 4700, dur), dur) * 0.4) * chirp
+    hiss = highpass(noise(dur), 3500) * (0.25 + 0.75 * chirp) * 0.5
+    hum = lowpass(osc(118, dur, "saw"), 700) * 0.25
+    return finish(mix(birds, hiss, hum) * (0.3 + 0.7 * (x / dur) ** 1.5), 0.46, 0.02)
+
+
+def thunder(v: int) -> np.ndarray:
+    # 雷打在人身上:一聲又乾又脆的爆裂,接著短短的餘響
+    crack = highpass(noise(0.06), 1500) * decay(0.06, 40) * 1.2
+    body = lowpass(noise(0.4), glide(5000, 400, 0.4)) * decay(0.4, 10)
+    zap = osc(glide(1800, 240, 0.16), 0.16, "saw") * decay(0.16, 18) * 0.5
+    return finish(drive(mix(crack, body, zap, thump(160, 45, 0.3, 11)), 2.0), 0.72, 0.04)
+
+
+def fireball(v: int) -> np.ndarray:
+    # 豪火球:先吸一口氣,再轟地一聲噴出去,火燒得呼呼作響
+    dur = 0.75
+    x = t(dur)
+    roar = lowpass(noise(dur), 900 + 2400 * np.sin(np.pi * x / dur) ** 2) * (0.7 + 0.3 * np.sin(2 * np.pi * 31 * x))
+    low = lowpass(osc(glide(120, 62, dur), dur, "saw"), 500) * 0.6
+    return finish(drive(mix(roar, low) * swell(dur, 0.07, 0.4), 1.6), 0.60, 0.05)
+
+
+def kirin_charge(v: int) -> np.ndarray:
+    # 麒麟蓄力:烏雲裡悶悶的雷聲越滾越大,夾著零星的劈啪聲(配合 2 秒的蓄力)
+    dur = 2.0
+    x = t(dur)
+    rumble = lowpass(noise(dur), glide(180, 700, dur)) * (0.6 + 0.4 * np.sin(2 * np.pi * np.cumsum(glide(4, 13, dur)) / SR))
+    sub = osc(glide(42, 70, dur), dur) * 0.6
+    crackle_ = highpass(noise(dur), 3000) * (_rng.uniform(0, 1, len(x)) > 0.9985).astype(float)
+    crackle_ = np.convolve(crackle_, decay(0.03, 120), "same") * 2.5
+    return finish(drive(mix(rumble, sub, crackle_) * (0.2 + 0.8 * (x / dur) ** 1.6), 1.5), 0.55, 0.02)
+
+
+def kirin(v: int) -> np.ndarray:
+    # 麒麟落下:撕開空氣的一聲巨響,後面拖著長長的滾雷
+    crack = highpass(noise(0.09), 1200) * decay(0.09, 26) * 1.4
+    tear = osc(glide(2600, 150, 0.22), 0.22, "saw") * decay(0.22, 12) * 0.6
+    roll = lowpass(noise(1.1), glide(3600, 180, 1.1)) * decay(1.1, 3.6) * (0.75 + 0.25 * np.sin(2 * np.pi * 9 * t(1.1)))
+    boom = thump(120, 30, 0.7, 5.5) * 1.5
+    return finish(drive(mix(crack, tear, roll, boom), 2.4), 0.85, 0.08)
+
+
 # 音效名稱 -> (產生函式, 變化版數量)。和 scripts/sfx.gd 的 SOUNDS 對應。
 SOUNDS = {
     "swing": (swing, 2), "hit_light": (hit_light, 3), "hit_heavy": (hit_heavy, 2), "guard": (guard, 1),
@@ -484,7 +534,8 @@ SOUNDS = {
     "cannon_fire": (cannon_fire, 1), "shikigami": (shikigami, 2), "combine": (combine, 1),
     "divergent": (divergent, 1), "parry": (parry, 1), "weapon_swap": (weapon_swap, 1), "bind": (bind, 1),
     "kunai": (kunai, 2), "rasengan": (rasengan, 1), "rasengan_burst": (rasengan_burst, 1), "mark": (mark, 1),
-    "poof": (poof, 1),
+    "poof": (poof, 1), "chidori": (chidori, 1), "thunder": (thunder, 1), "fireball": (fireball, 1),
+    "kirin_charge": (kirin_charge, 1), "kirin": (kirin, 1),
 }
 
 
@@ -494,6 +545,7 @@ SOFTEN = {
     "hit_light": 4200, "hit_heavy": 3000, "ko": 2600, "down": 2400, "bounce": 3000, "wall_crash": 3400,
     "burst": 3400, "black_flash": 4000, "cannon_fire": 3600, "speech": 3000, "red": 3400,
     "domain_shrine": 3200, "bind": 3000, "special": 4200, "rasengan_burst": 3600,
+    "thunder": 4200, "kirin": 3800, "fireball": 3200,
 }
 
 
