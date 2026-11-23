@@ -86,8 +86,8 @@ const CHARACTERS: Array[Dictionary] = [
 		"scene": "res://scenes/characters/minato.tscn",
 		"sprites": "res://assets/characters/minato",
 		"hair": Color(0.99, 0.84, 0.24),
-		"skills": ["瞬身踢(1格)", "螺旋丸(2格)", "飛光連擊閃身二式(4格)"],
-		"summary": "氣量上限 5 格\n普攻第四段丟苦無:飛雷神\n第五段:瞬身到背後斬擊\n瞬身踢:瞬身後往上踢\n螺旋丸:破防的連續傷害\n對手有飛雷神:招式強化",
+		"skills": ["瞬身踢(1格)", "螺旋丸(1格)", "飛光連擊閃身二式(4格)"],
+		"summary": "氣量上限 5 格\n普攻四段丟苦無:飛雷神\n按住後退:苦無留在地上\n再按普攻:瞬身滑行斬\n瞬身踢命中:可接螺旋丸\n有飛雷神:五段與招式強化",
 	},
 	{
 		"name": "宇智波佐助",

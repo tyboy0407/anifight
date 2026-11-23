@@ -847,6 +847,16 @@ func ai_combo_skill() -> bool:
 	return false
 
 
+## 給電腦對手的提示:現在是不是按招式二追擊的時機(例如瞬身踢踢中後接螺旋丸)。
+func ai_followup_skill2() -> bool:
+	return false
+
+
+## 給電腦對手的提示:連段中現在要不要按住後退(例如把苦無留在地上)。
+func ai_hold_back() -> bool:
+	return false
+
+
 ## 角色專屬計量條的名稱與顏色:{"name": ..., "color": ...}。沒有計量條的角色回傳空字典。
 func meter_info() -> Dictionary:
 	return {}

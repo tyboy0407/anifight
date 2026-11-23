@@ -62,6 +62,12 @@ func _decide() -> void:
 		if me.energy >= me.escape_cost() and roll < (0.05 if saving else 0.2):
 			_press("escape", TAP)
 		return
+	# 有「某招打中後按招式二追擊」的角色:時機很短,排在其他判斷前面(例如瞬身踢後的螺旋丸)
+	if me.ai_followup_skill2() and roll < 0.75:
+		_release("down")
+		_press("up", 0.12)
+		_press("skill", TAP)
+		return
 	match me.state:
 		Fighter.State.DOWN:
 			if roll < 0.5:
@@ -69,6 +75,9 @@ func _decide() -> void:
 			return
 		Fighter.State.ATTACK:
 			# 連段:繼續按攻擊,偶爾取消接大招。
+			if me.ai_hold_back():
+				# 連段中要按住後退才會變化的角色(例如把苦無留在地上)
+				_move(away, 0.25)
 			if roll < 0.7:
 				_press("attack", TAP)
 			elif roll < 0.8 and not saving and me.energy >= Fighter.SPECIAL_COST + me.ai_energy_reserve():

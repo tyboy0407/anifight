@@ -10,10 +10,14 @@ extends Fighter
 ##   從腰間抽出苦無揮兩刀、轉身迴旋踢把對手踢退一小段、往後跳開同時把苦無往前丟(打中留下術式)。
 ##   第五段要對手身上有術式才接得出來:用掉術式瞬身到對手背後,雙手各一把苦無斬下去,
 ##   把人稍微打離地面;確實砍中的話對手會再次留下術式。
+##   第四段出手前按住後退(面向的反方向):苦無不丟出去,改留在原地的地板上 3 秒。
+##   這段期間只要能自由行動(站著、走路、跳躍中)或第四段還沒收招,按普通攻擊就會瞬身到苦無上,
+##   撿起苦無往前滑行斬過去,可以穿過對手;確實砍中會留下術式。
 ## 招式
 ##   瞬身踢(skill,1 格):瞬身到前方一段距離,抬腳往上踢。
 ##     對手有術式:改為瞬身到對手背後往上踢。
-##   螺旋丸(上 + skill,2 格):在手中凝聚螺旋丸往前衝,命中後連續傷害再擊飛,破防。
+##     踢中之後 0.5 秒內按招式二(再花 1 格):瞬身到對手上方,凝聚螺旋丸往下砸。
+##   螺旋丸(上 + skill,1 格):在手中凝聚螺旋丸往前衝,命中後連續傷害再擊飛,破防。
 ##     對手有術式:改為瞬身到對手上方,把螺旋丸往下砸。
 ##   飛光連擊閃身二式(下 + special,4 格):往前丟出數枚苦無,接著連續瞬身到每一枚苦無上,
 ##     沿途經過的對手會被砍中並留下術式。結束時對手身上有術式的話,立刻叫出影分身架住對手,
@@ -39,6 +43,17 @@ const KUNAI_SPEED := 1500.0
 const KUNAI_LIFETIME := 0.5
 const KUNAI_SIZE := Vector2(62, 30)
 const KUNAI_DAMAGE := 30
+# 第四段按住後退:苦無留在地上,之後按普通攻擊瞬身過去滑行斬
+const PLANT_TIME := 3.0                       # 苦無落地後留在場上多久
+const PLANT_DROP := 0.10                      # 苦無從手上落到地面的時間
+const PLANT_HEIGHT := 13.0                    # 插在地上的苦無,圖的中心離地面多高
+const PLANT_BLINK := 0.7                      # 消失前閃爍多久
+const SLIDE_STEP := 5                         # 滑行斬的連段編號(不會再接下一段)
+const SLIDE_START := 0.06                     # 瞬身過去後,撿起苦無的時間
+const SLIDE_TIME := 0.16                      # 滑行的時間(這段期間有攻擊判定)
+const SLIDE_RECOVERY := 0.16
+const SLIDE_DISTANCE := 300.0
+const SLIDE_DAMAGE := 70
 # 招式一:瞬身踢
 const KICK_COST := 100
 const KICK_BLINK := 260.0                     # 往前瞬身的距離
@@ -46,8 +61,10 @@ const KICK_REACH := 64.0                      # 對手擋在路上時,停在他�
 const KICK_BEHIND := 64.0                     # 強化版:出現在對手背後這麼遠
 const KICK_DAMAGE := 120
 const KICK_MARKED_DAMAGE := 150
+const FOLLOW_WINDOW := 0.5                    # 踢中之後多久以內可以按招式二接螺旋丸下砸
+const FOLLOW_GATHER := 0.16                   # 接下砸時,在對手上方凝聚螺旋丸的時間
 # 招式二:螺旋丸
-const BALL_COST := 200
+const BALL_COST := 100
 const BALL_CHARGE := 0.32                     # 凝聚的時間,結束的瞬間衝出去
 const BALL_RUSH_TIME := 0.34
 const BALL_RUSH_SPEED := 820.0
@@ -57,12 +74,12 @@ const BALL_SIDE := Vector2(32, -62)           # 凝聚時球心的位置(腰側)
 const BALL_HAND := Vector2(76, -74)           # 推出時球心的位置
 const BALL_TICKS := 4                         # 連續傷害幾下(之後再加最後一擊)
 const BALL_TICK_INTERVAL := 0.09
-const BALL_TICK_DAMAGE := 30
-const BALL_FINAL_DAMAGE := 220
+const BALL_TICK_DAMAGE := 26
+const BALL_FINAL_DAMAGE := 190
 const SLAM_HAND := Vector2(34, -30)           # 往下砸時球心的位置
 const SLAM_HEIGHT := 75.0                     # 強化版:出現在對手上方這麼高(球剛好壓在對手頭上)
-const SLAM_TICK_DAMAGE := 36
-const SLAM_FINAL_DAMAGE := 300
+const SLAM_TICK_DAMAGE := 32
+const SLAM_FINAL_DAMAGE := 260
 # 大招:飛光連擊閃身二式
 const FLASH_COST := 400
 const FLASH_THROW := 0.18                     # 出手丟苦無的時間
@@ -91,13 +108,14 @@ const FINISH_SIZE := Vector2(230, 230)        # 大型螺旋丸的判定範圍
 const BIG_BALL_SIZE := 180.0
 const CLONE_OFFSET := 30.0                    # 影分身站在對手背後這麼遠
 
-enum Ball { NONE, CHARGE, RUSH, GRIND, RECOVER }
+enum Ball { NONE, CHARGE, RUSH, GRIND, RECOVER, GATHER }
 enum Flash { NONE, THROW, FLY, STEPS, CHARGE, PUSH, RECOVER }
 
 var _throw_move: AttackData
 var _cross_move: AttackData
 var _cross_queued := false          # 第四段途中按過攻擊,等術式出現就接第五段
 var _kunai_move: AttackData
+var _slide_move: AttackData
 var _kick_move: AttackData
 var _kick_marked_move: AttackData
 var _ball_tick_move: AttackData
@@ -112,6 +130,19 @@ var _finish_final_move: AttackData
 var _marked := false                # 對手身上有沒有飛雷神的術式
 var _mark_node: Node2D
 var _kunai: Array[Dictionary] = []  # 飛行中的苦無:{node, direction, time}
+var _health_before_hit := 0         # 這次攻擊判定前對手的血量(用來分辨有沒有確實打中)
+
+var _throw_origin := Vector2.ZERO   # 第四段開始時站的位置:苦無會留在這裡
+var _throw_planted := false         # 這一次第四段是把苦無留在地上
+var _plant_node: Node2D             # 留在地上的苦無
+var _plant_from := Vector2.ZERO     # 苦無離手的位置
+var _plant_point := Vector2.ZERO    # 苦無插著的地面位置(瞬身過去站的地方)
+var _plant_age := 0.0
+var _plant_landed := false
+var _slide_from := 0.0
+var _slide_to := 0.0
+var _follow_time := 0.0             # 瞬身踢踢中後,還有多久可以接螺旋丸下砸
+var _ai_plant := false              # 電腦操作:這一輪連段要不要把苦無留在地上
 
 var _ball := Ball.NONE
 var _ball_slam := false             # 這一發是不是強化版(從上方砸下)
@@ -174,6 +205,9 @@ func _build_moves() -> void:
 		_throw_move,
 	]
 	_kunai_move = AttackData.make(KUNAI_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(110, 0), 0.50, false, 0.0)
+	# 滑行斬:人自己滑過去(見 _tick_slide),攻擊框跟著走;幾乎不推開對手,滑過去之後人在對手背後
+	_slide_move = AttackData.make(SLIDE_DAMAGE, SLIDE_START, SLIDE_TIME, SLIDE_RECOVERY, Vector2(40, -46), Vector2(110, 76), Vector2(50, 0), 0.55, false, 0.0)
+	_slide_move.color = Color(BLADE_COLOR, 0.75)
 
 	# 瞬身踢:往正上方踢,對手被踢高,可以跳起來追打
 	_kick_move = AttackData.make(KICK_DAMAGE, 0.09, 0.12, 0.26, Vector2(50, -96), Vector2(96, 130), Vector2(90, -820), 0.0, true, 0.0)
@@ -215,15 +249,20 @@ func _remote(damage: int, knockback: Vector2, hitstun: float, launches: bool = f
 
 func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_clear_kunai()
+	_clear_plant()
 	_clear_ball()
 	_clear_flash()
 	_clear_mark()
+	_follow_time = 0.0
 	super(spawn_position, spawn_facing)
 
 
 func _physics_process(delta: float) -> void:
 	super(delta)
+	if _hitstop <= 0.0:
+		_follow_time = maxf(_follow_time - delta, 0.0)
 	_tick_kunai(delta)
+	_tick_plant(delta)
 	_tick_ball(delta)
 	_tick_flash(delta)
 	_tick_mark()
@@ -231,6 +270,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _try_character_actions() -> bool:
+	if _try_follow_slam():
+		return true
 	if _skill2_pressed():
 		if _spend_energy(BALL_COST):
 			_start_ball()
@@ -264,25 +305,53 @@ func _slash_effect() -> String:
 
 
 ## 第四段丟出苦無之後再按攻擊:對手身上有術式(苦無剛打中,或原本就有)就接第五段。
-## 沒有術式就接不出來,照常收招。
+## 沒有術式就接不出來,照常收招。這一次是把苦無留在地上的話,改成等苦無落地後瞬身過去滑行斬。
 func _tick_attack(delta: float) -> void:
 	if _move == _throw_move:
-		if _pressed("attack"):
-			_cross_queued = true
-		if _cross_queued and _state_time >= CROSS_FOLLOW_AT and _can_use_mark():
-			_start_cross()
-			return
+		if _throw_planted:
+			if _try_recall():
+				return
+		else:
+			if _pressed("attack"):
+				_cross_queued = true
+			if _cross_queued and _state_time >= CROSS_FOLLOW_AT and _can_use_mark():
+				_start_cross()
+				return
+	elif _move == _slide_move:
+		_tick_slide()
+	elif (_move == _kick_move or _move == _kick_marked_move) and _try_follow_slam():
+		return
 	super(delta)
+
+
+## 站著、走路時:地上有苦無就把普通攻擊換成瞬身過去的滑行斬。
+func _tick_ground() -> void:
+	if _try_recall():
+		return
+	super()
+
+
+## 跳躍中一樣可以瞬身到苦無上;瞬身踢踢中後人還在半空時,也能在這裡接螺旋丸下砸。
+func _tick_air() -> void:
+	if _try_follow_slam() or _try_recall():
+		return
+	super()
 
 
 func _start_attack(move: AttackData, combo_step: int) -> void:
 	super(move, combo_step)
 	_cross_queued = false
+	_throw_planted = false
 	if move == _throw_move:
 		# 往後轉身跳開
+		_throw_origin = global_position
 		velocity = Vector2(THROW_HOP.x * facing, THROW_HOP.y)
 	elif move == _cross_move:
 		_attack_anim = "attack5"
+	elif move == _slide_move:
+		_attack_anim = "slide"
+	elif _ground_moves.size() > 2 and move == _ground_moves[2]:
+		_ai_plant = randf() < 0.3
 	elif move == _kick_move or move == _kick_marked_move:
 		_attack_anim = "upkick"
 
@@ -299,16 +368,29 @@ func _start_cross() -> void:
 	_start_attack(_cross_move, CROSS_STEP)
 
 
-## 第五段確實砍中(沒被防住):對手再次留下術式。
+## 確實打中(血有掉、沒被防住)之後:第五段與滑行斬會留下術式,瞬身踢開啟接螺旋丸下砸的時機。
 func _on_attack_hit(target: Fighter, move: AttackData) -> void:
-	if move == _cross_move and target == opponent and target.state == State.LAUNCHED:
+	if target != opponent or target.health >= _health_before_hit or target.state == State.GUARD:
+		return
+	if move == _cross_move or move == _slide_move:
 		_apply_mark()
+	elif move == _kick_move or move == _kick_marked_move:
+		_follow_time = FOLLOW_WINDOW
 
 
 ## 丟苦無這一段:出手的那一刻把苦無丟出去,不畫揮擊的軌跡。
 func _show_slash() -> void:
 	if _move == _throw_move:
-		_throw_kunai()
+		if _wants_plant():
+			_plant_kunai()
+		else:
+			_throw_kunai()
+		return
+	if _move == _slide_move:
+		# 貼著地面的一道金色光痕,不畫一般的刀光
+		Sfx.play("slash")
+		_leave_ghost()
+		_flash_streak(Vector2(_slide_from, global_position.y - 40.0), Vector2(_slide_to, global_position.y - 40.0))
 		return
 	if _move == _cross_move:
 		# 兩把苦無交叉的斬擊,落在身前
@@ -323,8 +405,10 @@ func _show_slash() -> void:
 
 
 func _check_hits() -> void:
-	if _move != _throw_move:
-		super()
+	if _move == _throw_move:
+		return
+	_health_before_hit = opponent.health if opponent != null else 0
+	super()
 
 
 func _throw_kunai() -> void:
@@ -360,6 +444,96 @@ func _clear_kunai() -> void:
 		if is_instance_valid(kunai.node):
 			kunai.node.queue_free()
 	_kunai.clear()
+
+
+# ---------- 留在地上的苦無 ----------
+
+## 第四段出手的那一刻,是不是按著後退(面向的反方向)。
+func _wants_plant() -> bool:
+	return _axis() * facing < 0.0
+
+
+## 把苦無留在第四段開始時站的地方(人已經往後跳開了)。場上一次只留一把。
+func _plant_kunai() -> void:
+	_clear_plant()
+	_throw_planted = true
+	_attack_anim = "plant"
+	_anim_restart = true
+	Sfx.play("kunai")
+	_plant_point = Vector2(clampf(_throw_origin.x, arena_min_x, arena_max_x), _throw_origin.y)
+	_plant_from = global_position + Vector2(KUNAI_HAND.x * 0.6 * facing, KUNAI_HAND.y * 0.6)
+	_plant_node = _prop("kunai_still", Vector2(44, 10), BLADE_COLOR)
+	_plant_node.global_position = _plant_from
+	# 刀尖朝斜前下方,插進地面
+	_plant_node.rotation = PI / 2.0 - facing * 0.4
+	_plant_age = 0.0
+	_plant_landed = false
+
+
+## 苦無已經插在地上,可以瞬身過去了。
+func _plant_ready() -> bool:
+	return _plant_landed and is_instance_valid(_plant_node)
+
+
+func _tick_plant(delta: float) -> void:
+	if not is_instance_valid(_plant_node):
+		return
+	_plant_age += delta
+	var rest := _plant_point + Vector2(0, -PLANT_HEIGHT)
+	if _plant_age < PLANT_DROP:
+		_plant_node.global_position = _plant_from.lerp(rest, _plant_age / PLANT_DROP)
+		return
+	if not _plant_landed:
+		_plant_landed = true
+		_plant_node.global_position = rest
+		_spawn_dust(_plant_point, 2, 0.3)
+	var left := PLANT_TIME - (_plant_age - PLANT_DROP)
+	if left <= 0.0:
+		_spawn_effect("flash", rest, _bright(FLASH_COLOR), 0.4)
+		_clear_plant()
+		return
+	# 術式的金光一明一滅;快消失時整把閃爍
+	var glow := 1.0 + 0.45 * (0.5 + 0.5 * sin(_plant_age * 9.0))
+	_plant_node.modulate = Color(glow, glow * 0.95, glow * 0.7, 1.0 if left > PLANT_BLINK else 0.3 + 0.7 * absf(sin(left * 20.0)))
+
+
+func _clear_plant() -> void:
+	if is_instance_valid(_plant_node):
+		_plant_node.queue_free()
+	_plant_node = null
+	_plant_landed = false
+
+
+## 地上有苦無、又按了普通攻擊:瞬身過去滑行斬。有發動就回傳 true。
+func _try_recall() -> bool:
+	if not _plant_ready() or not _pressed("attack"):
+		return false
+	_start_recall()
+	return true
+
+
+## 瞬身到苦無上,面向對手,撿起苦無往前滑。
+func _start_recall() -> void:
+	_buffer.clear()
+	_vanish_effect(FLASH_COLOR)
+	global_position = _plant_point
+	velocity = Vector2.ZERO
+	_clear_plant()
+	_face_opponent()
+	_appear_effect(FLASH_COLOR)
+	Sfx.play("teleport")
+	_slide_from = global_position.x
+	_slide_to = clampf(_slide_from + facing * SLIDE_DISTANCE, arena_min_x, arena_max_x)
+	_start_attack(_slide_move, SLIDE_STEP)
+
+
+## 滑行斬的移動:位置直接算(不靠速度),所以會穿過擋在路上的對手。先快後慢。
+func _tick_slide() -> void:
+	velocity.x = 0.0
+	if _state_time < SLIDE_START:
+		return
+	var progress := clampf((_state_time - SLIDE_START) / SLIDE_TIME, 0.0, 1.0)
+	global_position.x = lerpf(_slide_from, _slide_to, 1.0 - pow(1.0 - progress, 2.0))
 
 
 # ---------- 飛雷神 ----------
@@ -416,6 +590,42 @@ func _start_flash_kick() -> void:
 	_appear_effect(FLASH_COLOR)
 	Sfx.play("teleport")
 	_start_attack(_kick_marked_move if empowered else _kick_move, SPECIAL_STEP)
+
+
+## 瞬身踢踢中後 0.5 秒內按招式二:再花 1 格,瞬身到對手上方把螺旋丸砸下去。有發動就回傳 true。
+func _try_follow_slam() -> bool:
+	if _follow_time <= 0.0 or not _skill2_pressed():
+		return false
+	if opponent == null or opponent.is_invulnerable() or not _spend_energy(BALL_COST):
+		return false
+	_buffer.clear()
+	_start_follow_slam()
+	return true
+
+
+## 先瞬身到對手上方,在手上凝聚螺旋丸(這段期間雙方停在半空),凝聚完就砸下去。
+func _start_follow_slam() -> void:
+	_follow_time = 0.0
+	_clear_ball()
+	_set_hitbox(false)
+	_ball = Ball.GATHER
+	_ball_slam = true
+	_ball_time = FOLLOW_GATHER
+	_vanish_effect(FLASH_COLOR)
+	_face_opponent()
+	global_position = opponent.global_position + Vector2(-facing * SLAM_HAND.x, -SLAM_HEIGHT)
+	global_position.x = clampf(global_position.x, arena_min_x, arena_max_x)
+	velocity = Vector2.ZERO
+	_ball_hold = global_position
+	_victim_hold = opponent.global_position
+	_appear_effect(FLASH_COLOR)
+	Sfx.play("teleport")
+	_ball_node = _prop("rasengan", Vector2(BALL_SIZE, BALL_SIZE), CHAKRA_COLOR)
+	_ball_node.scale = Vector2.ONE * 0.25
+	_callout("螺旋丸", CHAKRA_COLOR, "rasengan")
+	# 這一招沒有「凝聚完成往前衝」的時刻,階段由 _tick_ball 自己推進
+	_start_cast(10.0, INF, _release_ball, "slam")
+	_place_ball()
 
 
 # ---------- 招式二:螺旋丸 ----------
@@ -476,6 +686,15 @@ func _tick_ball(delta: float) -> void:
 		Ball.CHARGE:
 			# 腰側的螺旋丸越轉越大
 			_ball_node.scale = Vector2.ONE * lerpf(0.25, 1.0, clampf(_state_time / BALL_CHARGE, 0.0, 1.0))
+		Ball.GATHER:
+			# 接在瞬身踢後面的下砸:停在對手上方,螺旋丸很快聚起來
+			_hold_grind()
+			_ball_time -= delta
+			_ball_node.scale = Vector2.ONE * lerpf(0.25, 1.0, 1.0 - clampf(_ball_time / FOLLOW_GATHER, 0.0, 1.0))
+			if opponent == null or opponent.is_invulnerable():
+				_finish_ball(false)
+			elif _ball_time <= 0.0:
+				_begin_grind()
 		Ball.RUSH:
 			velocity.x = facing * BALL_RUSH_SPEED
 			_ball_time -= delta
@@ -883,6 +1102,27 @@ func ai_skill2_ready() -> bool:
 ## 螺旋丸:對手有術式時直接砸得到;否則要在衝刺的距離內。
 func ai_skill2_range() -> float:
 	return INF if _can_use_mark() else BALL_RUSH_SPEED * BALL_RUSH_TIME + BALL_HAND.x
+
+
+## 瞬身踢踢中了:還有氣就接螺旋丸下砸。
+func ai_followup_skill2() -> bool:
+	return _follow_time > 0.0 and energy >= BALL_COST and not ai_saving_energy() \
+			and opponent != null and not opponent.is_invulnerable()
+
+
+## 連段打到迴旋踢時,有時候決定把苦無留在地上:按住後退直到苦無出手。
+func ai_hold_back() -> bool:
+	if not _ai_plant or state != State.ATTACK or _marked:
+		return false
+	return _combo_step == 2 or (_move == _throw_move and not _slash_shown)
+
+
+## 地上有苦無、對手在滑行斬砍得到的範圍內:按普通攻擊瞬身過去。
+func ai_wants_attack() -> bool:
+	if not _plant_ready() or opponent == null or opponent.is_invulnerable():
+		return false
+	return absf(opponent.global_position.x - _plant_point.x) < SLIDE_DISTANCE - 30.0 \
+			and opponent.global_position.y > _plant_point.y - 70.0
 
 
 ## 決定存氣的回合先不放招式,存滿 4 格放大招。

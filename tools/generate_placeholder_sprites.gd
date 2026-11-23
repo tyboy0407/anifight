@@ -291,6 +291,28 @@ func _minato_animations() -> Array:
 			pose(throwing.merged(empty).merged({"hand_f": v(40, 22)})),
 			pose({"head": v(25, 14), "neck": v(24, 20), "hip": v(24, 32), "hand_f": v(34, 25)}.merged(empty)),
 		]},
+		# 第四段按住後退:往後跳開時把苦無往腳邊的地面甩下去
+		{"name": "plant", "fps": 12, "loop": false, "frames": [
+			pose(throwing.merged(empty).merged({"hand_f": v(37, 31), "elbow_f": v(31, 25)})),
+			pose(throwing.merged(empty).merged({"hand_f": v(36, 32), "elbow_f": v(31, 26)})),
+			pose({"head": v(25, 14), "neck": v(24, 20), "hip": v(24, 32), "hand_f": v(33, 28)}.merged(empty)),
+		]},
+		# 瞬身到地上的苦無旁:蹲下去撿起來、壓低身體往前滑著砍、收勢
+		{"name": "slide", "fps": 14, "loop": false, "frames": [
+			pose({"head": v(28, 24), "neck": v(26, 29), "hip": v(22, 36), "foot_f": v(31, 46), "knee_f": v(32, 41),
+				"foot_b": v(14, 46), "knee_b": v(17, 41), "hand_f": v(34, 42), "elbow_f": v(30, 36),
+				"hand_b": v(17, 33), "elbow_b": null}.merged(drawn)),
+			pose({"head": v(32, 23), "neck": v(29, 27), "hip": v(21, 35), "foot_f": v(35, 46), "knee_f": v(31, 40),
+				"foot_b": v(7, 45), "knee_b": v(14, 41), "hand_f": v(44, 28), "elbow_f": null,
+				"hand_b": v(14, 31), "elbow_b": null}.merged(drawn)),
+			pose({"head": v(32, 23), "neck": v(29, 27), "hip": v(21, 35), "foot_f": v(35, 46), "knee_f": v(31, 40),
+				"foot_b": v(8, 45), "knee_b": v(14, 41), "hand_f": v(44, 29), "elbow_f": null,
+				"hand_b": v(14, 32), "elbow_b": null}.merged(drawn)),
+			pose({"head": v(32, 23), "neck": v(29, 27), "hip": v(21, 35), "foot_f": v(35, 46), "knee_f": v(31, 40),
+				"foot_b": v(8, 45), "knee_b": v(14, 41), "hand_f": v(43, 24), "elbow_f": v(37, 28),
+				"hand_b": v(14, 32), "elbow_b": null}.merged(drawn)),
+			pose({"head": v(28, 17), "neck": v(26, 23), "hip": v(23, 33), "hand_f": v(37, 22), "elbow_f": v(31, 25)}.merged(drawn)),
+		]},
 		# 第五段:雙手各一把苦無交叉在胸前、往外斬開、收勢
 		{"name": "attack5", "fps": 12, "loop": false, "frames": [
 			pose({"head": v(26, 15), "neck": v(25, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40),
