@@ -6,8 +6,10 @@ extends Fighter
 ##   苦無或大招的斬擊確實打中對手(被防禦住不算)時,對手身上會留下飛雷神的術式。
 ##   術式不會自己消失,要等被下面的招式用掉,或是回合重新開始。
 ##   對手身上有術式時,招式一、招式二會變成強化版;對手倒地或無敵時放的是一般版,術式會留著。
-## 普通攻擊
-##   單手持苦無揮兩刀、踢一腳,接著往後轉身跳開,同時把苦無往前丟。
+## 普通攻擊(五段)
+##   從腰間抽出苦無揮兩刀、轉身迴旋踢把對手踢退一小段、往後跳開同時把苦無往前丟(打中留下術式)。
+##   第五段要對手身上有術式才接得出來:用掉術式瞬身到對手背後,雙手各一把苦無斬下去,
+##   把人稍微打離地面;確實砍中的話對手會再次留下術式。
 ## 招式
 ##   瞬身踢(skill,1 格):瞬身到前方一段距離,抬腳往上踢。
 ##     對手有術式:改為瞬身到對手背後往上踢。
@@ -25,7 +27,13 @@ const CHEST := Vector2(0, -55)                # 身體中心相對腳底的位�
 const MARK_OFFSET := Vector2(0, -58)          # 術式印記浮在對手身上的位置
 
 # 普攻第四段:往後跳開並丟出苦無
+const KICK_PUSH := 520.0                      # 第三段迴旋踢把對手踢退的速度(在地上滑開一小段)
 const THROW_HOP := Vector2(-300, -250)        # 跳開的速度(x 是相對面向)
+# 普攻第五段:對手有術式時,瞬身到背後用兩把苦無斬
+const CROSS_STEP := 4                         # 這一段的連段編號(接在四段普攻後面)
+const CROSS_FOLLOW_AT := 0.18                 # 第四段開始後多久可以接第五段(苦無離手之後)
+const CROSS_BEHIND := 66.0                    # 出現在對手背後這麼遠
+const CROSS_DAMAGE := 60
 const KUNAI_HAND := Vector2(58, -82)          # 苦無離手的位置
 const KUNAI_SPEED := 1500.0
 const KUNAI_LIFETIME := 0.5
@@ -87,6 +95,8 @@ enum Ball { NONE, CHARGE, RUSH, GRIND, RECOVER }
 enum Flash { NONE, THROW, FLY, STEPS, CHARGE, PUSH, RECOVER }
 
 var _throw_move: AttackData
+var _cross_move: AttackData
+var _cross_queued := false          # 第四段途中按過攻擊,等術式出現就接第五段
 var _kunai_move: AttackData
 var _kick_move: AttackData
 var _kick_marked_move: AttackData
@@ -149,10 +159,14 @@ func _ready() -> void:
 
 func _build_moves() -> void:
 	super()
-	# 苦無兩刀、一腳(把對手踢開一點,但不擊飛,苦無才丟得中),最後往後跳開丟苦無
-	var kick := AttackData.make(56, 0.08, 0.10, 0.20, Vector2(72, -58), Vector2(104, 52), Vector2(300, 0), 0.46, false, 170.0)
+	# 苦無兩刀、轉身迴旋踢(把對手踢退一小段,但不擊飛,苦無才丟得中),接著往後跳開丟苦無
+	var kick := AttackData.make(56, 0.09, 0.10, 0.20, Vector2(74, -60), Vector2(112, 56), Vector2(KICK_PUSH, 0), 0.50, false, 170.0)
 	# 丟苦無這一段本身沒有攻擊判定,傷害在飛出去的苦無上
 	_throw_move = AttackData.make(0, 0.12, 0.06, 0.22, KUNAI_HAND, Vector2(10, 10), Vector2.ZERO, 0.0, false, 0.0)
+	# 第五段:瞬身到對手背後,雙手各一把苦無交叉斬下去,把人稍微打離地面。
+	# 不放在 _ground_moves 裡:要對手身上有術式才接得出來,由 _tick_attack 自己判斷
+	_cross_move = AttackData.make(CROSS_DAMAGE, 0.07, 0.10, 0.24, Vector2(62, -66), Vector2(116, 84), Vector2(160, -420), 0.0, true, 0.0)
+	_cross_move.color = Color(BLADE_COLOR, 0.75)
 	_ground_moves = [
 		_blade(36, 0.05, 0.16, Vector2(64, -66), Vector2(92, 52), 170.0, 0.32, 130.0),
 		_blade(40, 0.06, 0.17, Vector2(66, -62), Vector2(96, 58), 180.0, 0.34, 140.0),
@@ -249,13 +263,46 @@ func _slash_effect() -> String:
 	return "slash" if _combo_step in [0, 1] else "swish"
 
 
+## 第四段丟出苦無之後再按攻擊:對手身上有術式(苦無剛打中,或原本就有)就接第五段。
+## 沒有術式就接不出來,照常收招。
+func _tick_attack(delta: float) -> void:
+	if _move == _throw_move:
+		if _pressed("attack"):
+			_cross_queued = true
+		if _cross_queued and _state_time >= CROSS_FOLLOW_AT and _can_use_mark():
+			_start_cross()
+			return
+	super(delta)
+
+
 func _start_attack(move: AttackData, combo_step: int) -> void:
 	super(move, combo_step)
+	_cross_queued = false
 	if move == _throw_move:
 		# 往後轉身跳開
 		velocity = Vector2(THROW_HOP.x * facing, THROW_HOP.y)
+	elif move == _cross_move:
+		_attack_anim = "attack5"
 	elif move == _kick_move or move == _kick_marked_move:
 		_attack_anim = "upkick"
+
+
+## 第五段:用掉術式瞬身到對手背後(對手在空中就出現在同樣的高度),雙苦無斬下去。
+func _start_cross() -> void:
+	_buffer.clear()
+	_clear_mark()
+	_vanish_effect(FLASH_COLOR)
+	_move_behind_opponent(CROSS_BEHIND)
+	global_position.y = opponent.global_position.y
+	_appear_effect(FLASH_COLOR)
+	Sfx.play("teleport")
+	_start_attack(_cross_move, CROSS_STEP)
+
+
+## 第五段確實砍中(沒被防住):對手再次留下術式。
+func _on_attack_hit(target: Fighter, move: AttackData) -> void:
+	if move == _cross_move and target == opponent and target.state == State.LAUNCHED:
+		_apply_mark()
 
 
 ## 丟苦無這一段:出手的那一刻把苦無丟出去,不畫揮擊的軌跡。
@@ -263,6 +310,11 @@ func _show_slash() -> void:
 	if _move == _throw_move:
 		_throw_kunai()
 		return
+	if _move == _cross_move:
+		# 兩把苦無交叉的斬擊,落在身前
+		Sfx.play("slash")
+		if _spawn_effect("cut", global_position + _hit_shape.position, _bright(BLADE_COLOR, 1.5), 1.25, facing < 0, 0.0, true) != null:
+			return
 	if _move == _kick_move or _move == _kick_marked_move:
 		# 瞬身踢:由下往上的一道弧光(一般的揮擊弧線太大,會把人整個蓋住)
 		if _spawn_effect("uppercut", global_position, Color(FLASH_COLOR, 0.85), 1.1, facing < 0, 0.0, true) != null:

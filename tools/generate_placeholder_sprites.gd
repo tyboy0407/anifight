@@ -77,7 +77,7 @@ const STYLES := [
 		"sword": true, "blade_length": 7, "blade_width": 2, "blade_color": Color(0.96, 0.88, 0.55),
 	},
 	# 波風湊:金色刺蝟頭與兩側長鬢角、木葉護額、白色長袍(下襬是紅色火焰)披在綠色背心外、
-	# 藍色的袖子與褲子,手上一把三叉苦無。有自己的出招動作(見 _minato_animations)。
+	# 藍色的袖子與褲子,腰間收著三叉苦無(出招時才抽出來)。有自己的出招動作(見 _minato_animations)。
 	{
 		"id": "minato",
 		"hair": Color(0.99, 0.84, 0.24), "spiky": true, "blindfold": false, "marks": false,
@@ -88,6 +88,7 @@ const STYLES := [
 		"vest": Color(0.32, 0.5, 0.33), "coat_hem": Color(0.88, 0.2, 0.16),
 		"sword": true, "blade_length": 6, "blade_width": 2, "blade_color": Color(0.82, 0.87, 0.95),
 		"guard_color": Color(0.6, 0.66, 0.78),
+		"holstered": true,  # 苦無平常收在腰間,出招的那幾格才拿在手上
 		"moves": "minato",
 	},
 	# 宇智波佐助:往後翹的黑髮、寫輪眼、敞開的淺色上衣、紫色腰繩、深色褲子,
@@ -245,34 +246,59 @@ func _animations() -> Array:
 
 
 ## 波風湊專用的動作:同名的取代通用動作,其餘的加在後面。
-## 姿勢裡的 "blade": false 代表這一格手上沒有苦無(丟出去了,或正在用螺旋丸)。
+## 他的苦無平常收在腰間,姿勢裡寫了 "blade": true 的那一格才拿在手上;
+## "blade_b": true 是另一隻手也拿一把(第五段的雙苦無)。
 func _minato_animations() -> Array:
 	var empty := {"blade": false}
+	var drawn := {"blade": true}
+	var both := {"blade": true, "blade_b": true}
 	# 丟苦無的瞬間:人往後跳起,手臂往前甩直
 	var throwing := {"head": v(23, 11), "neck": v(23, 17), "hip": v(23, 28),
 		"foot_b": v(16, 40), "knee_b": v(18, 35), "foot_f": v(27, 41), "knee_f": v(29, 35),
 		"hand_f": v(41, 19), "elbow_f": null, "hand_b": v(14, 21), "elbow_b": null}
 	# 由上往下的一刀、由下往上的反手一刀:揮到底的那一格
-	var cut_down := {"head": v(27, 13), "neck": v(26, 19), "hand_f": v(41, 24), "elbow_f": null}
-	var cut_up := {"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "hand_f": v(41, 17), "elbow_f": null}
+	var cut_down := {"head": v(27, 13), "neck": v(26, 19), "hand_f": v(41, 24), "elbow_f": null, "blade": true}
+	var cut_up := {"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "hand_f": v(41, 17), "elbow_f": null, "blade": true}
+	# 迴旋踢踢到底:身體往後仰,腿橫著掃出去
+	var roundhouse := {"head": v(18, 15), "neck": v(20, 21), "hip": v(23, 30), "foot_f": v(43, 24), "knee_f": v(33, 27),
+		"hand_f": v(14, 27), "elbow_f": null, "hand_b": v(26, 26), "blade": true}
 	return [
+		# 第一段:手伸到腰間抽出苦無,由上往下揮
 		{"name": "attack1", "fps": 12, "loop": false, "frames": [
-			pose({"hand_f": v(30, 14), "elbow_f": v(26, 19)}),
+			pose({"neck": v(25, 19), "hand_f": v(24, 30), "elbow_f": v(28, 27)}),
 			pose(cut_down),
-			pose({"hand_f": v(35, 28), "elbow_f": v(30, 26)}),
+			pose({"hand_f": v(35, 28), "elbow_f": v(30, 26)}.merged(drawn)),
 		]},
+		# 第二段:反手由下往上揮
 		{"name": "attack2", "fps": 12, "loop": false, "frames": [
-			pose({"neck": v(25, 19), "hand_f": v(26, 29), "elbow_f": v(23, 26)}),
+			pose({"neck": v(25, 19), "hand_f": v(26, 29), "elbow_f": v(23, 26)}.merged(drawn)),
 			pose(cut_up),
-			pose({"hand_f": v(37, 15), "elbow_f": v(31, 19)}),
+			pose({"hand_f": v(37, 15), "elbow_f": v(31, 19)}.merged(drawn)),
 		]},
-		# 普攻第四段:往後轉身跳開,同時把苦無往前丟
+		# 第三段:轉過身去,迴旋踢掃向對手
+		{"name": "attack3", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(23, 13), "neck": v(23, 19), "hand_f": v(19, 24), "elbow_f": v(24, 26), "hand_b": v(27, 24),
+				"foot_f": v(25, 45), "knee_f": v(26, 39), "foot_b": v(21, 46), "knee_b": v(22, 39)}.merged(drawn)),
+			pose(roundhouse),
+			pose(roundhouse.merged({"foot_f": v(43, 25), "knee_f": v(33, 28)})),
+			pose({"foot_f": v(33, 41), "knee_f": v(32, 35), "hand_f": v(28, 26)}.merged(drawn)),
+		]},
+		# 第四段:往後轉身跳開,同時把苦無往前丟
 		{"name": "attack4", "fps": 12, "loop": false, "frames": [
 			pose({"head": v(22, 14), "neck": v(22, 20), "hip": v(23, 32), "hand_f": v(17, 22), "elbow_f": v(21, 25),
-				"hand_b": v(27, 26), "foot_f": v(28, 45), "knee_f": v(29, 39), "foot_b": v(18, 46), "knee_b": v(19, 40)}),
+				"hand_b": v(27, 26), "foot_f": v(28, 45), "knee_f": v(29, 39), "foot_b": v(18, 46), "knee_b": v(19, 40)}.merged(drawn)),
 			pose(throwing.merged(empty)),
 			pose(throwing.merged(empty).merged({"hand_f": v(40, 22)})),
 			pose({"head": v(25, 14), "neck": v(24, 20), "hip": v(24, 32), "hand_f": v(34, 25)}.merged(empty)),
+		]},
+		# 第五段:雙手各一把苦無交叉在胸前、往外斬開、收勢
+		{"name": "attack5", "fps": 12, "loop": false, "frames": [
+			pose({"head": v(26, 15), "neck": v(25, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40),
+				"hand_f": v(22, 22), "elbow_f": v(28, 26), "hand_b": v(30, 22), "elbow_b": v(23, 26)}.merged(both)),
+			pose({"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "foot_b": v(15, 46), "knee_b": v(19, 39),
+				"hand_f": v(41, 28), "elbow_f": null, "hand_b": v(40, 13), "elbow_b": null}.merged(both)),
+			pose({"head": v(27, 13), "neck": v(26, 19), "hand_f": v(37, 32), "elbow_f": v(31, 28),
+				"hand_b": v(36, 11), "elbow_b": v(30, 16)}.merged(both)),
 		]},
 		# 招式一:蹲低後往正上方踢
 		{"name": "upkick", "fps": 12, "loop": false, "frames": [
@@ -480,7 +506,11 @@ func _draw_figure(p: Dictionary) -> void:
 	if _style.has("coat_hem"):
 		_draw_coat_tail(shoulder, p.hip, top, _style.coat_hem)
 	var sheathed: bool = _style.get("sheathed", false)
-	var blade_in_hand: bool = _style.get("sword", false) and p.get("blade", not sheathed)
+	var blade_in_hand: bool = _style.get("sword", false) and p.get("blade", not (sheathed or _style.get("holstered", false)))
+	if _style.get("sword", false) and p.get("blade_b", false):
+		# 遠側的手也拿著一把(先畫,會被身體擋住一部分)
+		_draw_sword(p.get("elbow_b", shoulder), p.hand_b)
+		_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), SKIN.darkened(1.0 - BACK_SHADE))
 	if sheathed:
 		_draw_scabbard(shoulder, p.hip, not blade_in_hand)
 	_draw_line(shoulder, p.hip, top, 6)
