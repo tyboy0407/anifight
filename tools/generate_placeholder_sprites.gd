@@ -123,6 +123,15 @@ const STYLES := [
 		"eye": Color(0.92, 0.1, 0.14), "mask": true, "collar": true,
 		"moves": "kaneki",
 	},
+	# 低級咒靈(只在故事模式出現的對手):灰紫色的皮膚、光禿禿的頭上兩支角、一隻黃色的大眼、裂到耳邊的嘴。
+	{
+		"id": "curse",
+		"skin": Color(0.58, 0.48, 0.68),
+		"hair": Color(0.46, 0.37, 0.57), "spiky": false, "blindfold": false, "marks": false,
+		"top": Color(0.42, 0.34, 0.53), "sleeve": Color(0.52, 0.43, 0.62),
+		"pants": Color(0.34, 0.28, 0.45), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.98, 0.85, 0.25), "maw": true, "horns": Color(0.88, 0.85, 0.76),
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -737,6 +746,11 @@ func _generate(style: Dictionary) -> void:
 
 # ---------- 繪圖 ----------
 
+## 這個角色的膚色(咒靈這類不是人的角色會指定自己的)。
+func _skin() -> Color:
+	return _style.get("skin", SKIN)
+
+
 func _draw_figure(p: Dictionary) -> void:
 	var shoulder: Vector2i = p.neck + Vector2i(0, 2)
 	var sleeve: Color = _style.sleeve
@@ -745,7 +759,7 @@ func _draw_figure(p: Dictionary) -> void:
 	# 遠側的手腳先畫,顏色較暗
 	_draw_limb(shoulder, p.get("elbow_b"), p.hand_b, sleeve.darkened(1.0 - BACK_SHADE), 3)
 	if not p.get("pocket_b", false):  # 插在口袋裡的手不畫手掌
-		_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), SKIN.darkened(1.0 - BACK_SHADE))
+		_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), _skin().darkened(1.0 - BACK_SHADE))
 	_draw_limb(p.hip + Vector2i(-1, 0), p.get("knee_b"), p.foot_b, pants.darkened(1.0 - BACK_SHADE), 3)
 	_fill(p.foot_b + Vector2i(-1, -1), Vector2i(4, 2), SHOE)
 
@@ -758,7 +772,7 @@ func _draw_figure(p: Dictionary) -> void:
 	if _style.get("sword", false) and p.get("blade_b", false):
 		# 遠側的手也拿著一把(先畫,會被身體擋住一部分)
 		_draw_sword(p.get("elbow_b", shoulder), p.hand_b)
-		_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), SKIN.darkened(1.0 - BACK_SHADE))
+		_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), _skin().darkened(1.0 - BACK_SHADE))
 	if sheathed:
 		_draw_scabbard(shoulder, p.hip, not blade_in_hand)
 	_draw_line(shoulder, p.hip, top, 6)
@@ -774,7 +788,7 @@ func _draw_figure(p: Dictionary) -> void:
 	else:
 		# 腰帶
 		_fill(p.hip + Vector2i(-3, -2), Vector2i(7, 1), pants.darkened(0.35))
-	_fill(p.neck + Vector2i(-1, -1), Vector2i(3, 2), SKIN)
+	_fill(p.neck + Vector2i(-1, -1), Vector2i(3, 2), _skin())
 	if _style.get("collar", false):
 		# 制服的高領,遮住脖子的下半截
 		_fill(p.neck + Vector2i(-2, 0), Vector2i(5, 1), top.lightened(0.12))
@@ -799,7 +813,7 @@ func _draw_figure(p: Dictionary) -> void:
 	if blade_in_hand:
 		_draw_sword(p.get("elbow_f", shoulder), p.hand_f)
 	if not p.get("pocket_f", false):
-		_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
+		_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), _skin())
 
 
 ## 橫插在腰後的劍鞘:從腰帶往背後斜斜伸出去。with_sword 為 true 時劍還在鞘裡,腰前露出劍柄。
@@ -860,7 +874,7 @@ func _draw_sword(arm_from: Vector2i, hand: Vector2i) -> void:
 func _draw_head(center: Vector2i) -> void:
 	var hair: Color = _style.hair
 	# 臉:9x9,四個角削掉
-	_fill(center + Vector2i(-4, -4), Vector2i(9, 9), SKIN)
+	_fill(center + Vector2i(-4, -4), Vector2i(9, 9), _skin())
 	for corner: Vector2i in [Vector2i(-4, -4), Vector2i(4, -4), Vector2i(-4, 4), Vector2i(4, 4)]:
 		_clear(center + corner)
 	# 頭髮:頭頂與後腦
@@ -870,8 +884,8 @@ func _draw_head(center: Vector2i) -> void:
 	_clear(center + Vector2i(4, -5))
 	# 頭髮的高光,以及下巴後側的陰影
 	_fill(center + Vector2i(1, -4), Vector2i(2, 1), hair.lightened(0.14))
-	_plot(center + Vector2i(-2, 2), SKIN.darkened(0.14))
-	_plot(center + Vector2i(-2, 3), SKIN.darkened(0.14))
+	_plot(center + Vector2i(-2, 2), _skin().darkened(0.14))
+	_plot(center + Vector2i(-2, 3), _skin().darkened(0.14))
 	if _style.spiky:
 		for dx: int in [-3, -1, 1, 3]:
 			_plot(center + Vector2i(dx, -6), hair)
@@ -920,13 +934,25 @@ func _draw_head(center: Vector2i) -> void:
 		_plot(center + Vector2i(3, 3), Color(0.92, 0.92, 0.88))
 		_plot(center + Vector2i(1, 0), leather)
 		_plot(center + Vector2i(4, 0), leather)
+	if _style.has("horns"):
+		# 頭頂往上翹的兩支角
+		var horn: Color = _style.horns
+		for point: Vector2i in [Vector2i(-3, -6), Vector2i(-4, -7), Vector2i(-4, -8), Vector2i(2, -6), Vector2i(3, -7), Vector2i(3, -8)]:
+			_plot(center + point, horn)
+	if _style.get("maw", false):
+		# 裂到耳邊的嘴:深色的口腔裡上下兩排交錯的牙
+		_fill(center + Vector2i(-1, 2), Vector2i(6, 2), Color(0.2, 0.05, 0.1))
+		for dx: int in [0, 2, 4]:
+			_plot(center + Vector2i(dx, 2), Color(0.95, 0.94, 0.88))
+		for dx: int in [1, 3]:
+			_plot(center + Vector2i(dx, 3), Color(0.95, 0.94, 0.88))
 	if _style.marks:
 		var mark := Color(0.12, 0.1, 0.14)
 		_plot(center + Vector2i(1, 2), mark)
 		_plot(center + Vector2i(3, 2), mark)
 		_plot(center + Vector2i(2, -2), mark)
-	# 嘴(戴面具的看不到)
-	if not _style.get("mask", false):
+	# 嘴(戴面具的看不到;咒靈的大嘴上面畫過了)
+	if not _style.get("mask", false) and not _style.get("maw", false):
 		_plot(center + Vector2i(3, 3), Color(0.55, 0.3, 0.3))
 	if _style.get("scar", false):
 		# 嘴角往下的一道疤

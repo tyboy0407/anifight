@@ -18,6 +18,10 @@ extends Fighter
 ##   下 + special 改為「真是失禮,這可是純愛」:里香在身後蓄力 3 秒後向前射出
 ##   大範圍咒力砲,結束後退出里香狀態。不耗氣。
 ##   被動「不准欺負憂太!」:憂太被打中時有 10% 機率,里香出手把對手拍飛。
+## 故事模式
+##   招式隨劇情領悟(見 apply_story):還沒領悟的按了沒有反應。
+##   還不能控制里香的時候,血量掉到三成五以下里香會自己衝出來(每回合一次):
+##   期間和里香狀態一樣,而且更常替憂太出手,但放不了純愛砲。
 
 const SPEECH_COLOR := Color(1.0, 0.95, 0.6)
 const CURSE_COLOR := Color(0.55, 0.85, 1.0)
@@ -69,6 +73,13 @@ const CANNON_SIZE := Vector2(1500, 180)
 const CANNON_HEIGHT := -70.0
 const CANNON_BEAM_ART_LENGTH := 440.0  # 光束在點陣圖上的長度(像素),見 tools/pixelfx_custom/anifight/love-beam.js
 
+# 故事模式:里香失控
+const RAMPAGE_HEALTH := 0.35      # 血量掉到這個比例以下就失控
+const RAMPAGE_DURATION := 15.0
+const RAMPAGE_PROTECT_CHANCE := 0.35
+## 故事模式裡隨劇情領悟的能力:buff 我也可以!、friend 不准欺負我的朋友!、speech 飛走吧!、rika 來吧,里香!與純愛砲
+const STORY_ABILITIES: Array[String] = ["buff", "friend", "speech", "rika"]
+
 enum Cannon { NONE, CHARGING, FIRING }
 
 var _speech_cooldown := 0.0
@@ -102,6 +113,9 @@ var _cannon_beam_node: ColorRect
 var _cannon_move: AttackData
 var _cannon_final_move: AttackData
 
+var _abilities: Array[String] = STORY_ABILITIES.duplicate()  # 會用的能力;一般對戰是全部
+var _rampage_ready := false   # 故事模式:這一回合里香還沒失控過
+var _rampaging := false       # 現在的里香狀態是失控來的
 var _status_label: Label
 
 @onready var _hair: ColorRect = $Hair
@@ -168,7 +182,28 @@ func _slash(damage: int, startup: float, recovery: float, hitstun: float, launch
 	return move
 
 
+## 故事模式:只會用已經領悟的能力;還不會召喚里香的時候,里香會自己失控。
+func apply_story(setup: Dictionary) -> void:
+	super(setup)
+	if setup.has("abilities"):
+		_abilities.assign(setup.abilities)
+		_rampage_ready = not _knows("rika")
+
+
+func _knows(ability: String) -> bool:
+	return _abilities.has(ability)
+
+
+func action_available(key: String) -> bool:
+	match key:
+		"skill": return _knows("speech") or _knows("friend")
+		"skill2": return _knows("buff")
+		"super": return _knows("rika")
+	return true
+
+
 func reset(spawn_position: Vector2, spawn_facing: int) -> void:
+	_rampage_ready = not _knows("rika")
 	_speech_cooldown = 0.0
 	_buff_time = 0.0
 	_was_overflowing = false
@@ -198,7 +233,7 @@ func overflowing() -> bool:
 
 
 func skill1_empowered() -> bool:
-	return overflowing()
+	return overflowing() and _knows("friend")
 
 
 ## 招式一、招式二實際的耗氣量:咒力滿盈時加倍。
@@ -229,13 +264,15 @@ func add_energy(amount: int) -> void:
 
 func _try_character_actions() -> bool:
 	if _skill2_pressed():
-		if _spend_energy(_skill_cost(BUFF_COST)):
+		if _knows("buff") and _spend_energy(_skill_cost(BUFF_COST)):
 			_start_cast(BUFF_CAST, BUFF_RELEASE, _release_buff)
 			return true
 		return false
 	if _skill1_pressed() and _speech_cooldown <= 0.0:
 		# 先記下是不是滿盈:扣完氣可能就掉到 4 格以下了
-		var empowered := overflowing()
+		var empowered := overflowing() and _knows("friend")
+		if not empowered and not _knows("speech"):
+			return false
 		if not _spend_energy(_skill_cost(SPEECH_COST)):
 			return false
 		_speech_cooldown = SPEECH_COOLDOWN
@@ -249,7 +286,7 @@ func _try_character_actions() -> bool:
 
 ## 里香狀態下的純愛砲不耗氣(代價是結束里香狀態);蓄力中不能再放一次。
 func super_cost() -> int:
-	if _cannon != Cannon.NONE:
+	if _cannon != Cannon.NONE or not _knows("rika"):
 		return max_energy + 1
 	return 0 if in_rika_state() else RIKA_COST
 
@@ -358,12 +395,28 @@ func _enter_rika() -> void:
 	_rika_time = RIKA_DURATION
 	_ground_moves = _rika_chain
 	_callout("來吧,里香!", RIKA_COLOR, "rika_summon")
+	_show_rika()
+
+
+## 故事模式:里香不受控制,自己衝出來。時間比召喚的短,但更常替憂太出手。
+func _rampage() -> void:
+	_rampage_ready = false
+	_rampaging = true
+	_rika_time = RAMPAGE_DURATION
+	_ground_moves = _rika_chain
+	_callout("里香……不要出來!", RIKA_COLOR, "rika_summon")
+	screen_shake.emit(8.0)
+	_show_rika()
+
+
+func _show_rika() -> void:
 	if not is_instance_valid(_rika_node):
 		_rika_node = _make_rika()
 		_rika_node.global_position = global_position + Vector2(RIKA_FOLLOW_OFFSET.x * facing, RIKA_FOLLOW_OFFSET.y - 60)
 
 
 func _exit_rika() -> void:
+	_rampaging = false
 	_rika_time = 0.0
 	_rika_strike_timer = -1.0
 	_ground_moves = _normal_chain
@@ -450,11 +503,14 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 	var health_before := health
 	super(move, attacker)
 	var was_hit := health < health_before and state != State.GUARD and state != State.KO
+	if was_hit and _rampage_ready and not in_rika_state() and health <= max_health * RAMPAGE_HEALTH:
+		_rampage()
+		return
 	if not was_hit or not in_rika_state() or _cannon != Cannon.NONE:
 		return
 	if attacker.is_invulnerable() or global_position.distance_to(attacker.global_position) > PROTECT_REACH:
 		return
-	if GameState.rng.randf() >= protect_chance:
+	if GameState.rng.randf() >= (RAMPAGE_PROTECT_CHANCE if _rampaging else protect_chance):
 		return
 	_callout("不准欺負憂太!", RIKA_COLOR)
 	_rika_claw(attacker, 190.0)
@@ -596,7 +652,7 @@ func _update_status() -> void:
 	if _cannon == Cannon.CHARGING:
 		parts.append("純愛砲 %.1f" % _cannon_time)
 	elif in_rika_state() and _cannon == Cannon.NONE:
-		parts.append("里香 %d" % ceili(_rika_time))
+		parts.append("%s %d" % ["里香失控" if _rampaging else "里香", ceili(_rika_time)])
 	if _buff_time > 0.0:
 		parts.append("咒力附刀 %d" % ceili(_buff_time))
 	if overflowing():

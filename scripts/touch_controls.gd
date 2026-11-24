@@ -68,6 +68,8 @@ var _glow_flicker := 0.0
 var _menu_root: Control
 var _menu_button: Button
 var _match_over_box: VBoxContainer
+var _rematch_button: Button
+var _back_button: Button
 
 
 func _ready() -> void:
@@ -78,6 +80,11 @@ func _ready() -> void:
 	_dash_button.released.connect(_on_dash_released)
 	_build_skill_glow()
 	_build_menu()
+	# 故事模式裡還沒領悟的招式:不顯示按鈕
+	if fighter != null:
+		for entry in _buttons:
+			if entry.key in ["skill", "skill2", "super"]:
+				(entry.node as TouchScreenButton).visible = fighter.action_available(entry.key)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
@@ -113,6 +120,13 @@ func _process(delta: float) -> void:
 func set_match_over(is_over: bool) -> void:
 	_match_over_box.visible = is_over
 	_menu_button.visible = not is_over
+
+
+## 換掉按鈕上的字(故事模式用):離開對戰的按鈕、打完後「再打一次」的按鈕。
+func set_labels(back_text: String, rematch_text: String) -> void:
+	_menu_button.text = back_text
+	_back_button.text = back_text
+	_rematch_button.text = rematch_text
 
 
 # ---------- 衝刺鍵 ----------
@@ -365,12 +379,12 @@ func _build_menu() -> void:
 	_match_over_box.offset_bottom = 230
 	_match_over_box.visible = false
 	root.add_child(_match_over_box)
-	var rematch := _make_menu_button("再戰一場", 28, Vector2(300, 72))
-	rematch.pressed.connect(func() -> void: rematch_requested.emit())
-	_match_over_box.add_child(rematch)
-	var back := _make_menu_button("回選角", 28, Vector2(300, 72))
-	back.pressed.connect(func() -> void: back_requested.emit())
-	_match_over_box.add_child(back)
+	_rematch_button = _make_menu_button("再戰一場", 28, Vector2(300, 72))
+	_rematch_button.pressed.connect(func() -> void: rematch_requested.emit())
+	_match_over_box.add_child(_rematch_button)
+	_back_button = _make_menu_button("回選角", 28, Vector2(300, 72))
+	_back_button.pressed.connect(func() -> void: back_requested.emit())
+	_match_over_box.add_child(_back_button)
 
 
 func _make_menu_button(text: String, font_size: int, minimum_size: Vector2) -> Button:

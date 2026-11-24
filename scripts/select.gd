@@ -1,5 +1,5 @@
 extends Control
-## 選角畫面。先選作品系列,再選裡面的角色;按「換系列」(或 Esc)可以回到系列清單,
+## 選角畫面(電腦對戰與連線對戰共用,從主選單進來)。先選作品系列,再選裡面的角色;按「換系列」(或 Esc)可以回到系列清單,
 ## 已經選好的角色不會取消,所以雙方可以來自不同系列。
 ## 雙方各自左右選擇、攻擊鍵確認;都確認後進入對戰。
 ## P2 為電腦時,P1 確認自己的角色後,接著用同一組按鍵替電腦選角色。
@@ -64,9 +64,7 @@ var _drag_velocity := 0.0
 var _net: NetSession
 var _net_sent := ""         # 上次告訴對方的選角狀態;有變才再送
 var _net_clock := 0.0
-var _lobby: NetLobby        # 房間視窗;沒開啟時是 null
-var _net_button: Button     # 左上角的「連線對戰 / 離開房間」
-var _toast_label: Label
+var _menu_button: Button    # 左上角的「主選單 / 離開房間」
 
 
 func _ready() -> void:
@@ -74,12 +72,15 @@ func _ready() -> void:
 	Sfx.warm_up()
 	Sfx.play_music("select")
 	if GameState.net_active():
-		# 從連線對戰回到選角:房間還在就繼續連線選角,連線已經不在了就回到單機
+		# 連線對戰:從主選單的房間視窗進來,或是打完一場回到選角。連線已經不在了就回主選單
 		_net = NetSession.get_session()
 		if _net.status != NetSession.Status.PAIRED:
 			_net.leave()
-			GameState.set_net_role(0)
 			_net = null
+			GameState.set_net_role(0)
+			GameState.menu_notice = "對手已離線"
+			_starting = true
+			get_tree().change_scene_to_file.call_deferred(GameState.MENU_SCENE)
 	_cursor = GameState.selection.duplicate()
 	for player_index in 2:
 		_form[player_index] = GameState.forms[player_index] if GameState.forms[player_index] < GameState.form_count(_cursor[player_index]) else 0
@@ -113,7 +114,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _starting or _lobby != null:
+	if _starting:
 		return
 	if _popup != null:
 		if event is InputEventKey and event.pressed and event.physical_keycode == KEY_ESCAPE:
@@ -127,6 +128,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_refresh()
 		return
 	if _series < 0:
+		# 系列清單上按 Esc:回主選單(連線中要按「離開房間」才會走,免得誤按)
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_ESCAPE \
+				and _net == null:
+			get_viewport().set_input_as_handled()
+			_to_menu()
+			return
 		_series_input(event)
 		return
 	if event is InputEventKey and event.pressed and not event.echo \
@@ -564,7 +571,7 @@ func _build_form_card(card_index: int, form_index: int) -> PanelContainer:
 
 # ---------- 介面 ----------
 
-## 不隨換頁改變的部分:背景、左上角的音效開關、觸控模式的全螢幕按鈕。
+## 不隨換頁改變的部分:背景、左上角的音效開關與回主選單的按鈕、觸控模式的全螢幕按鈕。
 ## 中間的內容(系列清單或角色清單)由 _show_page 建立。
 func _build_ui() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -770,7 +777,7 @@ func _refresh_series() -> void:
 		_mode_label.text = "對手由電腦操作"
 		_status_label.text = "你:%s      點選對手的系列" % _picked_name(0) if _confirmed[0] else "點選系列"
 		return
-	_mode_label.text = "P2:%s(F1 切換)" % ("電腦操作" if GameState.cpu_enabled else "玩家操作")
+	_mode_label.text = "P2:%s(F1 切換)      Esc 回主選單" % ("電腦操作" if GameState.cpu_enabled else "玩家操作")
 	if _confirmed[0]:
 		_status_label.text = "P1:%s      選擇對手的系列:A / D 移動,J 確認" % _picked_name(0)
 	else:
@@ -855,7 +862,7 @@ func _make_arrow(text: String, direction: int) -> Button:
 	return arrow
 
 
-## 左上角的音效開關(鍵盤也可以按 M)。
+## 左上角的音效開關(鍵盤也可以按 M),旁邊是回主選單的按鈕。
 func _build_sound_button() -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -874,27 +881,16 @@ func _build_sound_button() -> void:
 	Sfx.setup_button(sound)
 	overlay.add_child(sound)
 
-	_net_button = Button.new()
-	_net_button.focus_mode = Control.FOCUS_NONE
-	_net_button.add_theme_font_size_override("font_size", 20)
-	_net_button.offset_left = 162
-	_net_button.offset_right = 292
-	_net_button.offset_top = 24
-	_net_button.offset_bottom = 72
-	_net_button.text = "離開房間" if _net != null else "連線對戰"
-	_net_button.pressed.connect(_on_net_button)
-	overlay.add_child(_net_button)
-
-	# 畫面下方的一行提示(例如「對手已離線」),過幾秒自己消失
-	_toast_label = _label("", 22)
-	_toast_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
-	_toast_label.anchor_top = 1.0
-	_toast_label.anchor_bottom = 1.0
-	_toast_label.anchor_right = 1.0
-	_toast_label.offset_top = -44
-	_toast_label.offset_bottom = -10
-	_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(_toast_label)
+	_menu_button = Button.new()
+	_menu_button.focus_mode = Control.FOCUS_NONE
+	_menu_button.add_theme_font_size_override("font_size", 20)
+	_menu_button.offset_left = 162
+	_menu_button.offset_right = 292
+	_menu_button.offset_top = 24
+	_menu_button.offset_bottom = 72
+	_menu_button.text = "離開房間" if _net != null else "◀ 主選單"
+	_menu_button.pressed.connect(_on_menu_button)
+	overlay.add_child(_menu_button)
 
 
 ## 觸控模式的附加介面:全螢幕按鈕,或是 iPhone 上改用「加入主畫面」的提示。
@@ -1044,58 +1040,30 @@ func _label(text: String, font_size: int) -> Label:
 
 # ---------- 連線對戰 ----------
 
-## 左上角的按鈕:單機時開啟房間視窗,連線中則是離開房間。
-func _on_net_button() -> void:
-	if _starting or _popup != null or _lobby != null:
+## 左上角的按鈕:回主選單;連線中則是離開房間(一樣回主選單)。
+func _on_menu_button() -> void:
+	if _starting or _popup != null:
 		return
 	Sfx.play("ui_confirm")
 	if _net != null:
 		_leave_net("已離開房間")
-		return
-	_lobby = NetLobby.new()
-	_lobby.paired.connect(_on_lobby_paired)
-	_lobby.cancelled.connect(_close_lobby)
-	add_child(_lobby)
+	else:
+		_to_menu()
 
 
-func _close_lobby() -> void:
-	if _lobby != null:
-		_lobby.queue_free()
-		_lobby = null
+func _to_menu() -> void:
+	_starting = true  # 換場景途中不再接受操作
+	get_tree().change_scene_to_file(GameState.MENU_SCENE)
 
 
-## 兩個人到齊:切換成連線選角,每個人只選自己的角色。
-func _on_lobby_paired() -> void:
-	_close_lobby()
-	_net = NetSession.get_session()
-	GameState.set_net_role(_net.role)
-	_confirmed = [false, false]
-	_net_sent = ""
-	_net_button.text = "離開房間"
-	_show_page(_series)
-
-
-## 回到單機的選角(自己離開房間,或對方離線了)。
+## 離開連線對戰(自己離開房間,或對方離線了):回主選單,在那裡顯示原因。
 func _leave_net(notice: String) -> void:
 	if _net != null:
 		_net.leave()
 	_net = null
 	GameState.set_net_role(0)
-	_confirmed = [false, false]
-	_starting = false
-	_net_button.text = "連線對戰"
-	_close_form_popup()
-	_show_page(_series)
-	_toast(notice)
-
-
-func _toast(text: String) -> void:
-	_toast_label.text = text
-	if text.is_empty():
-		return
-	await get_tree().create_timer(4.0).timeout
-	if is_instance_valid(_toast_label) and _toast_label.text == text:
-		_toast_label.text = ""
+	GameState.menu_notice = notice
+	_to_menu()
 
 
 ## 每一幀看看對方送了什麼來:他的選角、開始對戰的通知,或是他離開了。
@@ -1103,7 +1071,7 @@ func _net_poll(delta: float) -> void:
 	for message: Dictionary in _net.take_messages():
 		if message.has("sys"):
 			if str(message.sys) in ["left", "closed", "error"]:
-				_leave_net("對手已離線,回到單機模式")
+				_leave_net("對手已離線")
 				return
 			continue
 		match str(message.get("t", "")):

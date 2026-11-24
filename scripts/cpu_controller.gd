@@ -18,6 +18,9 @@ var fighter: Fighter
 var enabled: bool = true
 ## 要代按哪一位玩家的按鍵;-1 是 fighter 自己的。連線對戰的測試會指定成 0(這台裝置上的人)。
 var action_player := -1
+## 強度(故事模式的敵人用):think_scale 越大反應越慢;idle_chance 是每次該出手時發呆的機率。
+var think_scale := 1.0
+var idle_chance := 0.0
 
 var _held: Dictionary = {}  # 動作名稱 -> 剩餘按住秒數
 var _think := 0.0
@@ -43,7 +46,9 @@ func _physics_process(delta: float) -> void:
 	_think -= delta
 	if _think > 0.0:
 		return
-	_think = randf_range(THINK_MIN, THINK_MAX)
+	_think = randf_range(THINK_MIN, THINK_MAX) * think_scale
+	if idle_chance > 0.0 and randf() < idle_chance:
+		return
 	_decide()
 
 

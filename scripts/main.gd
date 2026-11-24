@@ -22,6 +22,8 @@ const MID_PARALLAX := 0.6
 const KO_SLOWMO_SCALE := 0.35  # 打倒對手時的慢動作速度
 const KO_SLOWMO_TIME := 0.6    # 慢動作持續的實際秒數
 const COMMON_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   F1 切換 P2 電腦/玩家   M 聲音開關   Esc 回選角"
+const STORY_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   M 聲音開關   Esc 回故事"
+const STORY_WIN_DELAY := 2.6    # 故事模式打贏後,過多久回到故事畫面
 const NET_HINT := "移動 A/D  防禦 S  跳 K  攻擊 J  衝刺 L  大招 I(1格)  幽步 S+L(1格)  挨打時脫出 O(1格)   |   M 聲音開關   Esc 回選角"
 # 連線對戰:雙方各自模擬,只互傳按鍵。每一格都要等雙方這一格的按鍵到齊才往前算,
 # 所以兩邊算出來的每一格完全一樣;自己的按鍵延後 GameState.net_delay 格才生效,讓對方來得及收到。
@@ -64,6 +66,10 @@ var _net_ended := false             # 斷線或不同步:這場不再繼續
 var _net_end_reason := ""
 var _net_label_clock := 0.0
 var _round_end_ticks := 0           # 連線對戰:回合結束後還要再過幾格才開始下一回合
+var _story: Dictionary = {}         # 故事模式這一場的設定(GameState.story_fight);空的就是一般對戰
+var _rounds_to_win := ROUNDS_TO_WIN
+var _leaving := false               # 已經在換場景了
+var _story_won := false             # 故事模式:這一場打贏了,正要回故事畫面
 
 @onready var _camera: Camera2D = $Camera2D
 @onready var _hud: FightHUD = $HUD
@@ -76,6 +82,9 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	Sfx.warm_up()
 	Sfx.play_music("battle")
+	_story = GameState.story_fight
+	if not _story.is_empty():
+		_rounds_to_win = int(_story.get("rounds", 1))
 	_build_backdrop()
 	_spawn_fighters()
 	_cpu = CpuController.new()
@@ -84,16 +93,26 @@ func _ready() -> void:
 	add_child(_cpu)
 	if GameState.net_active():
 		_setup_net()
+	elif not _story.is_empty():
+		# 故事模式:對手一定是電腦,強度照這一關的設定
+		var cpu_setup: Dictionary = _story.get("cpu", {})
+		_cpu.think_scale = float(cpu_setup.get("think", 1.0))
+		_cpu.idle_chance = float(cpu_setup.get("idle", 0.0))
+		_cpu.set_enabled(true)
+		_hud.set_p2_mode("故事模式")
 	else:
 		_set_cpu_enabled(GameState.cpu_enabled)
 	_hud.set_names(GameState.character(0).name, GameState.character(1).name)
 	if GameState.touch_enabled:
 		_setup_touch()
+	elif not _story.is_empty():
+		_hud.set_hint("%s\n%s" % [STORY_HINT, _story_skill_hint()])
 	elif _net != null:
 		_hud.set_hint("%s\n%s" % [NET_HINT, _skill_hint(GameState.local_player(), 0)])
 	else:
 		_hud.set_hint("%s\n%s      %s" % [COMMON_HINT, _skill_hint(0), _skill_hint(1)])
 	_start_match()
+	_show_story_tip()
 
 
 ## 觸控模式:加上螢幕按鈕,隱藏鍵盤操作提示。
@@ -108,12 +127,14 @@ func _setup_touch() -> void:
 		_fighters[0].direction_combos = false
 	_touch.rematch_requested.connect(_on_rematch_requested)
 	_touch.back_requested.connect(_back_to_select)
+	if not _story.is_empty():
+		_touch.set_labels("回故事", "再挑戰")
 	_hud.set_hint("")
 	OrientationNotice.attach_if_touch(self)
 
 
 func _on_rematch_requested() -> void:
-	if not _match_over:
+	if not _match_over or _story_won:
 		return
 	if _net != null:
 		_net_rematch = true  # 跟著按鍵一起送出去,雙方在同一格重新開始
@@ -122,7 +143,13 @@ func _on_rematch_requested() -> void:
 
 
 func _back_to_select() -> void:
+	if _leaving:
+		return
 	_cpu.set_enabled(false)
+	if not _story.is_empty():
+		# 故事模式:沒打贏就離開,算沒過關
+		_story_finish("lose")
+		return
 	if _net != null and not _net_ended:
 		_net.send_message({"t": "to_select"})  # 對方也一起回選角畫面,房間還在
 	get_tree().change_scene_to_file(GameState.SELECT_SCENE)
@@ -177,7 +204,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _match_over and event.is_action_pressed("ui_accept"):
 		_on_rematch_requested()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode == KEY_F1 and _net == null:
+		if event.physical_keycode == KEY_F1 and _net == null and _story.is_empty():
 			_set_cpu_enabled(not _cpu.enabled)
 		elif event.physical_keycode == KEY_ESCAPE:
 			_back_to_select()
@@ -192,6 +219,8 @@ func _spawn_fighters() -> void:
 		fighter.player_id = i + 1
 		fighter.body_color = GameState.PLAYER_COLORS[i]
 		add_child(fighter)
+		if not _story.is_empty():
+			fighter.apply_story(_story.setups[i])
 		_fighters.append(fighter)
 	_fighters[0].opponent = _fighters[1]
 	_fighters[1].opponent = _fighters[0]
@@ -215,6 +244,42 @@ func _skill_hint(player_index: int, keys_of: int = -1) -> String:
 	return "%s %s:%s %s  %s %s  %s %s" % [
 		"你" if keys_of >= 0 else "P%d" % (player_index + 1),
 		info.name, keys[0], skills[0], keys[1], skills[1], keys[2], skills[2]]
+
+
+## 故事模式的招式按鍵提示:只列出已經領悟的招式。
+func _story_skill_hint() -> String:
+	var info := GameState.character(0)
+	var skills: Array = info.skills
+	var keys := {"skill": "U", "skill2": "W+U", "super": "S+I"}
+	var parts: PackedStringArray = [info.name + ":"]
+	var index := 0
+	for key: String in keys:
+		if _fighters[0].action_available(key):
+			parts.append("%s %s" % [keys[key], skills[index]])
+		index += 1
+	if parts.size() == 1:
+		parts.append("還沒有領悟招式,先用刀和大招(I)戰鬥")
+	return "  ".join(parts)
+
+
+## 故事模式:開場在畫面上方顯示這一關的提示,幾秒後消失。
+func _show_story_tip() -> void:
+	var tip := str(_story.get("tip", ""))
+	if tip.is_empty():
+		return
+	_hud.set_notice(tip)
+	await get_tree().create_timer(6.0).timeout
+	if is_inside_tree() and not _leaving:
+		_hud.set_notice("")
+
+
+## 故事模式:這一場結束,帶著結果回到故事畫面。
+func _story_finish(result: String) -> void:
+	if _leaving:
+		return
+	_leaving = true
+	GameState.story_result = result
+	get_tree().change_scene_to_file(GameState.STORY_SCENE)
 
 
 ## 切換 P2 由電腦或玩家操作。
@@ -444,7 +509,7 @@ func _net_compare(tick: int) -> void:
 		_net_end("雙方的畫面不同步")
 
 
-## 這場連線對戰打不下去了(對方離線、太久沒回應、不同步):顯示原因,過一會兒回到單機的選角畫面。
+## 這場連線對戰打不下去了(對方離線、太久沒回應、不同步):顯示原因,過一會兒回到主選單。
 func _net_end(reason: String) -> void:
 	if _net_ended:
 		return
@@ -455,14 +520,15 @@ func _net_end(reason: String) -> void:
 	for fighter in _fighters:
 		fighter.input_enabled = false
 	_hud.set_notice("")
-	_hud.show_message("%s\n即將回到選角畫面" % reason)
+	_hud.show_message("%s\n即將回到主選單" % reason)
 	if _touch != null:
 		_touch.set_match_over(false)
 	await get_tree().create_timer(NET_LEAVE_DELAY, true, false, true).timeout
 	_net.leave()
 	GameState.set_net_role(0)
+	GameState.menu_notice = reason
 	if is_inside_tree():
-		get_tree().change_scene_to_file(GameState.SELECT_SCENE)
+		get_tree().change_scene_to_file(GameState.MENU_SCENE)
 
 
 func _on_defeated(loser: Fighter) -> void:
@@ -496,9 +562,12 @@ func _end_round(winner: int, headline: String) -> void:
 		_wins[winner] += 1
 	_hud.set_wins(_wins[0], _wins[1])
 
-	if winner >= 0 and _wins[winner] >= ROUNDS_TO_WIN:
+	if winner >= 0 and _wins[winner] >= _rounds_to_win:
 		_match_over = true
 		Sfx.play("victory")
+		if not _story.is_empty():
+			_story_match_over(winner == 0, headline)
+			return
 		var result_text := "%s\nP%d %s 獲勝" % [headline, winner + 1, GameState.character(winner).name]
 		if _touch != null:
 			_touch.set_match_over(true)
@@ -516,6 +585,22 @@ func _end_round(winner: int, headline: String) -> void:
 	await get_tree().create_timer(ROUND_END_DELAY).timeout
 	if is_inside_tree():
 		_start_round()
+
+
+## 故事模式的一場打完:贏了過一會兒自動回到故事畫面;輸了可以再挑戰或回去。
+func _story_match_over(won: bool, headline: String) -> void:
+	if won:
+		_story_won = true
+		_hud.show_message("%s\n勝利!" % headline)
+		await get_tree().create_timer(STORY_WIN_DELAY, true, false, true).timeout
+		if is_inside_tree():
+			_story_finish("win")
+		return
+	if _touch != null:
+		_touch.set_match_over(true)
+		_hud.show_message("%s\n敗北…" % headline)
+	else:
+		_hud.show_message("%s\n敗北…\nEnter 再挑戰   Esc 回故事" % headline)
 
 
 # ---------- 場景佈置 ----------

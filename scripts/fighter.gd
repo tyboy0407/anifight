@@ -122,6 +122,9 @@ var _pad_before := 0  # 上一格按著哪些鍵
 ## 是否接受「方向 + 按鍵」的組合招式(鍵盤)。觸控操作時關閉,改用專用按鈕。
 var direction_combos: bool = true
 ## 目前可活動的水平範圍,由主場景依鏡頭位置更新。
+## 造成傷害的倍率、累積氣量的倍率。故事模式的成長與敵人強度用(見 apply_story);一般對戰都是 1。
+var damage_scale := 1.0
+var energy_gain_scale := 1.0
 var arena_min_x: float = -INF
 var arena_max_x: float = INF
 
@@ -228,6 +231,20 @@ func _build_moves() -> void:
 ## 一場新的對戰開始(第一回合的 reset 之前呼叫)。有「整場對戰都保留」的東西的角色在這裡清掉。
 func new_match() -> void:
 	pass
+
+
+## 故事模式:套用這一場的設定(生命、傷害、氣量累積的倍率)。進場後、第一回合開始前呼叫一次。
+## 有「隨劇情解鎖的招式」的角色覆寫這裡,讀 setup.abilities(已經領悟的能力)。
+func apply_story(setup: Dictionary) -> void:
+	max_health = int(round(max_health * float(setup.get("health", 1.0))))
+	damage_scale = float(setup.get("damage", 1.0))
+	energy_gain_scale = float(setup.get("energy", 1.0))
+
+
+## 這個招式鍵("skill"、"skill2"、"super")現在有沒有招式可以放。故事模式裡還沒領悟的招式回傳 false,
+## 觸控按鈕與按鍵提示就不顯示它。
+func action_available(_key: String) -> bool:
+	return true
 
 
 ## 回合開始時重置角色。
@@ -1118,9 +1135,10 @@ func _damage_taken_scale() -> float:
 	return 1.0
 
 
-## 實際受到傷害的倍率:角色自己的減傷,再乘上身上的「破防」狀態。
+## 實際受到傷害的倍率:角色自己的減傷,乘上身上的「破防」狀態,再乘上對手的攻擊倍率。
 func _taken_scale() -> float:
-	return _damage_taken_scale() * (_break_scale if guard_broken() else 1.0)
+	var dealt := opponent.damage_scale if opponent != null else 1.0
+	return _damage_taken_scale() * (_break_scale if guard_broken() else 1.0) * dealt
 
 
 ## 被招式命中。倒地、起身、幽步、脫出與 KO 期間無敵;浮空時可以被連擊。
@@ -1234,6 +1252,8 @@ func _set_health(value: int) -> void:
 func add_energy(amount: int) -> void:
 	if amount > 0 and energy_sealed():
 		return
+	if amount > 0 and energy_gain_scale != 1.0:
+		amount = int(round(amount * energy_gain_scale))
 	_set_energy(energy + amount)
 
 

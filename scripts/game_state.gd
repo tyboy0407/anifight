@@ -2,6 +2,8 @@ class_name GameState
 extends RefCounted
 ## 跨場景共用的設定:角色名單、雙方選角結果、P2 是否由電腦操作、輸入對應。
 
+const MENU_SCENE := "res://scenes/menu.tscn"
+const STORY_SCENE := "res://scenes/story.tscn"
 const SELECT_SCENE := "res://scenes/select.tscn"
 const FIGHT_SCENE := "res://scenes/main.tscn"
 const PLAYER_COLORS: Array[Color] = [Color(0.95, 0.4, 0.35), Color(0.35, 0.6, 0.95)]
@@ -132,6 +134,15 @@ static var cpu_enabled: bool = true
 ## 測試時可在網址加上 ?touch=1,或在桌面版加上啟動參數 -- --touch。
 static var touch_enabled: bool = false
 
+## 回到主選單時要在畫面下方顯示一次的提示(例如「對手已離線」);主選單顯示完就清掉。
+static var menu_notice := ""
+## 故事模式正在打的那一場;空的就是一般對戰。內容由 StoryData.fight_setup() 產生:
+##   story(哪一篇故事)、stage(第幾關)、fighters(雙方的角色資料,格式同 CHARACTERS 的一筆)、
+##   setups(雙方交給 Fighter.apply_story 的設定)、rounds(要贏幾回合)、cpu(電腦對手的強度)、tip(開場提示)。
+static var story_fight: Dictionary = {}
+## 故事模式那一場打完的結果:"win"、"lose"(輸了或中途離開);故事畫面讀完就清掉。
+static var story_result := ""
+
 ## 只有觸控按鈕會用到的動作:一顆按鈕直接放出鍵盤上要搭配方向鍵的招式。
 const DIRECT_ACTIONS: Array[String] = ["skill2", "super", "teleport"]
 static var _initialized: bool = false
@@ -193,7 +204,21 @@ static func playable_series() -> Array[int]:
 
 ## 某位玩家實際出戰的角色資料(已套用選到的型態)。
 static func character(player_index: int) -> Dictionary:
+	if in_story():
+		return story_fight.fighters[player_index]
 	return form_info(selection[player_index], forms[player_index])
+
+
+static func in_story() -> bool:
+	return not story_fight.is_empty()
+
+
+## 用名字找角色(CHARACTERS 的索引);找不到回傳 -1。故事的資料用名字指定角色,名單順序變了也不受影響。
+static func find_character(character_name: String) -> int:
+	for index in CHARACTERS.size():
+		if CHARACTERS[index].name == character_name:
+			return index
+	return -1
 
 
 ## 這個角色共有幾種型態(含原本的樣子)。
