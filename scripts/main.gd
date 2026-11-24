@@ -177,6 +177,8 @@ func _start_match() -> void:
 	_wins = [0, 0]
 	_round_number = 0
 	_hud.set_wins(0, 0)
+	for fighter in _fighters:
+		fighter.new_match()
 	_start_round()
 
 

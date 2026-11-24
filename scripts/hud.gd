@@ -113,6 +113,7 @@ func set_energy(player_index: int, current: int, maximum: int) -> void:
 
 
 ## 角色專屬的計量條(例如大蛇之力),畫在血條正下方。info 是 {"name", "color"};
+## 另外可以有 "segments"(分成幾層,層與層之間畫分隔線)和 "text"(取代名稱顯示的文字)。
 ## 第一次呼叫時才建立,並把這一側的氣量格、名字往下挪。滿了會變亮並閃爍。
 func set_meter(player_index: int, info: Dictionary, ratio: float, full: bool) -> void:
 	if info.is_empty():
@@ -122,7 +123,8 @@ func set_meter(player_index: int, info: Dictionary, ratio: float, full: bool) ->
 	var bar: ProgressBar = _meters[player_index]
 	bar.value = clampf(ratio, 0.0, 1.0)
 	var label: Label = _meter_labels[player_index]
-	label.text = "%s MAX" % info.name if full else str(info.name)
+	var text := str(info.get("text", info.name))
+	label.text = "%s MAX" % text if full else text
 	var glow := 1.25 + 0.35 * sin(Time.get_ticks_msec() / 90.0)
 	bar.modulate = Color(glow, glow, glow) if full else Color(1, 1, 1, 0.8)
 	label.modulate = Color(1, 1, 1, 1.0 if full else 0.7)
@@ -154,6 +156,15 @@ func _build_meter(player_index: int, info: Dictionary) -> void:
 	bar.add_theme_stylebox_override("background", background)
 	_root.add_child(bar)
 	_meters[player_index] = bar
+	# 分成好幾層的計量條:層與層之間畫一道分隔線
+	var segments: int = info.get("segments", 1)
+	for index in range(1, segments):
+		var divider := ColorRect.new()
+		divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		divider.color = Color(0.04, 0.04, 0.06)
+		divider.size = Vector2(3, METER_HEIGHT)
+		divider.position = Vector2(METER_WIDTH * index / segments - 1.5, 0)
+		bar.add_child(divider)
 	# 名稱寫在計量條內側的旁邊
 	var label := _make_label(_root, 12, HORIZONTAL_ALIGNMENT_LEFT if left else HORIZONTAL_ALIGNMENT_RIGHT)
 	label.add_theme_color_override("font_color", (info.color as Color).lightened(0.45))

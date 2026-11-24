@@ -113,6 +113,16 @@ const STYLES := [
 		"eye": Color(0.2, 0.62, 1.0), "collar": true,
 		"moves": "gojo_shibuya",
 	},
+	# 金木研:凌亂的白髮、黑色戰鬥服、遮住下半張臉的黑色面具(一排拉鍊似的牙齒),露出來的那隻眼是紅色的赫眼。
+	# 背後的赫子尾巴不在圖裡,由遊戲另外畫(scripts/kagune_tails.gd)。有自己的出招動作(見 _kaneki_animations)。
+	{
+		"id": "kaneki",
+		"hair": Color(0.93, 0.93, 0.96), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.17, 0.17, 0.22), "sleeve": Color(0.17, 0.17, 0.22),
+		"pants": Color(0.14, 0.14, 0.18), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.92, 0.1, 0.14), "mask": true, "collar": true,
+		"moves": "kaneki",
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -587,6 +597,95 @@ func _gojo_shibuya_animations() -> Array:
 	]
 
 
+## 金木研專用的動作:同名的取代通用動作,其餘的加在後面。
+## 尾巴由遊戲另外畫,這裡只畫身體:尾巴出擊的那幾個動作是壓低身體、雙手往後甩。
+func _kaneki_animations() -> Array:
+	# 微微駝背的站姿,前手抬在臉旁
+	var stance := {"head": v(26, 14), "neck": v(24, 20), "hand_f": v(31, 22), "elbow_f": v(28, 27),
+		"hand_b": v(26, 28), "elbow_b": v(21, 28)}
+	# 尾巴出擊:身體往前壓,雙手往後甩開
+	var lunge := {"head": v(30, 16), "neck": v(27, 21), "hip": v(23, 32), "hand_f": v(22, 30), "elbow_f": null,
+		"hand_b": v(16, 27), "elbow_b": null, "foot_b": v(16, 46), "knee_b": v(19, 39)}
+	var front_kick := {"head": v(20, 14), "neck": v(21, 20), "hip": v(23, 31), "foot_f": v(43, 27), "knee_f": v(33, 30),
+		"hand_f": v(24, 27), "hand_b": v(15, 24), "elbow_b": null}
+	# 往後跳開:雙腳離地縮起來
+	var hop := {"head": v(23, 12), "neck": v(23, 18), "hip": v(23, 29), "foot_b": v(16, 41), "knee_b": v(18, 35),
+		"foot_f": v(28, 42), "knee_f": v(29, 36), "hand_f": v(33, 22), "elbow_f": v(28, 25), "hand_b": v(17, 24), "elbow_b": null}
+	var crouch := {"head": v(25, 15), "neck": v(24, 21), "hip": v(24, 33), "knee_f": v(29, 40), "knee_b": v(21, 40)}
+	# 四條尾巴一起刺出去:整個人壓得更低
+	var pierce := {"head": v(31, 18), "neck": v(28, 23), "hip": v(22, 33), "hand_f": v(20, 31), "elbow_f": null,
+		"hand_b": v(14, 27), "elbow_b": null, "foot_b": v(13, 46), "knee_b": v(17, 40), "foot_f": v(31, 46), "knee_f": v(30, 40)}
+	# 撲過去:身體打斜,雙手往前抓
+	var pounce := {"head": v(33, 17), "neck": v(29, 21), "hip": v(20, 28), "hand_f": v(41, 25), "elbow_f": null,
+		"hand_b": v(38, 29), "elbow_b": null, "foot_b": v(8, 36), "knee_b": v(13, 31), "foot_f": v(13, 40), "knee_f": v(19, 35)}
+	# 抓住對手的肩膀咬下去
+	var bite := {"head": v(33, 15), "neck": v(29, 20), "hip": v(24, 32), "hand_f": v(39, 22), "elbow_f": v(33, 25),
+		"hand_b": v(38, 26), "elbow_b": v(31, 28), "foot_b": v(15, 46), "knee_b": v(19, 39)}
+	return [
+		{"name": "idle", "fps": 6, "loop": true, "frames": [
+			pose(stance),
+			pose(stance.merged({"head": v(26, 15), "neck": v(24, 21), "hand_f": v(31, 23)}, true)),
+			pose(stance.merged({"head": v(26, 15), "neck": v(24, 21), "hand_f": v(32, 23), "hand_b": v(26, 29)}, true)),
+			pose(stance.merged({"hand_f": v(32, 21)}, true)),
+		]},
+		# 第二段:尾巴追擊
+		{"name": "attack2", "fps": 12, "loop": false, "frames": [
+			pose(crouch),
+			pose(lunge),
+			pose(lunge.merged({"head": v(30, 17), "hand_b": v(16, 28)}, true)),
+		]},
+		# 第三段:換另一隻手出拳
+		{"name": "attack3", "fps": 12, "loop": false, "frames": [
+			pose({"neck": v(25, 19), "hand_b": v(23, 24), "elbow_b": v(19, 26)}),
+			pose({"head": v(29, 14), "neck": v(27, 20), "hip": v(25, 31),
+				"hand_b": v(43, 24), "elbow_b": null, "hand_f": v(26, 24), "elbow_f": v(22, 27)}),
+			pose({"head": v(27, 13), "neck": v(26, 19), "hand_b": v(36, 25), "elbow_b": v(30, 26)}),
+		]},
+		# 第四段:往前踢一腳,接著往後跳開
+		{"name": "attack4", "fps": 10, "loop": false, "frames": [
+			pose({"hip": v(23, 31), "foot_f": v(27, 40), "knee_f": v(31, 34)}),
+			pose(front_kick),
+			pose(hop),
+			pose(hop.merged({"head": v(23, 13), "foot_f": v(28, 43), "foot_b": v(16, 42)}, true)),
+			pose(crouch),
+		]},
+		# 第五段:四條尾巴一起往前穿刺
+		{"name": "attack5", "fps": 10, "loop": false, "frames": [
+			pose(crouch),
+			pose(pierce),
+			pose(pierce.merged({"head": v(31, 19), "hand_b": v(14, 28)}, true)),
+			pose(lunge),
+		]},
+		# 跳擊:撲過去、落地
+		{"name": "leap", "fps": 8, "loop": false, "frames": [
+			pose(pounce),
+			pose(pounce.merged({"hand_f": v(41, 27), "hand_b": v(38, 31)}, true)),
+			pose(pounce),
+			pose(crouch),
+		]},
+		# 尾殺:扭身蓄力、整個人甩出去、收勢
+		{"name": "sweep", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(22, 14), "neck": v(22, 20), "hand_f": v(18, 24), "elbow_f": v(23, 26), "hand_b": v(15, 22), "elbow_b": null}),
+			pose({"head": v(30, 15), "neck": v(27, 20), "hip": v(24, 32), "hand_f": v(38, 30), "elbow_f": null,
+				"hand_b": v(16, 24), "elbow_b": null, "foot_b": v(15, 46), "knee_b": v(19, 39)}),
+			pose(crouch),
+		]},
+		# 以下都只有一格,由遊戲依招式的階段切換
+		{"name": "leap_tails", "fps": 8, "loop": false, "frames": [pose(lunge)]},
+		{"name": "hunt_ready", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(28, 18), "neck": v(26, 23), "hip": v(23, 34), "knee_f": v(30, 40), "knee_b": v(19, 41),
+				"hand_f": v(32, 36), "elbow_f": null, "hand_b": v(18, 32), "elbow_b": null}),
+		]},
+		{"name": "hunt", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(35, 19), "neck": v(31, 23), "hip": v(22, 32), "hand_b": v(12, 26), "elbow_b": null,
+				"hand_f": v(16, 30), "elbow_f": null, "foot_b": v(10, 44), "knee_b": v(16, 38),
+				"foot_f": v(27, 46), "knee_f": v(28, 39)}),
+		]},
+		{"name": "bite1", "fps": 8, "loop": false, "frames": [pose(bite)]},
+		{"name": "bite2", "fps": 8, "loop": false, "frames": [pose(bite.merged({"head": v(30, 13), "neck": v(27, 19)}, true))]},
+	]
+
+
 ## 這個角色實際要畫的動作:通用動作,加上(或換成)角色自己的。
 func _animations_for(style: Dictionary) -> Array:
 	var animations := _animations()
@@ -595,6 +694,7 @@ func _animations_for(style: Dictionary) -> Array:
 		"minato": extras = _minato_animations()
 		"sasuke": extras = _sasuke_animations()
 		"gojo_shibuya": extras = _gojo_shibuya_animations()
+		"kaneki": extras = _kaneki_animations()
 	for extra: Dictionary in extras:
 		var replaced := false
 		for index in animations.size():
@@ -811,13 +911,23 @@ func _draw_head(center: Vector2i) -> void:
 	else:
 		_plot(center + Vector2i(2, 0), Color(0.3, 0.05, 0.08))
 		_plot(center + Vector2i(3, 0), Color(0.3, 0.05, 0.08))
+	if _style.get("mask", false):
+		# 面具:蓋住下半張臉,嘴的位置一排牙齒;眼睛周圍是黑的(赫眼)
+		var leather := Color(0.09, 0.09, 0.12)
+		_fill(center + Vector2i(-1, 1), Vector2i(6, 4), leather)
+		_clear(center + Vector2i(4, 4))
+		_plot(center + Vector2i(1, 3), Color(0.92, 0.92, 0.88))
+		_plot(center + Vector2i(3, 3), Color(0.92, 0.92, 0.88))
+		_plot(center + Vector2i(1, 0), leather)
+		_plot(center + Vector2i(4, 0), leather)
 	if _style.marks:
 		var mark := Color(0.12, 0.1, 0.14)
 		_plot(center + Vector2i(1, 2), mark)
 		_plot(center + Vector2i(3, 2), mark)
 		_plot(center + Vector2i(2, -2), mark)
-	# 嘴
-	_plot(center + Vector2i(3, 3), Color(0.55, 0.3, 0.3))
+	# 嘴(戴面具的看不到)
+	if not _style.get("mask", false):
+		_plot(center + Vector2i(3, 3), Color(0.55, 0.3, 0.3))
 	if _style.get("scar", false):
 		# 嘴角往下的一道疤
 		_plot(center + Vector2i(2, 2), Color(0.62, 0.36, 0.34))

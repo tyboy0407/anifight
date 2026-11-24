@@ -11,6 +11,7 @@ const PLAYER_COLORS: Array[Color] = [Color(0.95, 0.4, 0.35), Color(0.35, 0.6, 0.
 const SERIES: Array[Dictionary] = [
 	{"id": "jjk", "name": "咒術迴戰", "color": Color(0.5, 0.42, 0.95)},
 	{"id": "naruto", "name": "火影忍者", "color": Color(1.0, 0.6, 0.2)},
+	{"id": "tokyo_ghoul", "name": "東京喰種", "color": Color(0.9, 0.2, 0.26)},
 ]
 
 ## 新增角色時在這裡加一筆。series 是所屬系列的 id(見 SERIES);skills 依序是:技能、上+技能、超必殺。
@@ -105,6 +106,15 @@ const CHARACTERS: Array[Dictionary] = [
 		"hair": Color(0.1, 0.11, 0.18),
 		"skills": ["千鳥(1格)/連段中:千鳥雷槍", "豪火球之術(1格)", "麒麟(5格)"],
 		"summary": "氣量上限 5 格\n千鳥:蓄力後衝刺\n普攻中按招式一:千鳥雷槍\n豪火球:命中後燃燒 5 秒\n麒麟:出拳、雷槍、落雷\n大蛇之力滿:蛇咬 / 蛇籠",
+	},
+	{
+		"name": "金木研",
+		"series": "tokyo_ghoul",
+		"scene": "res://scenes/characters/kaneki.tscn",
+		"sprites": "res://assets/characters/kaneki",
+		"hair": Color(0.93, 0.93, 0.96),
+		"skills": ["跳擊(1格)", "尾殺(2格)", "獵殺本能(3格)"],
+		"summary": "氣量上限 5 格\n赫胞:攻擊與挨打都累積\n每滿一層多一條尾巴\n最多四條,整場保留\n跳擊尾殺:尾巴越多越強\n獵殺本能:撕咬回血\n亢奮:速度傷害 +30%",
 	},
 ]
 

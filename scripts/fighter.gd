@@ -221,6 +221,11 @@ func _build_moves() -> void:
 	_super_move.color = Color(1.0, 0.35, 0.9, 0.8)
 
 
+## 一場新的對戰開始(第一回合的 reset 之前呼叫)。有「整場對戰都保留」的東西的角色在這裡清掉。
+func new_match() -> void:
+	pass
+
+
 ## 回合開始時重置角色。
 func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	global_position = spawn_position
