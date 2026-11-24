@@ -10,7 +10,7 @@ enum View { PICK, HUB }
 const PANEL_COLOR := Color(0.15, 0.17, 0.25)
 const GOLD := Color(1.0, 0.84, 0.45)
 const PICK_CARD_SIZE := Vector2(300, 380)
-const STAGE_ROW_HEIGHT := 60.0
+const STAGE_ROW_HEIGHT := 54.0
 const LEFT_WIDTH := 400.0
 
 var _view := View.PICK
@@ -29,6 +29,8 @@ var _toast_label: Label
 var _pick_cards: Array[PanelContainer] = []
 var _stage_rows: Array[PanelContainer] = []
 var _pressed_row := -1           # 滑鼠 / 手指正按住哪一列(放開時還在同一列才算點選)
+var _pressed_at := Vector2.ZERO  # 按下去的位置:放開時離太遠就是在拖動捲軸,不算點選
+var _stage_scroll: ScrollContainer
 var _reward_continue: Callable
 
 
@@ -380,10 +382,15 @@ func _build_stage_panel() -> Control:
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
+	_stage_scroll = scroll
+	# 右邊留一點空間給捲軸,關卡的框才不會被它蓋住
+	var inset := MarginContainer.new()
+	inset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inset.add_theme_constant_override("margin_right", 14)
+	scroll.add_child(inset)
 	var box := VBoxContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_theme_constant_override("separation", 8)
-	scroll.add_child(box)
+	box.add_theme_constant_override("separation", 6)
+	inset.add_child(box)
 	_stage_rows.clear()
 	var chapters: Array = _story.get("chapters", [])
 	var stage_index := 0
@@ -455,14 +462,16 @@ func _on_stage_row_input(event: InputEvent, index: int) -> void:
 	var click := event as InputEventMouseButton
 	if click.button_index != MOUSE_BUTTON_LEFT:
 		return
-	# 放開時還在同一列才算點選(中間拖動捲軸的不算)
+	# 放開時還在同一列、而且手指沒有移動多少才算點選(拖動捲軸的不算)
 	if click.pressed:
 		_pressed_row = index
-		_cursor = index
-		_refresh_cursor()
+		_pressed_at = click.global_position
 	elif _pressed_row == index:
 		_pressed_row = -1
-		_start_stage(index)
+		if click.global_position.distance_to(_pressed_at) < 14.0:
+			_cursor = index
+			_refresh_cursor()
+			_start_stage(index)
 
 
 ## 鍵盤游標:游標所在的卡片 / 關卡邊框比較亮。觸控沒有游標。
@@ -472,6 +481,19 @@ func _refresh_cursor() -> void:
 		var style := rows[index].get_theme_stylebox("panel") as StyleBoxFlat
 		var focused := index == _cursor and not GameState.touch_enabled
 		style.border_color = GOLD if focused else Color(0.55, 0.62, 0.9, 0.35)
+	if _view == View.HUB:
+		_scroll_to_cursor()
+
+
+## 關卡多到一頁放不下時,把游標所在(或下一個要打)的那一關捲進畫面裡。
+func _scroll_to_cursor() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _view != View.HUB or not is_instance_valid(_stage_scroll) or _cursor >= _stage_rows.size():
+		return
+	var row := _stage_rows[_cursor]
+	if is_instance_valid(row) and _stage_scroll.is_ancestor_of(row):
+		_stage_scroll.ensure_control_visible(row)
 
 
 # ---------- 進行一關 ----------

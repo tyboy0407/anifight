@@ -8,6 +8,7 @@ extends RefCounted
 ##   foe           對手。{"character": 角色名字, "form": 型態編號}(名單裡的角色),
 ##                 或 {"info": {...}}(只在故事裡出現的對手,格式同 GameState.CHARACTERS 的一筆)
 ##   health / damage   對手的生命與傷害倍率(1 = 和一般對戰一樣)
+##   foe_setup         另外交給對手 apply_story 的設定(例如 {"sharingan": false}:卡卡西這一場不開寫輪眼)
 ##   think / idle      電腦的反應速度(越大越慢)與發呆的機率
 ##   rounds            要贏幾回合(預設 1)
 ##   exp               第一次過關拿到的經驗值(重打只有一部分,見 REPLAY_EXP)
@@ -37,6 +38,7 @@ const CAST := {
 	"minato": {"name": "波風湊", "character": "波風湊"},
 	"sasuke": {"name": "宇智波佐助", "character": "宇智波佐助"},
 	"toji": {"name": "伏黑甚爾", "character": "伏黑甚爾"},
+	"kakashi": {"name": "卡卡西", "character": "卡卡西"},
 	"curse": {"name": "咒靈", "sprites": "res://assets/characters/curse", "animation": "idle"},
 	"rika": {"name": "里香", "sprites": "res://assets/summons_fx", "animation": "rika", "big": true},
 }
@@ -226,8 +228,84 @@ const STORIES: Array[Dictionary] = [
 					},
 				],
 			},
+			{
+				"title": "第三章　對手",
+				"stages": [
+					{
+						"id": "3-1", "title": "拷貝忍者",
+						"foe": {"character": "卡卡西"},
+						# 第一場他還不用寫輪眼
+						"foe_setup": {"sharingan": false},
+						"health": 0.95, "damage": 0.95, "think": 1.1, "idle": 0.08,
+						"exp": 220,
+						"tip": "卡卡西會記住你的招式:你用滿五次,他就會拿你的招式打你",
+						"before": [
+							["", "西邊的河谷。霧很濃,水聲很近。"],
+							["", "乙骨和金木沿著河走了半天,一路上沒有遇到任何人——直到一本書從樹上掉了下來。"],
+							["kakashi", "啊,抱歉抱歉。看到精彩的地方,手滑了。", "蒙面的忍者"],
+							["yuta", "(從什麼時候開始在那裡的……我完全沒有發現。)"],
+							["kakashi", "帶著巨大怪物的白衣少年。打倒了金色閃光,逼退了宇智波的小鬼,還讓那個術師殺手空手而回。傳言裡的人就是你吧。", "蒙面的忍者"],
+							["yuta", "那些都是誤會!我沒有想和任何人打——"],
+							["kakashi", "我知道。真正危險的傢伙,不會每打完一場都向對方道歉。", "蒙面的忍者"],
+							["kakashi", "我是旗木卡卡西。別人叫我「拷貝忍者」——靠著模仿別人的招式,活到今天的男人。"],
+							["yuta", "模仿……別人的招式?"],
+							["kakashi", "所以我對你很有興趣。你身上的力量,有多少是「你自己的」?讓我看看吧。"],
+							["kaneki", "術師,這個人的氣息和之前的都不一樣。小心。"],
+						],
+						"after": [
+							["kakashi", "嗯——到這裡就好。你的刀很乾淨,是認真練過的人的刀。"],
+							["yuta", "哈……哈……卡卡西先生,您剛才的出手……和我一模一樣。"],
+							["kakashi", "看過一次,就記住了。很狡猾對吧?"],
+							["yuta", "……用別人的招式戰鬥,是什麼感覺?"],
+							["yuta", "我的力量,沒有一樣是我自己的。里香是因為我不肯放手才留下來的。我只是……一直被她保護著而已。"],
+							["kakashi", "我剛開始也這麼想。覺得自己只是個裝滿別人東西的空殼。"],
+							["kakashi", "但招式這種東西,不是偷來就能用的。你得先看懂那個人——他為什麼這樣出手、想保護什麼、害怕什麼。"],
+							["kakashi", "每用一次,就等於把那個人再想起來一次。所以我從來不覺得,自己是一個人在戰鬥。"],
+							["yuta", "把那個人……再想起來一次。"],
+							["kakashi", "光用說的不夠。休息一下,再打一場。這次我會認真——你也試著「偷」點什麼吧。"],
+						],
+					},
+					{
+						"id": "3-2", "title": "借來的力量",
+						"foe": {"character": "卡卡西"},
+						"health": 1.0, "damage": 0.95, "think": 1.05, "idle": 0.06,
+						"rounds": 2,
+						"exp": 320,
+						"unlock": "speech",
+						"tip": "頭目戰:卡卡西開了寫輪眼之後,你每用一次招式他就能拷貝",
+						"before": [
+							["", "黃昏。河谷的霧散了。"],
+							["kakashi", "準備好了嗎。"],
+							["", "卡卡西把護額往上推。那隻一直遮著的眼睛,是血一樣的紅色。"],
+							["yuta", "那隻眼睛……和山道上那個少年的一樣。"],
+							["kakashi", "這隻眼睛,是一個朋友留給我的。他把它交給我的時候說,要我替他看著未來。"],
+							["kakashi", "所以我用它看到的每一招,都不只是我一個人的。"],
+							["yuta", "(朋友留下來的……)"],
+							["yuta", "(里香。妳留在我身邊,不是為了讓我害怕的,對吧。)"],
+							["kakashi", "來吧,乙骨。別只是看著我——看著你想保護的那些人。"],
+						],
+						"after": [
+							["", "最後一擊交錯的瞬間,乙骨腦海裡浮現的不是招式,而是一個人。"],
+							["", "高專的教室。總是把衣領拉到嘴邊的同學,為了不傷到別人,連話都不敢好好說。"],
+							["yuta", "(狗卷同學……你一直都是這樣,小心地握著自己的力量。)"],
+							["yuta", "——飛走吧!"],
+							["", "聲音化成了衝擊。卡卡西整個人被震退了好幾步。"],
+							["kakashi", "……哈哈。這可不是我的招式。"],
+							["yuta", "是我同學的。我一直看著他,卻從來沒想過……我也可以替他,把這份力量帶到這裡。"],
+							["rika", "憂太……好厲害……"],
+							["yuta", "謝謝妳,里香。還有——對不起,我一直把妳當成要拚命拉住的東西。"],
+							["kakashi", "學得比我當年快多了。看來「拷貝忍者」的名號,得讓出一半。"],
+							["kaneki", "你們兩個打完了的話,有件事要說。裂縫又出現了——而且這次不只一道。"],
+							["kakashi", "果然。把我們這些人丟進同一個世界的東西,開始收網了。"],
+							["kakashi", "乙骨,暫時一起行動吧。我負責看,你負責記住。"],
+							["yuta", "是!請多指教,卡卡西先生。"],
+							["", "第三章　完"],
+						],
+					},
+				],
+			},
 		],
-		"coming": ["第三章　對手"],
+		"coming": ["第四章"],
 	},
 ]
 
@@ -326,7 +404,7 @@ static func fight_setup(story_id: String, stage_index: int, progress: Dictionary
 				"energy": stat_scale(progress, "energy"),
 				"abilities": abilities(story_id, int(progress.cleared)),
 			},
-			{"health": float(stage.get("health", 1.0)), "damage": float(stage.get("damage", 1.0))},
+			{"health": float(stage.get("health", 1.0)), "damage": float(stage.get("damage", 1.0))}.merged(stage.get("foe_setup", {})),
 		],
 		"rounds": int(stage.get("rounds", 1)),
 		"cpu": {"think": float(stage.get("think", 1.0)), "idle": float(stage.get("idle", 0.0))},

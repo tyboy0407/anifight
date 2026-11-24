@@ -121,10 +121,15 @@ var _pad := 0         # 這一格按著哪些鍵
 var _pad_before := 0  # 上一格按著哪些鍵
 ## 是否接受「方向 + 按鍵」的組合招式(鍵盤)。觸控操作時關閉,改用專用按鈕。
 var direction_combos: bool = true
-## 目前可活動的水平範圍,由主場景依鏡頭位置更新。
 ## 造成傷害的倍率、累積氣量的倍率。故事模式的成長與敵人強度用(見 apply_story);一般對戰都是 1。
 var damage_scale := 1.0
 var energy_gain_scale := 1.0
+## 放出角色專屬招式(招式一、招式二、超必殺)的次數。會拷貝招式的角色靠它知道對手用了幾次招式。
+var skill_uses := 0
+## 不是 null 的話,這個角色是別人的「替身」(見 kakashi.gd):由主人代替它出招,它不會被打到
+## (打到它的效果都轉給主人),它的攻擊也不會打到主人。要在放進場景之前設定。
+var puppet_of: Fighter
+## 目前可活動的水平範圍,由主場景依鏡頭位置更新。
 var arena_min_x: float = -INF
 var arena_max_x: float = INF
 
@@ -207,6 +212,8 @@ func _ready() -> void:
 	_build_moves()
 	health = max_health
 	_set_hitbox(false)
+	if puppet_of != null:
+		($Hurtbox as Area2D).monitorable = false  # 替身沒有受擊判定
 	_update_visual()
 
 
@@ -762,9 +769,11 @@ func _try_energy_actions() -> bool:
 
 func _do_energy_actions() -> bool:
 	if _try_character_actions():
+		skill_uses += 1
 		return true
 	if _super_pressed():
 		if _spend_energy(super_cost()):
+			skill_uses += 1
 			_start_super()
 			return true
 	elif _special_pressed():
@@ -808,6 +817,17 @@ func _try_character_actions() -> bool:
 	return false
 
 
+## 當替身、即將被叫出來放招式一(skill 是 1)或招式二(2)之前呼叫:
+## 招式要先滿足某個條件才放得出來的角色,在這裡把自己準備好(例如先換好武器)。
+func prepare_copy(_skill: int) -> void:
+	pass
+
+
+## 普通攻擊的傷害倍率(有「強化普攻」這類狀態的角色覆寫)。這個狀態是替身身上的話,主人的普攻會套用它。
+func normal_attack_scale() -> float:
+	return 1.0
+
+
 ## 超必殺的內容。子類別可覆寫成自己的招式;氣量已在呼叫前扣除。
 func _start_super() -> void:
 	_start_attack(_super_move, SPECIAL_STEP)
@@ -829,6 +849,9 @@ func _start_cast(duration: float, release_at: float, callback: Callable, animati
 ## 被定身:期間無法行動,仍會受到攻擊。幽步、脫出與 KO 期間無效。
 ## damage_scale 是定身期間受到傷害的倍率(定身本身的 damage 不套用)。
 func stun(duration: float, damage: int = 0, damage_scale: float = 1.0) -> void:
+	if puppet_of != null:
+		puppet_of.puppet_was_stunned(duration, damage, damage_scale)
+		return
 	if state in [State.KO, State.TELEPORT, State.BURST]:
 		return
 	_set_hitbox(false)
@@ -849,6 +872,9 @@ func stun(duration: float, damage: int = 0, damage_scale: float = 1.0) -> void:
 ## 給「打中之後讓對手動彈不得」的追加效果用。已經在定身中就只會延長,不會縮短。
 ## sink 是圖要往下沉幾個像素(被壓進地面的樣子);離開定身狀態就會復原。
 func pin(duration: float, sink: float = 0.0) -> void:
+	if puppet_of != null:
+		puppet_of.pin(duration, sink)
+		return
 	if is_invulnerable():
 		return
 	_set_hitbox(false)
@@ -869,6 +895,9 @@ func set_sink(pixels: float) -> void:
 
 ## 被打出短暫硬直,不造成傷害、不計入連段。用於格檔反擊這類「打斷對手」的效果。
 func stagger(duration: float) -> void:
+	if puppet_of != null:
+		puppet_of.stagger(duration)
+		return
 	if is_invulnerable() or state == State.LAUNCHED:
 		return  # 已經被打飛在空中的對手維持浮空,不會被拉回站立硬直
 	_set_hitbox(false)
@@ -879,6 +908,9 @@ func stagger(duration: float) -> void:
 
 ## 持續傷害(燃燒這類狀態):直接扣血,不造成硬直、不算進連段,也不會把人打倒(至少留 1 滴血)。
 func chip(amount: int) -> void:
+	if puppet_of != null:
+		puppet_of.chip(amount)
+		return
 	if state == State.KO or amount <= 0:
 		return
 	_set_health(maxi(health - maxi(int(round(amount * _taken_scale())), 1), 1))
@@ -1042,6 +1074,9 @@ func _start_burst() -> void:
 
 ## 被對手的受擊脫出彈開。
 func blown_away(source: Fighter) -> void:
+	if puppet_of != null:
+		puppet_of.blown_away(source)
+		return
 	if state in [State.KO, State.DOWN, State.GETUP, State.LAUNCHED, State.TELEPORT, State.BURST]:
 		return
 	var away := int(signf(global_position.x - source.global_position.x))
@@ -1093,11 +1128,20 @@ func _end_attack() -> void:
 func _check_hits() -> void:
 	for area in _hitbox.get_overlapping_areas():
 		var target := area.get_parent() as Fighter
-		if target == null or target == self or _hit_targets.has(target):
+		if target == null or target == self or target == puppet_of or _hit_targets.has(target):
 			continue
 		_hit_targets.append(target)
 		target.take_hit(_effective_move(_move), self)
 		_on_attack_hit(target, _move)
+
+
+## 替身挨了一下、被定身(它自己沒擋下來)。有替身的角色覆寫:把這一下算在自己身上。
+func puppet_was_hit(_move: AttackData, _attacker: Fighter) -> void:
+	pass
+
+
+func puppet_was_stunned(_duration: float, _damage: int, _damage_scale: float) -> void:
+	pass
 
 
 ## 實際套用到對手身上的招式數值。子類別可覆寫來做傷害強化等效果。
@@ -1143,6 +1187,10 @@ func _taken_scale() -> float:
 
 ## 被招式命中。倒地、起身、幽步、脫出與 KO 期間無敵;浮空時可以被連擊。
 func take_hit(move: AttackData, attacker: Fighter) -> void:
+	if puppet_of != null:
+		# 替身被打到:自己的防禦手段(格檔、無下限…)都沒擋下來才會走到這裡,這一下算在主人身上
+		puppet_of.puppet_was_hit(move, attacker)
+		return
 	if is_invulnerable():
 		return
 	var away := int(signf(global_position.x - attacker.global_position.x))
@@ -1259,12 +1307,18 @@ func add_energy(amount: int) -> void:
 
 ## 氣閉:這段時間內無法以任何方式累積氣量;已經有的氣照常可以使用。
 func seal_energy(duration: float) -> void:
+	if puppet_of != null:
+		puppet_of.seal_energy(duration)
+		return
 	_energy_seal_time = maxf(_energy_seal_time, duration)
 	_show_status_label()
 
 
 ## 破防:這段時間內受到的所有傷害變成 scale 倍。
 func break_guard(duration: float, scale_factor: float) -> void:
+	if puppet_of != null:
+		puppet_of.break_guard(duration, scale_factor)
+		return
 	if state == State.KO:
 		return
 	_break_time = maxf(_break_time, duration)
@@ -1632,6 +1686,8 @@ func _load_sprite() -> void:
 	_body.visible = false
 	_eye.visible = false
 
+	if puppet_of != null:
+		return  # 替身不另外掛玩家標籤
 	# 同角色對戰時靠頭上的標籤分辨玩家。
 	var tag := Label.new()
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE

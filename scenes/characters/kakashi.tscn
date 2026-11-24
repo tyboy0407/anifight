@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/fighter.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/characters/kakashi.gd" id="2_kakashi"]
+
+[node name="Fighter" instance=ExtResource("1_base")]
+script = ExtResource("2_kakashi")
+max_health = 2500
+max_energy = 500
+sprite_dir = "res://assets/characters/kakashi"

@@ -385,6 +385,16 @@ func _effective_move(move: AttackData) -> AttackData:
 	return _boosted[move]
 
 
+## 當替身、要放招式一:故事模式裡還不會「飛走吧!」只會黑閃拳的話,先把氣量補到咒力滿盈,出手才會是那一拳。
+func prepare_copy(skill: int) -> void:
+	if skill == 1 and not _knows("speech") and _knows("friend"):
+		_set_energy(maxi(energy, OVERFLOW_THRESHOLD + SPEECH_COST * OVERFLOW_COST_SCALE))
+
+
+func normal_attack_scale() -> float:
+	return BUFF_DAMAGE_SCALE if _buff_time > 0.0 else 1.0
+
+
 func _is_normal_attack(move: AttackData) -> bool:
 	return move == _air_move or _normal_chain.has(move) or _rika_chain.has(move)
 

@@ -123,6 +123,25 @@ const STYLES := [
 		"eye": Color(0.92, 0.1, 0.14), "mask": true, "collar": true,
 		"moves": "kaneki",
 	},
+	# 卡卡西:往上翹的銀髮、木葉護額、遮住下半張臉的深藍面罩、綠色背心、深藍衣褲。有自己的出招動作(見 _kakashi_animations)。
+	# 平常那一套圖眼睛是黑的;開寫輪眼時換成另一套(kakashi_sharingan):露出紅色的寫輪眼。
+	{
+		"id": "kakashi",
+		"hair": Color(0.83, 0.85, 0.91), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.37, 0.48, 0.36), "sleeve": Color(0.17, 0.21, 0.38),
+		"pants": Color(0.15, 0.19, 0.34), "sash": Color(0, 0, 0, 0),
+		"headband": Color(0.17, 0.21, 0.38), "face_mask": Color(0.13, 0.16, 0.29), "tall_hair": true,
+		"moves": "kakashi",
+	},
+	{
+		"id": "kakashi_sharingan",
+		"hair": Color(0.83, 0.85, 0.91), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.37, 0.48, 0.36), "sleeve": Color(0.17, 0.21, 0.38),
+		"pants": Color(0.15, 0.19, 0.34), "sash": Color(0, 0, 0, 0),
+		"headband": Color(0.17, 0.21, 0.38), "face_mask": Color(0.13, 0.16, 0.29), "tall_hair": true,
+		"eye": Color(0.95, 0.12, 0.14),
+		"moves": "kakashi",
+	},
 	# 低級咒靈(只在故事模式出現的對手):灰紫色的皮膚、光禿禿的頭上兩支角、一隻黃色的大眼、裂到耳邊的嘴。
 	{
 		"id": "curse",
@@ -695,6 +714,72 @@ func _kaneki_animations() -> Array:
 	]
 
 
+## 卡卡西專用的動作:同名的取代通用動作,其餘的加在後面。
+func _kakashi_animations() -> Array:
+	var crouch := {"head": v(25, 17), "neck": v(24, 23), "hip": v(23, 34), "knee_f": v(30, 40), "knee_b": v(20, 40)}
+	# 俯身下踢:一手撐地,腿貼著地面掃出去
+	var sweep := {"head": v(20, 23), "neck": v(21, 28), "hip": v(23, 37), "foot_f": v(44, 44), "knee_f": v(34, 42),
+		"foot_b": v(15, 46), "knee_b": v(17, 41), "hand_f": v(28, 44), "elbow_f": null, "hand_b": v(14, 33), "elbow_b": null}
+	# 土流壁:單膝跪下,雙手按在地上
+	var slam := {"head": v(31, 25), "neck": v(28, 29), "hip": v(21, 36), "hand_f": v(37, 45), "elbow_f": null,
+		"hand_b": v(33, 45), "elbow_b": null, "foot_f": v(31, 46), "knee_f": v(31, 40), "foot_b": v(14, 46), "knee_b": v(17, 42)}
+	# 結印:雙手在胸前交疊,每一格手勢稍微不同
+	var seal_a := {"hand_f": v(30, 24), "elbow_f": v(27, 28), "hand_b": v(30, 25), "elbow_b": v(24, 28)}
+	var seal_b := {"hand_f": v(31, 22), "elbow_f": v(28, 27), "hand_b": v(29, 25), "elbow_b": v(24, 28)}
+	var palms := {"head": v(27, 14), "neck": v(26, 20), "hand_f": v(41, 22), "elbow_f": null, "hand_b": v(40, 26), "elbow_b": null}
+	# 雷切:壓低身體,一手握住另一隻手的手腕在腰側蓄力;接著整個人往前刺出去
+	var charge := {"head": v(27, 17), "neck": v(25, 23), "hip": v(23, 34), "knee_f": v(30, 40), "knee_b": v(19, 40),
+		"hand_f": v(22, 36), "elbow_f": v(27, 31), "hand_b": v(24, 33), "elbow_b": v(21, 29)}
+	var thrust := {"head": v(33, 17), "neck": v(29, 21), "hip": v(22, 31), "hand_f": v(44, 24), "elbow_f": null,
+		"hand_b": v(16, 27), "elbow_b": null, "foot_b": v(11, 45), "knee_b": v(16, 38), "foot_f": v(30, 46), "knee_f": v(30, 39)}
+	return [
+		# 第二段:俯身下踢
+		{"name": "attack3", "fps": 12, "loop": false, "frames": [
+			pose(crouch),
+			pose(sweep),
+			pose(sweep.merged({"foot_f": v(44, 43), "hand_b": v(14, 34)}, true)),
+			pose(crouch),
+		]},
+		# 第三段:土遁.土流壁
+		{"name": "attack4", "fps": 10, "loop": false, "frames": [
+			pose(seal_a),
+			pose(slam),
+			pose(slam.merged({"head": v(31, 26)}, true)),
+			pose(slam),
+			pose(crouch),
+		]},
+		# 雷切:蓄力兩格、刺出去兩格、收勢
+		{"name": "raikiri", "fps": 8, "loop": false, "frames": [
+			pose(charge),
+			pose(charge.merged({"head": v(27, 18), "hand_f": v(22, 37)}, true)),
+			pose(thrust),
+			pose(thrust.merged({"hand_f": v(45, 24)}, true)),
+			pose(crouch),
+		]},
+		# 水龍波:結印三格,雙掌往前推兩格
+		{"name": "water", "fps": 8, "loop": false, "frames": [
+			pose(seal_a),
+			pose(seal_b),
+			pose(seal_a),
+			pose(palms),
+			pose(palms.merged({"hand_f": v(42, 22), "hand_b": v(41, 26)}, true)),
+		]},
+		# 雷流引:一手往斜上方指著空中的對手
+		{"name": "raiton", "fps": 10, "loop": true, "frames": [
+			pose({"head": v(26, 13), "hand_f": v(40, 11), "elbow_f": v(32, 17), "hand_b": v(31, 20), "elbow_b": v(25, 24)}),
+			pose({"head": v(26, 13), "hand_f": v(40, 12), "elbow_f": v(32, 18), "hand_b": v(31, 21), "elbow_b": v(25, 24)}),
+		]},
+		# 開 / 關寫輪眼:手伸到護額上
+		{"name": "sharingan", "fps": 8, "loop": false, "frames": [
+			pose({"hand_f": v(30, 18), "elbow_f": v(31, 24)}),
+			pose({"hand_f": v(29, 10), "elbow_f": v(33, 17)}),
+			pose({"hand_f": v(29, 10), "elbow_f": v(33, 17)}),
+		]},
+		# 結印(拷貝來的招式出手前)
+		{"name": "seal", "fps": 10, "loop": true, "frames": [pose(seal_a), pose(seal_b)]},
+	]
+
+
 ## 這個角色實際要畫的動作:通用動作,加上(或換成)角色自己的。
 func _animations_for(style: Dictionary) -> Array:
 	var animations := _animations()
@@ -704,6 +789,7 @@ func _animations_for(style: Dictionary) -> Array:
 		"sasuke": extras = _sasuke_animations()
 		"gojo_shibuya": extras = _gojo_shibuya_animations()
 		"kaneki": extras = _kaneki_animations()
+		"kakashi": extras = _kakashi_animations()
 	for extra: Dictionary in extras:
 		var replaced := false
 		for index in animations.size():
@@ -925,6 +1011,12 @@ func _draw_head(center: Vector2i) -> void:
 	else:
 		_plot(center + Vector2i(2, 0), Color(0.3, 0.05, 0.08))
 		_plot(center + Vector2i(3, 0), Color(0.3, 0.05, 0.08))
+	if _style.has("face_mask"):
+		# 面罩:布料蓋住鼻子以下,沒有花紋
+		var cloth: Color = _style.face_mask
+		_fill(center + Vector2i(-2, 1), Vector2i(7, 4), cloth)
+		_clear(center + Vector2i(4, 4))
+		_fill(center + Vector2i(1, 2), Vector2i(3, 1), cloth.lightened(0.12))
 	if _style.get("mask", false):
 		# 面具:蓋住下半張臉,嘴的位置一排牙齒;眼睛周圍是黑的(赫眼)
 		var leather := Color(0.09, 0.09, 0.12)
@@ -952,7 +1044,7 @@ func _draw_head(center: Vector2i) -> void:
 		_plot(center + Vector2i(3, 2), mark)
 		_plot(center + Vector2i(2, -2), mark)
 	# 嘴(戴面具的看不到;咒靈的大嘴上面畫過了)
-	if not _style.get("mask", false) and not _style.get("maw", false):
+	if not _style.get("mask", false) and not _style.get("maw", false) and not _style.has("face_mask"):
 		_plot(center + Vector2i(3, 3), Color(0.55, 0.3, 0.3))
 	if _style.get("scar", false):
 		# 嘴角往下的一道疤

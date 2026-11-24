@@ -78,7 +78,8 @@ func _ready() -> void:
 	super()
 	if _has_sprite:
 		_weapon_frames[Weapon.CLEAVER] = _sprite.sprite_frames
-		var dagger := SpriteSheetLoader.load_character(DAGGER_SPRITES)
+		# 當替身時外觀是主人的,換武器不換圖
+		var dagger := SpriteSheetLoader.load_character(DAGGER_SPRITES if puppet_of == null else "")
 		_weapon_frames[Weapon.DAGGER] = dagger.frames if not dagger.is_empty() else _sprite.sprite_frames
 	_status_label = Label.new()
 	_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -214,6 +215,11 @@ func _equip(new_weapon: Weapon) -> void:
 		_sprite.sprite_frames = _weapon_frames[weapon]
 		_current_anim = ""
 		_anim_restart = true
+
+
+## 當替身:直接拿好那一招要用的武器,出手就是招式本身,不必先花一次換武器。
+func prepare_copy(skill: int) -> void:
+	_equip(Weapon.CLEAVER if skill == 1 else Weapon.DAGGER)
 
 
 func _swap_weapon(new_weapon: Weapon) -> void:

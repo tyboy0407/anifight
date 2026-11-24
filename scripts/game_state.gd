@@ -121,6 +121,15 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["跳擊(1格)", "尾殺(2格)", "獵殺本能(3格)"],
 		"summary": "氣量上限 5 格\n赫胞:攻擊與挨打都累積\n每滿一層多一條尾巴\n最多四條,整場保留\n跳擊尾殺:尾巴越多越強\n獵殺本能:撕咬回血\n亢奮:速度傷害 +30%",
 	},
+	{
+		"name": "卡卡西",
+		"series": "naruto",
+		"scene": "res://scenes/characters/kakashi.tscn",
+		"sprites": "res://assets/characters/kakashi",
+		"hair": Color(0.83, 0.85, 0.91),
+		"skills": ["雷切(1格)", "水遁.水龍波(2格)", "寫輪眼(滿3格)"],
+		"summary": "氣量上限 5 格\n普攻:兩拳、下踢、土流壁\n雷切:蓄力後往前貫穿\n水龍波命中:按普攻接\n土流壁與雷流引\n寫輪眼:持續耗氣,再按關閉\n出招快 50%、傷害 +20%\n拷貝:對手用 5 次招式後\n招式換成對手的(1格)",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。
@@ -153,7 +162,7 @@ const NET_ACTIONS: Array[String] = ["left", "right", "up", "down", "attack", "ju
 		"skill2", "super", "teleport"]
 ## 連線雙方的遊戲內容要一樣才能同步。改了會影響對戰結果的東西(招式數值、角色、同步的做法)就把這個數字加一,
 ## 版本不同的兩個人會在房間裡被擋下來,不會打到一半才不同步。
-const NET_VERSION := 1
+const NET_VERSION := 2
 const P1_KEYS := {
 	"left": KEY_A, "right": KEY_D, "up": KEY_W, "down": KEY_S,
 	"attack": KEY_J, "jump": KEY_K, "dash": KEY_L,

@@ -121,8 +121,8 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_clear_push()
 	_clear_orb()
 	super(spawn_position, spawn_facing)
-	# 被動:每回合開場的無下限
-	_infinity_time = INFINITY_DURATION
+	# 被動:每回合開場的無下限(當替身時沒有:不然拷貝他任何一招都會附送一次)
+	_infinity_time = INFINITY_DURATION if puppet_of == null else 0.0
 
 
 func _physics_process(delta: float) -> void:
