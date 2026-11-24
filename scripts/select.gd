@@ -425,7 +425,7 @@ func _show_form(slot: int, form_index: int) -> void:
 	parts.shown = form_index
 	var character_index := _roster[slot]
 	var info := GameState.form_info(character_index, form_index)
-	(parts.name as Label).text = info.name
+	_set_name(parts.name, info.name, 30, CARD_SIZE.x - CARD_MARGIN * 2)
 	(parts.summary as Label).text = info.summary
 	_fill_portrait(parts.portrait, info, CARD_SIZE.x - CARD_MARGIN * 2)
 	var count := GameState.form_count(character_index)
@@ -512,7 +512,9 @@ func _build_form_card(card_index: int, form_index: int) -> PanelContainer:
 	portrait.custom_minimum_size = Vector2(0, 140)
 	box.add_child(portrait)
 	_fill_portrait(portrait, info, FORM_CARD_SIZE.x - 32)
-	box.add_child(_label(info.name, 28))
+	var name_label := _label("", 28)
+	_set_name(name_label, info.name, 28, FORM_CARD_SIZE.x - 32)
+	box.add_child(name_label)
 	var summary := _label(info.summary, 15)
 	summary.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	summary.custom_minimum_size.x = FORM_CARD_SIZE.x - 32
@@ -899,7 +901,8 @@ func _build_card(card_index: int) -> PanelContainer:
 	box.add_child(portrait)
 	_fill_portrait(portrait, info, CARD_SIZE.x - CARD_MARGIN * 2)
 
-	var name_label := _label(info.name, 30)
+	var name_label := _label("", 30)
+	_set_name(name_label, info.name, 30, CARD_SIZE.x - CARD_MARGIN * 2)
 	box.add_child(name_label)
 	# 有多種型態的角色:標示目前顯示的是第幾個
 	var count := GameState.form_count(card_index)
@@ -917,6 +920,19 @@ func _build_card(card_index: int) -> PanelContainer:
 	_cards.append(card)
 	_card_parts.append({"name": name_label, "summary": summary, "portrait": portrait, "tag": tag, "shown": 0})
 	return card
+
+
+## 把角色名字放進標籤:名字太長就把字縮小到放得進 width,不要把卡片撐寬。
+func _set_name(label: Label, text: String, font_size: int, width: float) -> void:
+	var font := label.get_theme_font("font")
+	var fitted := font_size
+	while fitted > 14 and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fitted).x > width:
+		fitted -= 1
+	label.text = text
+	label.add_theme_font_size_override("font_size", fitted)
+	# 字縮小後高度不變,下面的說明才不會跟著往上跳
+	label.custom_minimum_size.y = font.get_height(font_size)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 
 ## 在 portrait 裡畫出角色示意圖:有素材就播待機動畫,沒有就用色塊。

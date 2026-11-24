@@ -906,21 +906,6 @@ func _leave_ghost() -> void:
 	tween.tween_callback(ghost.queue_free)
 
 
-## 用角色素材的某一格做一個不會動的分身圖,放在場景裡(殘影、影分身用)。沒有素材時回傳 null。
-func _copy_of_self(animation: StringName, frame: int) -> Sprite2D:
-	var frames := _sprite.sprite_frames
-	if frames == null or not frames.has_animation(animation):
-		return null
-	var copy := Sprite2D.new()
-	copy.texture = frames.get_frame_texture(animation, mini(frame, frames.get_frame_count(animation) - 1))
-	copy.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	copy.centered = false
-	copy.scale = _sprite.scale
-	copy.offset = _sprite_offset
-	get_parent().add_child(copy)
-	return copy
-
-
 ## 所有苦無都瞬身過了:對手身上有術式就接收尾,否則收招。
 func _end_flash_steps() -> void:
 	_free_flash_kunai()

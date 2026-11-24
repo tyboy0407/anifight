@@ -33,6 +33,14 @@ const CHARACTERS: Array[Dictionary] = [
 				"skills": ["蒼放(1格)", "無下限(2格)", "順轉「蒼」(3格)"],
 				"summary": "氣量上限 5 格\n開場 10 秒無下限\n蒼放:閃到背後甩出蒼球\n無下限:10 秒攻擊無效\n順轉「蒼」:吸入後甩出",
 			},
+			{
+				"name": "五條悟(澀谷事變)",
+				"scene": "res://scenes/characters/gojo_shibuya.tscn",
+				"sprites": "res://assets/characters/gojo_shibuya",
+				"hair": Color(0.95, 0.96, 1.0),
+				"skills": ["蒼迫(1格)", "塵殺(1格)", "0.2秒領域展開(4格)"],
+				"summary": "氣量上限 5 格\n普攻:瞬身連打、踢遠吸回\n蒼迫:壓制 2 秒,可接普攻\n塵殺:來回兩擊,破防 10 秒\n破防:受到的傷害 +50%\n領域:僵直 2 秒、氣閉 15 秒\n接 15 連打後扔出",
+			},
 		],
 	},
 	{

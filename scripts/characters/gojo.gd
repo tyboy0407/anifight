@@ -276,7 +276,8 @@ func _release_domain() -> void:
 			opponent.seal_energy(DOMAIN_SEAL)
 
 
-func _make_domain_effect() -> Node2D:
+## duration 是領域從出現到消失的總時間,fade 是淡入、淡出各花多久。
+func _make_domain_effect(duration: float = DOMAIN_STUN, fade: float = DOMAIN_FADE) -> Node2D:
 	var effect := Node2D.new()
 	effect.z_index = -1  # 蓋住背景,但在角色後面
 	effect.modulate = Color(1, 1, 1, 0)
@@ -339,9 +340,9 @@ func _make_domain_effect() -> Node2D:
 		effect.add_child(title)
 
 	var tween := effect.create_tween()
-	tween.tween_property(effect, "modulate:a", 1.0, DOMAIN_FADE)
-	tween.tween_interval(DOMAIN_STUN - DOMAIN_FADE * 2.0)
-	tween.tween_property(effect, "modulate:a", 0.0, DOMAIN_FADE)
+	tween.tween_property(effect, "modulate:a", 1.0, fade)
+	tween.tween_interval(maxf(duration - fade * 2.0, 0.0))
+	tween.tween_property(effect, "modulate:a", 0.0, fade)
 	tween.tween_callback(effect.queue_free)
 	return effect
 

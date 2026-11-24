@@ -128,6 +128,9 @@ var _stun_time := 0.0
 var _stun_damage_scale := 1.0
 var _energy_seal_time := 0.0
 var _seal_label: Label
+var _break_time := 0.0   # 「破防」狀態還剩幾秒
+var _break_scale := 1.0  # 破防期間受到傷害的倍率
+var _sink := 0.0         # 被壓進地面時,圖往下沉幾個像素(只影響顯示)
 var _move: AttackData
 var _combo_step := 0  # 地面連段的第幾段;-1 代表空中攻擊
 var _combo_queued := false
@@ -229,6 +232,7 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_buffer.clear()
 	ai_saves_this_round = randf() < _ai_save_chance()
 	_energy_seal_time = 0.0
+	_break_time = 0.0
 	_update_seal_label()
 	_set_hitbox(false)
 	_end_combo()
@@ -697,7 +701,7 @@ func _apply_spin() -> void:
 	var pivot := BODY_SIZE.y / 2.0 if _tumbling else 0.0
 	if _has_sprite:
 		_sprite.rotation = _tumble_angle
-		_sprite.position = Vector2(0, -pivot)
+		_sprite.position = Vector2(0, _sink - pivot)
 		_sprite.offset = _sprite_offset + Vector2(0, pivot / _sprite.scale.y)
 	else:
 		_body.pivot_offset = _body.size / 2.0
@@ -815,6 +819,28 @@ func stun(duration: float, damage: int = 0, damage_scale: float = 1.0) -> void:
 	_set_state(State.STUNNED, true)
 
 
+## 被壓制:和定身一樣無法行動、仍會受到攻擊,但不造成傷害、不算一次命中。
+## 給「打中之後讓對手動彈不得」的追加效果用。已經在定身中就只會延長,不會縮短。
+## sink 是圖要往下沉幾個像素(被壓進地面的樣子);離開定身狀態就會復原。
+func pin(duration: float, sink: float = 0.0) -> void:
+	if is_invulnerable():
+		return
+	_set_hitbox(false)
+	velocity.x = 0.0
+	if state == State.STUNNED:
+		_stun_time = _state_time + maxf(_stun_time - _state_time, duration)
+	else:
+		_stun_damage_scale = 1.0
+		_stun_time = duration
+		_set_state(State.STUNNED, true)
+	_sink = sink
+
+
+## 把被壓進地面的圖拉回地面上(還在定身中就被別的招式拖走時用)。
+func set_sink(pixels: float) -> void:
+	_sink = pixels
+
+
 ## 被打出短暫硬直,不造成傷害、不計入連段。用於格檔反擊這類「打斷對手」的效果。
 func stagger(duration: float) -> void:
 	if is_invulnerable() or state == State.LAUNCHED:
@@ -829,7 +855,7 @@ func stagger(duration: float) -> void:
 func chip(amount: int) -> void:
 	if state == State.KO or amount <= 0:
 		return
-	_set_health(maxi(health - maxi(int(round(amount * _damage_taken_scale())), 1), 1))
+	_set_health(maxi(health - maxi(int(round(amount * _taken_scale())), 1), 1))
 
 
 ## 用某個招式打對手,回傳有沒有「確實打中」:被防禦住、被無下限這類效果擋下都不算。
@@ -1083,6 +1109,11 @@ func _damage_taken_scale() -> float:
 	return 1.0
 
 
+## 實際受到傷害的倍率:角色自己的減傷,再乘上身上的「破防」狀態。
+func _taken_scale() -> float:
+	return _damage_taken_scale() * (_break_scale if guard_broken() else 1.0)
+
+
 ## 被招式命中。倒地、起身、幽步、脫出與 KO 期間無敵;浮空時可以被連擊。
 func take_hit(move: AttackData, attacker: Fighter) -> void:
 	if is_invulnerable():
@@ -1093,7 +1124,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 
 	if state == State.GUARD and facing == -away and not move.unblockable:
 		# 防禦成功:只吃少量傷害,不會被防禦傷害打倒。(破防的招式擋不住,照常受擊。)
-		_set_health(maxi(health - int(move.damage * GUARD_DAMAGE_SCALE * _damage_taken_scale()), 1))
+		_set_health(maxi(health - int(move.damage * GUARD_DAMAGE_SCALE * _taken_scale()), 1))
 		Sfx.play("guard")
 		_hit_feedback(attacker, false, true)
 		velocity.x = away * 160.0
@@ -1118,7 +1149,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 		if tumbles:
 			_begin_tumble(away)
 		defeated.emit(self)
-	elif _combo_hits >= COMBO_HIT_LIMIT:
+	elif _combo_hits >= COMBO_HIT_LIMIT and not move.ignores_combo_limit:
 		# 連段到達上限:強制擊飛倒地,落地前不能再被追打,結束這段連段。
 		velocity = Vector2(away * move.knockback.x, move.knockback.y) if move.launches else Vector2(away * 320.0, -420.0)
 		_set_state(State.LAUNCHED, true)
@@ -1157,6 +1188,8 @@ func _set_state(new_state: State, force: bool = false) -> void:
 		_buffer.clear()
 	_anim_restart = true
 	_launch_protected = false
+	if new_state != State.STUNNED:
+		_sink = 0.0
 	if new_state != State.LAUNCHED and new_state != State.KO:
 		_stop_tumble()
 	if new_state == State.IDLE:
@@ -1168,7 +1201,7 @@ func _register_hit(raw_damage: int) -> int:
 	var scale_factor := maxf(1.0 - COMBO_DAMAGE_STEP * _combo_hits, COMBO_DAMAGE_FLOOR)
 	if state == State.STUNNED:
 		scale_factor *= _stun_damage_scale
-	scale_factor *= _damage_taken_scale()
+	scale_factor *= _taken_scale()
 	var damage := maxi(int(round(raw_damage * scale_factor)), 1) if raw_damage > 0 else 0
 	_combo_hits += 1
 	_combo_damage += damage
@@ -1198,6 +1231,24 @@ func add_energy(amount: int) -> void:
 ## 氣閉:這段時間內無法以任何方式累積氣量;已經有的氣照常可以使用。
 func seal_energy(duration: float) -> void:
 	_energy_seal_time = maxf(_energy_seal_time, duration)
+	_show_status_label()
+
+
+## 破防:這段時間內受到的所有傷害變成 scale 倍。
+func break_guard(duration: float, scale_factor: float) -> void:
+	if state == State.KO:
+		return
+	_break_time = maxf(_break_time, duration)
+	_break_scale = scale_factor
+	_show_status_label()
+
+
+func guard_broken() -> bool:
+	return _break_time > 0.0
+
+
+## 頭上那一行狀態文字(氣閉、破防):第一次用到才建立。
+func _show_status_label() -> void:
 	if _seal_label == null:
 		_seal_label = Label.new()
 		_seal_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1218,15 +1269,22 @@ func energy_sealed() -> bool:
 
 
 func _tick_energy_seal(delta: float) -> void:
-	if _energy_seal_time <= 0.0:
+	if _energy_seal_time <= 0.0 and _break_time <= 0.0:
 		return
 	_energy_seal_time = maxf(_energy_seal_time - delta, 0.0)
+	_break_time = maxf(_break_time - delta, 0.0)
 	_update_seal_label()
 
 
 func _update_seal_label() -> void:
-	if _seal_label != null:
-		_seal_label.text = "氣閉 %d" % ceili(_energy_seal_time) if energy_sealed() else ""
+	if _seal_label == null:
+		return
+	var parts: PackedStringArray = []
+	if energy_sealed():
+		parts.append("氣閉 %d" % ceili(_energy_seal_time))
+	if guard_broken():
+		parts.append("破防 %d" % ceili(_break_time))
+	_seal_label.text = "  ".join(parts)
 
 
 func _set_energy(value: int) -> void:
@@ -1461,6 +1519,21 @@ func _vanish_effect(color: Color = TELEPORT_FX_COLOR) -> bool:
 
 func _appear_effect(color: Color = TELEPORT_FX_COLOR) -> void:
 	_spawn_effect("appear", global_position, _bright(color), 1.0, facing < 0)
+
+
+## 用角色素材的某一格做一個不會動的分身圖,放在場景裡(殘影、影分身用)。沒有素材時回傳 null。
+func _copy_of_self(animation: StringName, frame: int) -> Sprite2D:
+	var frames := _sprite.sprite_frames
+	if frames == null or not frames.has_animation(animation):
+		return null
+	var copy := Sprite2D.new()
+	copy.texture = frames.get_frame_texture(animation, mini(frame, frames.get_frame_count(animation) - 1))
+	copy.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	copy.centered = false
+	copy.scale = _sprite.scale
+	copy.offset = _sprite_offset
+	get_parent().add_child(copy)
+	return copy
 
 
 ## 以 center、rect_size 描述的矩形是否碰到對手的身體(對手無敵時為 false)。

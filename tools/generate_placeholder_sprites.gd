@@ -103,6 +103,16 @@ const STYLES := [
 		"guard_color": Color(0.2, 0.2, 0.27),
 		"moves": "sasuke",
 	},
+	# 五條悟(澀谷事變):和平常一樣的黑色高領制服與眼罩,但平常雙手插在口袋裡;
+	# 開領域時把眼罩拉到脖子上、露出六眼。有自己的出招動作(見 _gojo_shibuya_animations)。
+	{
+		"id": "gojo_shibuya",
+		"hair": Color(0.96, 0.97, 1.0), "spiky": true, "blindfold": true, "marks": false,
+		"top": Color(0.12, 0.13, 0.23), "sleeve": Color(0.12, 0.13, 0.23),
+		"pants": Color(0.1, 0.11, 0.19), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.2, 0.62, 1.0), "collar": true,
+		"moves": "gojo_shibuya",
+	},
 ]
 
 ## 站姿(格鬥架式)。其他姿勢只寫和它不同的關節。
@@ -117,6 +127,7 @@ const BASE := {
 var _image: Image
 var _origin := Vector2i.ZERO
 var _style: Dictionary
+var _unmasked := false  # 正在畫的這一格:眼罩是不是拉下來了
 
 
 func _initialize() -> void:
@@ -463,6 +474,119 @@ func _sasuke_animations() -> Array:
 	]
 
 
+## 五條悟(澀谷事變)專用的動作:同名的取代通用動作,其餘的加在後面。
+## 姿勢裡的 "pocket_f" / "pocket_b" 是那隻手插在口袋裡(不畫手掌);
+## "unmasked" 是眼罩拉下來、露出六眼的樣子(開領域之後的那幾個動作)。
+func _gojo_shibuya_animations() -> Array:
+	var eyes := {"unmasked": true}
+	# 站得直挺挺的,雙手插在口袋裡
+	var relaxed := {"head": v(25, 12), "neck": v(24, 18), "hip": v(24, 31),
+		"hand_f": v(26, 31), "elbow_f": v(29, 25), "hand_b": v(21, 31), "elbow_b": v(19, 25),
+		"foot_b": v(21, 46), "knee_b": v(22, 39), "foot_f": v(28, 46), "knee_f": v(27, 39),
+		"pocket_f": true, "pocket_b": true}
+	# 只有後面那隻手插在口袋裡(前手出招)
+	var back_pocket := {"hand_b": v(21, 31), "elbow_b": v(19, 25), "pocket_b": true}
+	# 連打:前手、後手各打出去的那一格,以及兩拳之間收在胸前的那一格
+	var jab_f := {"head": v(27, 13), "neck": v(26, 19), "hand_f": v(42, 21), "elbow_f": null,
+		"hand_b": v(27, 24), "elbow_b": v(22, 26)}
+	var jab_b := {"head": v(28, 14), "neck": v(27, 20), "hip": v(25, 31), "hand_b": v(42, 24), "elbow_b": null,
+		"hand_f": v(27, 23), "elbow_f": v(23, 26)}
+	var tucked := {"head": v(26, 13), "neck": v(25, 19), "hand_f": v(31, 22), "elbow_f": v(26, 25),
+		"hand_b": v(30, 24), "elbow_b": v(23, 26)}
+	# 側踢踢到底:身體往後仰,手還插在口袋裡
+	var side_kick := {"head": v(18, 15), "neck": v(20, 21), "hip": v(23, 31), "foot_f": v(43, 25), "knee_f": v(33, 28),
+		"hand_f": v(25, 31), "elbow_f": v(26, 26), "hand_b": v(20, 32), "elbow_b": v(16, 27),
+		"pocket_f": true, "pocket_b": true}
+	# 重拳打到底:整個人往前踏出去
+	var heavy := {"head": v(30, 14), "neck": v(28, 20), "hip": v(25, 31), "foot_b": v(14, 46), "knee_b": v(19, 39),
+		"hand_f": v(44, 20), "elbow_f": null, "hand_b": v(23, 31), "elbow_b": v(22, 26), "pocket_b": true}
+	# 走路:腳照常走,手一樣插在口袋裡
+	var steps := [
+		{"foot_b": v(17, 46), "knee_b": v(20, 39), "foot_f": v(31, 46), "knee_f": v(28, 39)},
+		{"foot_b": v(21, 45), "knee_b": v(23, 39), "foot_f": v(28, 46), "knee_f": v(27, 39), "head": v(25, 13), "neck": v(24, 19)},
+		{"foot_b": v(27, 43), "knee_b": v(27, 37), "foot_f": v(23, 46), "knee_f": v(24, 39)},
+		{"foot_b": v(31, 46), "knee_b": v(28, 39), "foot_f": v(17, 46), "knee_f": v(20, 39)},
+		{"foot_b": v(28, 46), "knee_b": v(27, 39), "foot_f": v(21, 45), "knee_f": v(23, 39), "head": v(25, 13), "neck": v(24, 19)},
+		{"foot_b": v(23, 46), "knee_b": v(24, 39), "foot_f": v(27, 43), "knee_f": v(27, 37)},
+	]
+	var walk: Array = []
+	for step: Dictionary in steps:
+		walk.append(pose(relaxed.merged(step, true)))
+	return [
+		{"name": "idle", "fps": 5, "loop": true, "frames": [
+			pose(relaxed),
+			pose(relaxed.merged({"head": v(25, 13), "neck": v(24, 19)}, true)),
+			pose(relaxed.merged({"head": v(25, 13), "neck": v(24, 19), "elbow_f": v(29, 26), "elbow_b": v(19, 26)}, true)),
+			pose(relaxed),
+		]},
+		{"name": "walk", "fps": 10, "loop": true, "frames": walk},
+		# 第一段:左右開弓連打四拳(四拳打出去的那幾格對上四次命中)
+		{"name": "attack1", "fps": 14, "loop": false, "frames": [
+			pose(jab_f), pose(tucked), pose(jab_b), pose(jab_f), pose(jab_b), pose(tucked),
+			pose({"hand_f": v(33, 23), "elbow_f": v(28, 26)}), pose(relaxed),
+		]},
+		# 瞬身過去的第一段:先以插口袋的樣子出現在對手面前,再開始連打
+		{"name": "blink_flurry", "fps": 14, "loop": false, "frames": [
+			pose(relaxed), pose(tucked), pose(jab_f), pose(jab_b), pose(tucked), pose(jab_f), pose(jab_b), pose(tucked),
+			pose({"hand_f": v(33, 23), "elbow_f": v(28, 26)}), pose(relaxed),
+		]},
+		# 第二段:手插在口袋裡,一腳側踢把人踢出去
+		{"name": "attack2", "fps": 12, "loop": false, "frames": [
+			pose(relaxed.merged({"head": v(22, 12), "neck": v(22, 18), "hip": v(23, 31), "foot_f": v(28, 40), "knee_f": v(32, 34)}, true)),
+			pose(side_kick),
+			pose(side_kick.merged({"foot_f": v(43, 26), "knee_f": v(33, 29)}, true)),
+			pose(relaxed.merged({"head": v(22, 12), "neck": v(22, 18), "foot_f": v(33, 41), "knee_f": v(32, 35)}, true)),
+			pose(relaxed),
+		]},
+		# 第三段:抬起前手、掌心朝前,用「蒼」把人吸過來;另一隻手還在口袋裡
+		{"name": "attack3", "fps": 8, "loop": false, "frames": [
+			pose(relaxed.merged({"hand_f": v(33, 20), "elbow_f": v(29, 24), "pocket_f": false}, true)),
+			pose(relaxed.merged({"hand_f": v(41, 18), "elbow_f": null, "pocket_f": false}, true)),
+			pose(relaxed.merged({"hand_f": v(40, 19), "elbow_f": v(33, 22), "pocket_f": false}, true)),
+		]},
+		# 第四段:手往後拉滿、整個人踏出去的單手重拳
+		{"name": "attack4", "fps": 9, "loop": false, "frames": [
+			pose({"head": v(23, 13), "neck": v(23, 19), "hand_f": v(17, 22), "elbow_f": v(21, 26)}.merged(back_pocket, true)),
+			pose(heavy),
+			pose(heavy.merged({"hand_f": v(44, 21)}, true)),
+			pose({"head": v(28, 13), "neck": v(27, 19), "hand_f": v(38, 22), "elbow_f": v(32, 24)}.merged(back_pocket, true)),
+			pose(relaxed),
+		]},
+		# 以下都只有一格,由遊戲依招式的階段切換
+		# 蒼迫:浮在對手上方,前手掌心往下壓
+		{"name": "press", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(26, 14), "neck": v(24, 19), "hip": v(22, 29), "hand_f": v(33, 33), "elbow_f": null,
+				"hand_b": v(15, 22), "elbow_b": null, "knee_f": v(28, 35), "foot_f": v(24, 41),
+				"knee_b": v(18, 34), "foot_b": v(14, 39)}),
+		]},
+		# 塵殺:壓低身體起手、往前衝的那一下
+		{"name": "dust_ready", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(27, 17), "neck": v(25, 23), "hip": v(23, 34), "knee_f": v(30, 40), "knee_b": v(19, 41),
+				"hand_f": v(26, 34), "elbow_f": v(29, 29), "hand_b": v(20, 34), "elbow_b": v(18, 29),
+				"pocket_f": true, "pocket_b": true}),
+		]},
+		{"name": "dust", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(34, 18), "neck": v(30, 22), "hip": v(22, 32), "hand_b": v(15, 27), "elbow_b": null,
+				"hand_f": v(42, 24), "elbow_f": null, "foot_b": v(10, 44), "knee_b": v(16, 38),
+				"foot_f": v(27, 46), "knee_f": v(28, 39)}),
+		]},
+		# 領域展開:眼罩拉下來,前手在面前結印
+		{"name": "domain", "fps": 8, "loop": false, "frames": [
+			pose(relaxed.merged({"hand_f": v(32, 15), "elbow_f": v(33, 22), "pocket_f": false}, true).merged(eyes)),
+		]},
+		# 領域之後的連打、把人抓起來、扔出去
+		{"name": "jab1", "fps": 8, "loop": false, "frames": [pose(jab_f.merged(eyes))]},
+		{"name": "jab2", "fps": 8, "loop": false, "frames": [pose(jab_b.merged(eyes))]},
+		{"name": "grab", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(27, 13), "neck": v(26, 19), "hand_f": v(42, 13), "elbow_f": null}.merged(back_pocket, true).merged(eyes)),
+		]},
+		{"name": "toss", "fps": 8, "loop": false, "frames": [
+			pose({"head": v(31, 15), "neck": v(29, 20), "hip": v(25, 31), "foot_b": v(14, 46), "knee_b": v(19, 39),
+				"hand_f": v(42, 28), "elbow_f": null, "hand_b": v(17, 24), "elbow_b": null}.merged(eyes)),
+		]},
+	]
+
+
 ## 這個角色實際要畫的動作:通用動作,加上(或換成)角色自己的。
 func _animations_for(style: Dictionary) -> Array:
 	var animations := _animations()
@@ -470,6 +594,7 @@ func _animations_for(style: Dictionary) -> Array:
 	match style.get("moves", ""):
 		"minato": extras = _minato_animations()
 		"sasuke": extras = _sasuke_animations()
+		"gojo_shibuya": extras = _gojo_shibuya_animations()
 	for extra: Dictionary in extras:
 		var replaced := false
 		for index in animations.size():
@@ -519,7 +644,8 @@ func _draw_figure(p: Dictionary) -> void:
 
 	# 遠側的手腳先畫,顏色較暗
 	_draw_limb(shoulder, p.get("elbow_b"), p.hand_b, sleeve.darkened(1.0 - BACK_SHADE), 3)
-	_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), SKIN.darkened(1.0 - BACK_SHADE))
+	if not p.get("pocket_b", false):  # 插在口袋裡的手不畫手掌
+		_fill(p.hand_b + Vector2i(-1, -1), Vector2i(3, 3), SKIN.darkened(1.0 - BACK_SHADE))
 	_draw_limb(p.hip + Vector2i(-1, 0), p.get("knee_b"), p.foot_b, pants.darkened(1.0 - BACK_SHADE), 3)
 	_fill(p.foot_b + Vector2i(-1, -1), Vector2i(4, 2), SHOE)
 
@@ -549,6 +675,13 @@ func _draw_figure(p: Dictionary) -> void:
 		# 腰帶
 		_fill(p.hip + Vector2i(-3, -2), Vector2i(7, 1), pants.darkened(0.35))
 	_fill(p.neck + Vector2i(-1, -1), Vector2i(3, 2), SKIN)
+	if _style.get("collar", false):
+		# 制服的高領,遮住脖子的下半截
+		_fill(p.neck + Vector2i(-2, 0), Vector2i(5, 1), top.lightened(0.12))
+	_unmasked = p.get("unmasked", false)
+	if _unmasked and _style.blindfold:
+		# 拉下來的眼罩掛在脖子上
+		_fill(p.neck + Vector2i(-2, -1), Vector2i(5, 1), Color(0.08, 0.08, 0.11))
 	if _style.has("hood"):
 		# 制服的連帽:披在肩膀與後頸
 		_fill(p.neck + Vector2i(-5, 0), Vector2i(9, 3), _style.hood)
@@ -565,7 +698,8 @@ func _draw_figure(p: Dictionary) -> void:
 	_draw_limb(shoulder + Vector2i(0, 1), _below(p.get("elbow_f")), p.hand_f + Vector2i(0, 1), sleeve.darkened(0.22), 1)
 	if blade_in_hand:
 		_draw_sword(p.get("elbow_f", shoulder), p.hand_f)
-	_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
+	if not p.get("pocket_f", false):
+		_fill(p.hand_f + Vector2i(-1, -1), Vector2i(3, 3), SKIN)
 
 
 ## 橫插在腰後的劍鞘:從腰帶往背後斜斜伸出去。with_sword 為 true 時劍還在鞘裡,腰前露出劍柄。
@@ -666,7 +800,7 @@ func _draw_head(center: Vector2i) -> void:
 		_fill(center + Vector2i(-4, -3), Vector2i(9, 1), _style.headband)
 		_fill(center + Vector2i(0, -3), Vector2i(4, 1), Color(0.78, 0.83, 0.9))
 
-	if _style.blindfold:
+	if _style.blindfold and not _unmasked:
 		_fill(center + Vector2i(-4, -1), Vector2i(9, 2), Color(0.08, 0.08, 0.11))
 	elif _style.has("eye"):
 		# 指定顏色的大眼睛:2x2,上緣一點白色高光,上方一道深色眼線
