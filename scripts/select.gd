@@ -60,12 +60,26 @@ var _dragging := false
 var _drag_from_x := 0.0
 var _drag_from_scroll := 0.0
 var _drag_velocity := 0.0
+# 連線對戰(_net 是 null 就是單機)
+var _net: NetSession
+var _net_sent := ""         # 上次告訴對方的選角狀態;有變才再送
+var _net_clock := 0.0
+var _lobby: NetLobby        # 房間視窗;沒開啟時是 null
+var _net_button: Button     # 左上角的「連線對戰 / 離開房間」
+var _toast_label: Label
 
 
 func _ready() -> void:
 	GameState.setup_input()
 	Sfx.warm_up()
 	Sfx.play_music("select")
+	if GameState.net_active():
+		# 從連線對戰回到選角:房間還在就繼續連線選角,連線已經不在了就回到單機
+		_net = NetSession.get_session()
+		if _net.status != NetSession.Status.PAIRED:
+			_net.leave()
+			GameState.set_net_role(0)
+			_net = null
 	_cursor = GameState.selection.duplicate()
 	for player_index in 2:
 		_form[player_index] = GameState.forms[player_index] if GameState.forms[player_index] < GameState.form_count(_cursor[player_index]) else 0
@@ -84,6 +98,8 @@ func _on_viewport_resized() -> void:
 
 
 func _process(delta: float) -> void:
+	if _net != null:
+		_net_poll(delta)
 	if _series < 0:
 		return
 	_tick_scroll(delta)
@@ -97,14 +113,14 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _starting:
+	if _starting or _lobby != null:
 		return
 	if _popup != null:
 		if event is InputEventKey and event.pressed and event.physical_keycode == KEY_ESCAPE:
 			_close_form_popup()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F1 \
-			and not GameState.touch_enabled:
+			and not GameState.touch_enabled and _net == null:
 		GameState.cpu_enabled = not GameState.cpu_enabled
 		_confirmed[1] = false
 		Sfx.play("ui_move")
@@ -117,6 +133,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			and event.physical_keycode in [KEY_ESCAPE, KEY_BACKSPACE]:
 		_back_to_series()
 		get_viewport().set_input_as_handled()
+		return
+	if _net != null:
+		_net_input(event)
 		return
 
 	for player_index in 2:
@@ -317,8 +336,10 @@ func _fit_strip() -> void:
 	_strip.size = needed
 
 
-## 現在輪到誰選角:P1 還沒確認就是 P1,否則是 P2 / 電腦。
+## 現在輪到誰選角:P1 還沒確認就是 P1,否則是 P2 / 電腦。連線對戰時每個人只選自己的。
 func _pick_target() -> int:
+	if _net != null:
+		return GameState.local_player()
 	return 1 if _confirmed[0] else 0
 
 
@@ -361,8 +382,20 @@ func _cycle_form(target: int, step: int) -> void:
 
 
 func _try_start() -> void:
-	if not (_confirmed[0] and _confirmed[1]):
+	if not (_confirmed[0] and _confirmed[1]) or _starting:
 		return
+	if _net != null:
+		# 連線對戰:由房主決定亂數種子與按鍵延遲,通知對方後雙方一起開始
+		if _net.role == 1:
+			var start := {"t": "start", "sel": [_cursor[0], _cursor[1]], "forms": [_form[0], _form[1]],
+					"seed": randi() & 0x7FFFFFFF, "delay": _net_pick_delay()}
+			_net.send_message(start)
+			_net_start(start)
+		return
+	_start_fight()
+
+
+func _start_fight() -> void:
 	_starting = true
 	GameState.selection = [_cursor[0], _cursor[1]]
 	GameState.forms = [_form[0], _form[1]]
@@ -377,6 +410,7 @@ func _picked_name(player_index: int) -> String:
 
 
 func _refresh() -> void:
+	_net_share()
 	if _series < 0:
 		_refresh_series()
 		return
@@ -395,7 +429,12 @@ func _refresh() -> void:
 			var marker: Label = _markers[slot][player_index]
 			marker.visible = _cursor[player_index] == character_index
 			var who := "P1" if player_index == 0 else ("電腦" if GameState.cpu_enabled else "P2")
+			if _net != null:
+				who = "你" if player_index == GameState.local_player() else "對手"
 			marker.text = "%s%s" % [who, " OK" if _confirmed[player_index] else ""]
+	if _net != null:
+		_refresh_net_text()
+		return
 	if GameState.touch_enabled:
 		_mode_label.text = "對手由電腦操作      長按角色可以選擇型態"
 		if _max_scroll() > 0.0:
@@ -685,7 +724,7 @@ func _on_series_card_input(event: InputEvent, series_index: int, slot: int) -> v
 ## 系列清單的鍵盤操作:任一位玩家的左右移動、攻擊鍵確認。
 func _series_input(event: InputEvent) -> void:
 	var list := GameState.playable_series()
-	for player_id in [1, 2]:
+	for player_id in [0, 1, 2]:  # 0 是連線對戰時這台裝置上的人
 		if event.is_action_pressed(GameState.action(player_id, "left")):
 			_series_cursor = posmod(_series_cursor - 1, list.size())
 		elif event.is_action_pressed(GameState.action(player_id, "right")):
@@ -724,6 +763,9 @@ func _refresh_series() -> void:
 		# 鍵盤操作時,游標所在的卡片邊框比較亮;觸控沒有游標
 		var focused := slot == _series_cursor and not GameState.touch_enabled
 		style.border_color = color.lightened(0.3) if focused else Color(color, 0.45)
+	if _net != null:
+		_refresh_net_text()
+		return
 	if GameState.touch_enabled:
 		_mode_label.text = "對手由電腦操作"
 		_status_label.text = "你:%s      點選對手的系列" % _picked_name(0) if _confirmed[0] else "點選系列"
@@ -831,6 +873,28 @@ func _build_sound_button() -> void:
 	sound.offset_bottom = 72
 	Sfx.setup_button(sound)
 	overlay.add_child(sound)
+
+	_net_button = Button.new()
+	_net_button.focus_mode = Control.FOCUS_NONE
+	_net_button.add_theme_font_size_override("font_size", 20)
+	_net_button.offset_left = 162
+	_net_button.offset_right = 292
+	_net_button.offset_top = 24
+	_net_button.offset_bottom = 72
+	_net_button.text = "離開房間" if _net != null else "連線對戰"
+	_net_button.pressed.connect(_on_net_button)
+	overlay.add_child(_net_button)
+
+	# 畫面下方的一行提示(例如「對手已離線」),過幾秒自己消失
+	_toast_label = _label("", 22)
+	_toast_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
+	_toast_label.anchor_top = 1.0
+	_toast_label.anchor_bottom = 1.0
+	_toast_label.anchor_right = 1.0
+	_toast_label.offset_top = -44
+	_toast_label.offset_bottom = -10
+	_toast_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(_toast_label)
 
 
 ## 觸控模式的附加介面:全螢幕按鈕,或是 iPhone 上改用「加入主畫面」的提示。
@@ -977,3 +1041,163 @@ func _label(text: String, font_size: int) -> Label:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", font_size)
 	return label
+
+# ---------- 連線對戰 ----------
+
+## 左上角的按鈕:單機時開啟房間視窗,連線中則是離開房間。
+func _on_net_button() -> void:
+	if _starting or _popup != null or _lobby != null:
+		return
+	Sfx.play("ui_confirm")
+	if _net != null:
+		_leave_net("已離開房間")
+		return
+	_lobby = NetLobby.new()
+	_lobby.paired.connect(_on_lobby_paired)
+	_lobby.cancelled.connect(_close_lobby)
+	add_child(_lobby)
+
+
+func _close_lobby() -> void:
+	if _lobby != null:
+		_lobby.queue_free()
+		_lobby = null
+
+
+## 兩個人到齊:切換成連線選角,每個人只選自己的角色。
+func _on_lobby_paired() -> void:
+	_close_lobby()
+	_net = NetSession.get_session()
+	GameState.set_net_role(_net.role)
+	_confirmed = [false, false]
+	_net_sent = ""
+	_net_button.text = "離開房間"
+	_show_page(_series)
+
+
+## 回到單機的選角(自己離開房間,或對方離線了)。
+func _leave_net(notice: String) -> void:
+	if _net != null:
+		_net.leave()
+	_net = null
+	GameState.set_net_role(0)
+	_confirmed = [false, false]
+	_starting = false
+	_net_button.text = "連線對戰"
+	_close_form_popup()
+	_show_page(_series)
+	_toast(notice)
+
+
+func _toast(text: String) -> void:
+	_toast_label.text = text
+	if text.is_empty():
+		return
+	await get_tree().create_timer(4.0).timeout
+	if is_instance_valid(_toast_label) and _toast_label.text == text:
+		_toast_label.text = ""
+
+
+## 每一幀看看對方送了什麼來:他的選角、開始對戰的通知,或是他離開了。
+func _net_poll(delta: float) -> void:
+	for message: Dictionary in _net.take_messages():
+		if message.has("sys"):
+			if str(message.sys) in ["left", "closed", "error"]:
+				_leave_net("對手已離線,回到單機模式")
+				return
+			continue
+		match str(message.get("t", "")):
+			"sel":
+				var other := 1 - GameState.local_player()
+				var character := int(message.get("c", 0))
+				if character >= 0 and character < GameState.CHARACTERS.size() and not _starting:
+					_cursor[other] = character
+					_form[other] = clampi(int(message.get("f", 0)), 0, GameState.form_count(character) - 1)
+					_confirmed[other] = bool(message.get("ok", false))
+					_refresh()
+					_try_start()
+			"start":
+				if not _starting and _net.role == 2:
+					_net_start(message)
+					return
+	# 連線狀態(直連 / 中繼、延遲)會變,定時更新畫面上的文字
+	_net_clock -= delta
+	if _net_clock <= 0.0 and not _starting:
+		_net_clock = 0.5
+		_refresh_net_text()
+
+
+## 自己的選角有變就告訴對方。
+func _net_share() -> void:
+	if _net == null or _starting:
+		return
+	var me := GameState.local_player()
+	var state := {"t": "sel", "c": _cursor[me], "f": _form[me], "ok": _confirmed[me]}
+	var text := JSON.stringify(state)
+	if text != _net_sent:
+		_net_sent = text
+		_net.send_message(state)
+
+
+## 連線選角的鍵盤操作:只移動自己的游標。
+func _net_input(event: InputEvent) -> void:
+	var me := GameState.local_player()
+	if _confirmed[me]:
+		return
+	if event.is_action_pressed(GameState.action(0, "left")):
+		_move_cursor(me, -1)
+	elif event.is_action_pressed(GameState.action(0, "right")):
+		_move_cursor(me, 1)
+	elif event.is_action_pressed(GameState.action(0, "up")):
+		_cycle_form(me, -1)
+	elif event.is_action_pressed(GameState.action(0, "down")):
+		_cycle_form(me, 1)
+	elif event.is_action_pressed(GameState.action(0, "attack")):
+		_confirmed[me] = true
+		Sfx.play("ui_confirm")
+		_refresh()
+		_try_start()
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+func _refresh_net_text() -> void:
+	if _net == null or not is_instance_valid(_status_label):
+		return
+	var me := GameState.local_player()
+	var other := 1 - me
+	var foe := "對手:%s(已確認)" % _picked_name(other) if _confirmed[other] else "對手:選擇中"
+	if _confirmed[me]:
+		_status_label.text = "你:%s(已確認)      %s" % [_picked_name(me), foe]
+	elif GameState.touch_enabled:
+		_status_label.text = "%s      %s" % ["點選系列" if _series < 0 else "點選你的角色", foe]
+	else:
+		_status_label.text = "%s:A / D 移動,J 確認      %s" % ["選擇系列" if _series < 0 else "選擇你的角色", foe]
+	var hint := "長按角色可以選擇型態" if GameState.touch_enabled else "W / S 切換型態   Esc 換系列"
+	_mode_label.text = "連線對戰   房間 %s   %s      %s" % [_net.code, _net.describe(), hint]
+
+
+## 按鍵要延後幾格才生效:要比「按鍵送到對方那裡的時間」再多一點,對方才來得及收到。
+## 來回的時間還沒量到的話先用保守的數字。
+func _net_pick_delay() -> int:
+	if _net.rtt_ms < 0.0:
+		return 6
+	var one_way_frames := (_net.rtt_ms / 2.0 + 10.0) / (1000.0 / Engine.physics_ticks_per_second)
+	return clampi(ceili(one_way_frames) + 1, 2, 14)
+
+
+## 雙方都確認了:記下選角、種子與延遲,進入對戰。
+func _net_start(start: Dictionary) -> void:
+	var picks: Array = start.get("sel", [])
+	var forms: Array = start.get("forms", [])
+	if picks.size() != 2 or forms.size() != 2:
+		return
+	for player_index in 2:
+		_cursor[player_index] = clampi(int(picks[player_index]), 0, GameState.CHARACTERS.size() - 1)
+		_form[player_index] = clampi(int(forms[player_index]), 0, GameState.form_count(_cursor[player_index]) - 1)
+	_confirmed = [true, true]
+	GameState.net_seed = int(start.get("seed", 0))
+	GameState.net_delay = clampi(int(start.get("delay", 6)), 1, 20)
+	_refresh()
+	_start_fight()

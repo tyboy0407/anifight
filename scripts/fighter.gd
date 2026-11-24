@@ -115,6 +115,10 @@ var facing: int = 1
 var health: int = 0
 var energy: int = 0
 var input_enabled: bool = true
+## 連線對戰時為 true:按鍵由對戰場景每一格用 set_pad() 指定,不讀引擎的輸入(見 _down)。
+var pad_driven := false
+var _pad := 0         # 這一格按著哪些鍵
+var _pad_before := 0  # 上一格按著哪些鍵
 ## 是否接受「方向 + 按鍵」的組合招式(鍵盤)。觸控操作時關閉,改用專用按鈕。
 var direction_combos: bool = true
 ## 目前可活動的水平範圍,由主場景依鏡頭位置更新。
@@ -325,7 +329,7 @@ func _tick_input_buffer(delta: float) -> void:
 		_buffer.clear()
 		return
 	for action_name in BUFFERED_ACTIONS:
-		if Input.is_action_just_pressed(_action(action_name)):
+		if _just_down(action_name):
 			_buffer[action_name] = INPUT_BUFFER
 
 
@@ -1557,15 +1561,39 @@ func _action(action_name: String) -> String:
 func _axis() -> float:
 	if not input_enabled:
 		return 0.0
+	if pad_driven:
+		return float(_down("right")) - float(_down("left"))
 	return Input.get_axis(_action("left"), _action("right"))
 
 
 func _pressed(action_name: String) -> bool:
-	return input_enabled and (_buffer.has(action_name) or Input.is_action_just_pressed(_action(action_name)))
+	return input_enabled and (_buffer.has(action_name) or _just_down(action_name))
 
 
 func _held(action_name: String) -> bool:
-	return input_enabled and Input.is_action_pressed(_action(action_name))
+	return input_enabled and _down(action_name)
+
+
+## 連線對戰:設定這一格的按鍵(每個動作一個位元,順序見 GameState.NET_ACTIONS)。每模擬一格之前呼叫一次。
+func set_pad(mask: int) -> void:
+	_pad_before = _pad
+	_pad = mask
+
+
+## 這個動作現在是不是按著 / 是不是這一格才按下。
+## 單機時問引擎的輸入系統;連線對戰時看 set_pad() 給的按鍵:引擎的「剛按下」是照真正經過的影格算的,
+## 兩邊等對方按鍵的時機不同,問到的結果就會不一樣,所以不能用。
+func _down(action_name: String) -> bool:
+	if pad_driven:
+		return _pad & GameState.net_bit(action_name) != 0
+	return Input.is_action_pressed(_action(action_name))
+
+
+func _just_down(action_name: String) -> bool:
+	if pad_driven:
+		var bit := GameState.net_bit(action_name)
+		return _pad & bit != 0 and _pad_before & bit == 0
+	return Input.is_action_just_pressed(_action(action_name))
 
 
 ## 載入角色素材。成功時改用動畫顯示並隱藏色塊。

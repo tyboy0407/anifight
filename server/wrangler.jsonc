@@ -1,0 +1,12 @@
+// Anifight 連線中繼伺服器的部署設定。部署:npm --prefix server run deploy
+{
+  "name": "anifight-relay",
+  "main": "src/index.js",
+  "compatibility_date": "2025-06-01",
+  "send_metrics": false,
+  // 每個房間是一個 Room 物件;免費方案只能用 SQLite 版的 Durable Objects
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }]
+}

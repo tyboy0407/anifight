@@ -454,7 +454,7 @@ func take_hit(move: AttackData, attacker: Fighter) -> void:
 		return
 	if attacker.is_invulnerable() or global_position.distance_to(attacker.global_position) > PROTECT_REACH:
 		return
-	if randf() >= protect_chance:
+	if GameState.rng.randf() >= protect_chance:
 		return
 	_callout("不准欺負憂太!", RIKA_COLOR)
 	_rika_claw(attacker, 190.0)

@@ -5,6 +5,9 @@ extends RefCounted
 const SELECT_SCENE := "res://scenes/select.tscn"
 const FIGHT_SCENE := "res://scenes/main.tscn"
 const PLAYER_COLORS: Array[Color] = [Color(0.95, 0.4, 0.35), Color(0.35, 0.6, 0.95)]
+## 真人對戰的連線中繼伺服器:發房間號碼、轉送雙方的訊息。程式與說明在 server/src/index.js,
+## 改過之後要重新部署(npm --prefix server run deploy)。開房間連 /create,加入連 /join?code=四位數。
+const RELAY_URL := "wss://anifight-relay.dylanworkersdev.workers.dev"
 
 ## 作品系列。選角畫面先選系列,再選裡面的角色;還沒有角色的系列不會顯示。
 ## 新增系列時在這裡加一筆,角色的 "series" 填這裡的 id。
@@ -133,6 +136,40 @@ static var touch_enabled: bool = false
 const DIRECT_ACTIONS: Array[String] = ["skill2", "super", "teleport"]
 static var _initialized: bool = false
 
+# ---------- 真人對戰(連線) ----------
+## 連線對戰時每一格要同步的按鍵,順序就是傳輸時的位元順序(改了順序,雙方的版本就不相容)。
+const NET_ACTIONS: Array[String] = ["left", "right", "up", "down", "attack", "jump", "dash", "special", "escape", "skill",
+		"skill2", "super", "teleport"]
+## 連線雙方的遊戲內容要一樣才能同步。改了會影響對戰結果的東西(招式數值、角色、同步的做法)就把這個數字加一,
+## 版本不同的兩個人會在房間裡被擋下來,不會打到一半才不同步。
+const NET_VERSION := 1
+const P1_KEYS := {
+	"left": KEY_A, "right": KEY_D, "up": KEY_W, "down": KEY_S,
+	"attack": KEY_J, "jump": KEY_K, "dash": KEY_L,
+	"special": KEY_I, "escape": KEY_O, "skill": KEY_U,
+}
+const P2_KEYS := {
+	"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN,
+	"attack": KEY_KP_1, "jump": KEY_KP_2, "dash": KEY_KP_3,
+	"special": KEY_KP_5, "escape": KEY_KP_6, "skill": KEY_KP_4,
+}
+const PAD_BUTTONS := {
+	"left": JOY_BUTTON_DPAD_LEFT, "right": JOY_BUTTON_DPAD_RIGHT,
+	"up": JOY_BUTTON_DPAD_UP, "down": JOY_BUTTON_DPAD_DOWN,
+	"attack": JOY_BUTTON_X, "jump": JOY_BUTTON_A, "dash": JOY_BUTTON_B,
+	"special": JOY_BUTTON_Y, "escape": JOY_BUTTON_RIGHT_SHOULDER, "skill": JOY_BUTTON_LEFT_SHOULDER,
+}
+## 0 = 單機;1 = 連線對戰的房主(操作 P1);2 = 加入的人(操作 P2)。
+static var net_role: int = 0
+## 連線雙方是不是用觸控按鈕(觸控的招式不看方向鍵,兩邊模擬時要一致)。
+static var net_touch: Array[bool] = [false, false]
+## 連線對戰時雙方共用的亂數種子,以及按鍵延後幾格才生效(由房主決定)。
+static var net_seed: int = 0
+static var net_delay: int = 3
+## 會影響勝負的亂數(黑閃的機率這類)都從這裡取。連線時雙方用同一顆種子,結果才會一樣;
+## 特效、電腦對手用的亂數不要從這裡取,不然兩邊取的次數會不一樣。
+static var rng := RandomNumberGenerator.new()
+
 
 ## 某個系列裡的角色(CHARACTERS 的索引),依名單順序。
 static func characters_in(series_index: int) -> Array[int]:
@@ -183,26 +220,54 @@ static func setup_input() -> void:
 		return
 	_initialized = true
 	_detect_touch()
-	for player_id in [1, 2]:
-		for action_name in DIRECT_ACTIONS:
+	rng.randomize()
+	# 0 號玩家是「這台裝置上的人」:連線對戰時鍵盤和觸控按鈕都改按 p0_ 開頭的動作,
+	# 再由對戰場景照格數把雙方的按鍵交給角色(見 main.gd 的 _net_frame 與 Fighter.set_pad)。
+	for player_id in [0, 1, 2]:
+		for action_name in NET_ACTIONS:
 			_ensure_action(player_id, action_name)
-	_bind_keys(1, {
-		"left": KEY_A, "right": KEY_D, "up": KEY_W, "down": KEY_S,
-		"attack": KEY_J, "jump": KEY_K, "dash": KEY_L,
-		"special": KEY_I, "escape": KEY_O, "skill": KEY_U,
-	})
-	_bind_keys(2, {
-		"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN,
-		"attack": KEY_KP_1, "jump": KEY_KP_2, "dash": KEY_KP_3,
-		"special": KEY_KP_5, "escape": KEY_KP_6, "skill": KEY_KP_4,
-	})
-	# 沒有數字鍵盤時,P2 可以改用第一支手把。
-	_bind_pad(2, {
-		"left": JOY_BUTTON_DPAD_LEFT, "right": JOY_BUTTON_DPAD_RIGHT,
-		"up": JOY_BUTTON_DPAD_UP, "down": JOY_BUTTON_DPAD_DOWN,
-		"attack": JOY_BUTTON_X, "jump": JOY_BUTTON_A, "dash": JOY_BUTTON_B,
-		"special": JOY_BUTTON_Y, "escape": JOY_BUTTON_RIGHT_SHOULDER, "skill": JOY_BUTTON_LEFT_SHOULDER,
-	})
+	_bind_devices()
+
+
+## 某個動作在連線按鍵裡是哪一個位元;不在同步清單裡的動作回傳 0(永遠沒按)。
+static func net_bit(action_name: String) -> int:
+	var index := NET_ACTIONS.find(action_name)
+	return 1 << index if index >= 0 else 0
+
+
+static func net_active() -> bool:
+	return net_role != 0
+
+
+## 這台裝置上的人操作的是第幾位玩家(0 或 1)。單機時是 0。
+static func local_player() -> int:
+	return maxi(net_role - 1, 0)
+
+
+## 進入或離開連線對戰:換掉鍵盤的對應,並放開所有還按著的動作。
+static func set_net_role(role: int) -> void:
+	net_role = role
+	setup_input()
+	for player_id in [0, 1, 2]:
+		for action_name in NET_ACTIONS:
+			Input.action_release(action(player_id, action_name))
+	_bind_devices()
+
+
+## 把鍵盤與手把接到動作上。單機:兩組按鍵分別操作 P1、P2。
+## 連線:這台裝置上只有一個人,P1 那組按鍵(和手把)接到 0 號玩家,P1 / P2 的動作不直接接任何按鍵。
+static func _bind_devices() -> void:
+	for player_id in [0, 1, 2]:
+		for action_name in NET_ACTIONS:
+			InputMap.action_erase_events(action(player_id, action_name))
+	if net_active():
+		_bind_keys(0, P1_KEYS)
+		_bind_pad(0, PAD_BUTTONS)
+	else:
+		_bind_keys(1, P1_KEYS)
+		_bind_keys(2, P2_KEYS)
+		# 沒有數字鍵盤時,P2 可以改用第一支手把。
+		_bind_pad(2, PAD_BUTTONS)
 
 
 ## 測試用:直接指定安全區內縮量(邏輯像素),格式同 safe_area() 的回傳值。

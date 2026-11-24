@@ -1,0 +1,15 @@
+{
+  "name": "anifight-relay",
+  "private": true,
+  "type": "module",
+  "description": "Anifight 的連線中繼伺服器(Cloudflare Workers)",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "login": "wrangler login",
+    "deploy": "wrangler deploy",
+    "test": "node test/relay_test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.167.0"
+  }
+}

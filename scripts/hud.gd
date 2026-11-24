@@ -23,6 +23,7 @@ var _win_labels: Array[Label] = []
 var _combo_labels: Array[Label] = []
 var _combo_tweens: Array = [null, null]
 var _mode_label: Label
+var _notice_label: Label
 var _hint_label: Label
 var _names: Array[String] = ["", ""]
 var _wins: Array[int] = [0, 0]
@@ -214,6 +215,17 @@ func set_p2_mode(text: String) -> void:
 	_mode_label.text = text
 
 
+## 畫面中央偏上的一行小提示(例如連線對戰時的「等待對手」);空字串就是不顯示。
+func set_notice(text: String) -> void:
+	if _notice_label == null:
+		_notice_label = _make_label(_root, 26, HORIZONTAL_ALIGNMENT_CENTER)
+		_notice_label.anchor_right = 1.0
+		_notice_label.offset_top = 150
+		_notice_label.offset_bottom = 190
+		_notice_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
+	_notice_label.text = text
+
+
 func set_hint(text: String) -> void:
 	_hint_label.text = text
 
@@ -229,8 +241,13 @@ func set_wins(p1_wins: int, p2_wins: int) -> void:
 
 
 func _refresh_win_labels() -> void:
-	_win_labels[0].text = "P1 %s   勝 %d" % [_names[0], _wins[0]]
-	_win_labels[1].text = "勝 %d   %s P2" % [_wins[1], _names[1]]
+	# 連線對戰時標出哪一邊是自己
+	var tags := ["P1", "P2"]
+	if GameState.net_active():
+		tags[GameState.local_player()] = "你"
+		tags[1 - GameState.local_player()] = "對手"
+	_win_labels[0].text = "%s %s   勝 %d" % [tags[0], _names[0], _wins[0]]
+	_win_labels[1].text = "勝 %d   %s %s" % [_wins[1], _names[1], tags[1]]
 
 
 func set_time(seconds_left: float) -> void:

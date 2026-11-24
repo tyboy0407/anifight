@@ -156,7 +156,7 @@ func current_black_flash_chance() -> float:
 ## 出手前:決定這一擊是不是黑閃,並回傳實際要套用的招式數值。
 func _prepare_strike(move: AttackData) -> AttackData:
 	_strike_health = opponent.health if opponent != null else 0
-	_strike_flash = move == _ultimate_move or randf() < current_black_flash_chance()
+	_strike_flash = move == _ultimate_move or GameState.rng.randf() < current_black_flash_chance()
 	if not _strike_flash:
 		return move
 	if not _doubled.has(move):

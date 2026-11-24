@@ -16,6 +16,8 @@ const DODGE_ROOM := 200.0  # 離場邊不到這個距離就當作沒有退路
 
 var fighter: Fighter
 var enabled: bool = true
+## 要代按哪一位玩家的按鍵;-1 是 fighter 自己的。連線對戰的測試會指定成 0(這台裝置上的人)。
+var action_player := -1
 
 var _held: Dictionary = {}  # 動作名稱 -> 剩餘按住秒數
 var _think := 0.0
@@ -201,7 +203,7 @@ func _move(direction: String, duration: float) -> void:
 
 
 func _action(action_name: String) -> String:
-	return "p%d_%s" % [fighter.player_id, action_name]
+	return "p%d_%s" % [fighter.player_id if action_player < 0 else action_player, action_name]
 
 
 func _press(action_name: String, duration: float) -> void:
