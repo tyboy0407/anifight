@@ -162,6 +162,8 @@ var _rage_time := 0.0
 var _rage_used := false            # 這一回合已經爆走過了
 var _rage_pending := false         # 剛被打到見底,下一格開始爆走
 var _exhausted := false
+## 故事模式的關卡可以指定:"auto" 照一般規則;"never" 這一場不會爆走;"always" 整場都是尾獸型態(沒有時間限制、不會虛脫)。
+var _story_rampage := "auto"
 var _plain_damage_scale := 1.0
 var _plain_frames: SpriteFrames
 var _fox_frames: SpriteFrames
@@ -282,6 +284,16 @@ func _hasted(move: AttackData) -> AttackData:
 	return fast
 
 
+## 故事模式:這一關的鳴人會不會爆走({"rampage": "never"} 或 {"rampage": "always"})。
+func apply_story(setup: Dictionary) -> void:
+	super(setup)
+	_story_rampage = str(setup.get("rampage", "auto"))
+
+
+func action_available(key: String) -> bool:
+	return key != "super" or _story_rampage != "always"
+
+
 func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_dismiss_clones(false)
 	_clear_ball()
@@ -295,6 +307,10 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_next_queued = false
 	super(spawn_position, spawn_facing)
 	_floor_y = spawn_position.y
+	if puppet_of == null and _story_rampage != "auto":
+		_rage_used = true  # 不會因為血量見底而爆走
+		if _story_rampage == "always":
+			_begin_rage()
 
 
 func _exit_tree() -> void:
@@ -1066,6 +1082,17 @@ func _enter_rage() -> void:
 	_clear_barrage()
 	_clear_beast()
 	_end_hitstop()
+	_begin_rage()
+	velocity = Vector2.ZERO
+	# 查克拉爆發:短暫無敵,把身邊的對手彈開
+	_start_burst()
+	_callout("尾獸爆走", FOX_COLOR, "powerup")
+	_power_burst(FOX_COLOR, 1.3)
+	screen_shake.emit(12.0)
+
+
+## 換成尾獸型態(不含變身那一刻的演出)。
+func _begin_rage() -> void:
 	_rage_time = RAGE_TIME
 	_plain_damage_scale = damage_scale
 	damage_scale = _plain_damage_scale * RAGE_SCALE
@@ -1073,12 +1100,6 @@ func _enter_rage() -> void:
 	_air_move = _rage_air
 	_swap_frames(_fox_frames)
 	_tails.relax()
-	velocity = Vector2.ZERO
-	# 查克拉爆發:短暫無敵,把身邊的對手彈開
-	_start_burst()
-	_callout("尾獸爆走", FOX_COLOR, "powerup")
-	_power_burst(FOX_COLOR, 1.3)
-	screen_shake.emit(12.0)
 
 
 ## 結束爆走。exhausts 為 true 時陷入虛脫(時間到了);回合重置時是 false。
@@ -1099,7 +1120,7 @@ func _leave_rage(exhausts: bool) -> void:
 func _tick_rage(delta: float) -> void:
 	if not in_rampage() and _ground_moves == _plain_chain:
 		return
-	if state == State.KO:
+	if state == State.KO or _story_rampage == "always":
 		return
 	_rage_time = maxf(_rage_time - delta, 0.0)
 	# 時間到了:等手上的招式放完才退出
@@ -1440,7 +1461,7 @@ func skill1_empowered() -> bool:
 
 func _update_status() -> void:
 	if in_rampage():
-		_status_label.text = "尾獸爆走 %d" % ceili(_rage_time)
+		_status_label.text = "尾獸爆走" if _story_rampage == "always" else "尾獸爆走 %d" % ceili(_rage_time)
 	elif _exhausted:
 		_status_label.text = "虛脫"
 	else:

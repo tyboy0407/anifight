@@ -141,6 +141,7 @@ var _stun_damage_scale := 1.0
 var _energy_seal_time := 0.0
 var _seal_label: Label
 var _break_time := 0.0   # 「破防」狀態還剩幾秒
+var _haunt_time := 0.0   # 「回憶」狀態還剩幾秒(放不出招式)
 var _break_scale := 1.0  # 破防期間受到傷害的倍率
 var _sink := 0.0         # 被壓進地面時,圖往下沉幾個像素(只影響顯示)
 var _move: AttackData
@@ -266,6 +267,7 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	ai_saves_this_round = randf() < _ai_save_chance()
 	_energy_seal_time = 0.0
 	_break_time = 0.0
+	_haunt_time = 0.0
 	_update_seal_label()
 	_set_hitbox(false)
 	_end_combo()
@@ -768,10 +770,14 @@ func _try_energy_actions() -> bool:
 
 
 func _do_energy_actions() -> bool:
-	if _try_character_actions():
+	if haunted():
+		# 陷入回憶:招式都放不出來,按了也不留到之後
+		for action_name: String in ["skill", "skill2", "special", "super"]:
+			_buffer.erase(action_name)
+	elif _try_character_actions():
 		skill_uses += 1
 		return true
-	if _super_pressed():
+	elif _super_pressed():
 		if _spend_energy(super_cost()):
 			skill_uses += 1
 			_start_super()
@@ -1330,6 +1336,21 @@ func guard_broken() -> bool:
 	return _break_time > 0.0
 
 
+## 陷入回憶:這段時間內放不出任何招式(招式一、招式二、大招、超必殺);普攻、移動、幽步與脫出照常。
+func haunt(duration: float) -> void:
+	if puppet_of != null:
+		puppet_of.haunt(duration)
+		return
+	if state == State.KO:
+		return
+	_haunt_time = maxf(_haunt_time, duration)
+	_show_status_label()
+
+
+func haunted() -> bool:
+	return _haunt_time > 0.0
+
+
 ## 頭上那一行狀態文字(氣閉、破防):第一次用到才建立。
 func _show_status_label() -> void:
 	if _seal_label == null:
@@ -1352,10 +1373,11 @@ func energy_sealed() -> bool:
 
 
 func _tick_energy_seal(delta: float) -> void:
-	if _energy_seal_time <= 0.0 and _break_time <= 0.0:
+	if _energy_seal_time <= 0.0 and _break_time <= 0.0 and _haunt_time <= 0.0:
 		return
 	_energy_seal_time = maxf(_energy_seal_time - delta, 0.0)
 	_break_time = maxf(_break_time - delta, 0.0)
+	_haunt_time = maxf(_haunt_time - delta, 0.0)
 	_update_seal_label()
 
 
@@ -1367,6 +1389,8 @@ func _update_seal_label() -> void:
 		parts.append("氣閉 %d" % ceili(_energy_seal_time))
 	if guard_broken():
 		parts.append("破防 %d" % ceili(_break_time))
+	if haunted():
+		parts.append("回憶 %d" % ceili(_haunt_time))
 	_seal_label.text = "  ".join(parts)
 
 

@@ -228,8 +228,10 @@ func _fill_slot(slot: Control, cast: Dictionary, flip: bool) -> void:
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.sprite_frames = loaded.frames
 	var big: bool = cast.get("big", false)
-	var size := float(loaded.scale) * (BIG_SCALE if big else PORTRAIT_SCALE)
+	# scale 是另外再放大的倍率(巨型咒靈);tint 是染色(用同一套圖的不同咒靈)
+	var size := float(loaded.scale) * (BIG_SCALE if big else PORTRAIT_SCALE) * float(cast.get("scale", 1.0))
 	sprite.scale = Vector2(-size if flip else size, size)
+	sprite.self_modulate = cast.get("tint", Color.WHITE)
 	if big:
 		# 召喚物那一組圖:對齊點已經在腳底,不用再位移;本來就很大,放大的倍率小一點
 		sprite.centered = true

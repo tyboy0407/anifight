@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/fighter.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/characters/curse_memory.gd" id="2_script"]
+
+[node name="Fighter" instance=ExtResource("1_base")]
+script = ExtResource("2_script")
+max_health = 2400
+sprite_dir = "res://assets/characters/curse"

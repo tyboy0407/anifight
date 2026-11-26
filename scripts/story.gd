@@ -595,7 +595,8 @@ func _show_reward(summary: Dictionary) -> void:
 			note.custom_minimum_size.x = 460
 			box.add_child(note)
 	if summary.first and int(_progress.cleared) >= _stages.size():
-		box.add_child(_label("目前的章節都完成了,故事待續", 20, 0.85))
+		var ending := "《%s》全部完成!" % _story.title if (_story.get("coming", []) as Array).is_empty() else "目前的章節都完成了,故事待續"
+		box.add_child(_label(ending, 20, 0.85))
 	var next := _button("繼續", 26, Vector2(220, 60))
 	next.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(next)
