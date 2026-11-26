@@ -1619,9 +1619,31 @@ func _copy_of_self(animation: StringName, frame: int) -> Sprite2D:
 	return copy
 
 
+## 現在揮出去的攻擊框(場景座標);沒有在出招、或判定還沒出來時,回傳大小是零的矩形。
+## 對手放在場上、會被打掉的東西(影分身)用它判斷自己有沒有被掃到。
+func swing_rect() -> Rect2:
+	if state != State.ATTACK or _hit_shape.disabled or _move == null:
+		return Rect2()
+	var swing_size := (_hit_shape.shape as RectangleShape2D).size
+	return Rect2(global_position + _hit_shape.position - swing_size / 2.0, swing_size)
+
+
+## 現在這一下普通攻擊打在別的東西上是多少傷害。
+func swing_damage() -> int:
+	return int(round(_move.damage * damage_scale)) if _move != null else 0
+
+
+## 對手不走攻擊框的招式(飛行道具、範圍技)掃過這塊矩形。場上有「會被打掉的東西」的角色覆寫(見 naruto.gd 的影分身)。
+func swept_by(_center: Vector2, _rect_size: Vector2) -> void:
+	pass
+
+
 ## 以 center、rect_size 描述的矩形是否碰到對手的身體(對手無敵時為 false)。
 func _rect_hits_opponent(center: Vector2, rect_size: Vector2) -> bool:
-	if opponent == null or opponent.is_invulnerable():
+	if opponent == null:
+		return false
+	opponent.swept_by(center, rect_size)
+	if opponent.is_invulnerable():
 		return false
 	var target_center := opponent.global_position + Vector2(0, -BODY_SIZE.y / 2.0)
 	var reach := (rect_size + BODY_SIZE) / 2.0

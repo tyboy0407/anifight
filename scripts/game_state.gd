@@ -130,6 +130,15 @@ const CHARACTERS: Array[Dictionary] = [
 		"skills": ["雷切(1格)", "水遁.水龍波(2格)", "寫輪眼(滿3格)"],
 		"summary": "氣量上限 5 格\n普攻:兩拳、下踢、土流壁\n雷切:蓄力後往前貫穿\n水龍波命中:按普攻接\n土流壁與雷流引\n寫輪眼:持續耗氣,再按關閉\n出招快 50%、傷害 +20%\n拷貝:對手用 5 次招式後\n招式換成對手的(1格)",
 	},
+	{
+		"name": "漩渦鳴人",
+		"series": "naruto",
+		"scene": "res://scenes/characters/naruto.tscn",
+		"sprites": "res://assets/characters/naruto",
+		"hair": Color(0.99, 0.82, 0.2),
+		"skills": ["影分身之術(2格)", "螺旋丸(1格)", "鳴人連擊(3格)"],
+		"summary": "氣量上限 5 格\n普攻:拳腳、拳、上踢\n第四下:分身下打接重拳\n影分身:最多兩個,自己出拳\n螺旋丸:有分身變大玉\n鳴人連擊:八個分身圍毆\n瀕死:尾獸爆走 30 秒\n回血 30%,速度傷害 +30%\n招式變爪擊、尾獸螺旋丸\n結束後虛脫,只剩普攻",
+	},
 ]
 
 ## 雙方選到的角色索引。直接執行對戰場景時使用這組預設值。
@@ -162,7 +171,7 @@ const NET_ACTIONS: Array[String] = ["left", "right", "up", "down", "attack", "ju
 		"skill2", "super", "teleport"]
 ## 連線雙方的遊戲內容要一樣才能同步。改了會影響對戰結果的東西(招式數值、角色、同步的做法)就把這個數字加一,
 ## 版本不同的兩個人會在房間裡被擋下來,不會打到一半才不同步。
-const NET_VERSION := 2
+const NET_VERSION := 3
 const P1_KEYS := {
 	"left": KEY_A, "right": KEY_D, "up": KEY_W, "down": KEY_S,
 	"attack": KEY_J, "jump": KEY_K, "dash": KEY_L,

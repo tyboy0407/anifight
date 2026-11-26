@@ -980,6 +980,12 @@ func blown_away(source: Fighter) -> void:
 	super(source)
 
 
+## 對手的招式掃過場上:替身留下的東西(拷貝來的影分身)一樣會被打掉。
+func swept_by(center: Vector2, rect_size: Vector2) -> void:
+	if _puppet_live():
+		_puppet.swept_by(center, rect_size)
+
+
 ## 替身出招的時候,無不無敵看替身(例如它正在瞬身)。
 func is_invulnerable() -> bool:
 	if _copying:

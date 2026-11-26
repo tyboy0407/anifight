@@ -142,6 +142,28 @@ const STYLES := [
 		"eye": Color(0.95, 0.12, 0.14),
 		"moves": "kakashi",
 	},
+	# 漩渦鳴人:金色刺蝟頭、木葉護額、橘色外套(肩膀是黑的)與橘色褲子,臉頰上有鬍鬚紋。有自己的出招動作(見 _naruto_animations)。
+	# 尾獸爆走時換成另一套(naruto_kyuubi):紅色的眼睛、壓低身體的站姿,全身包著一層紅色的查克拉外衣(頭上兩隻狐耳)。
+	# 背後的尾巴不在圖裡,由遊戲另外畫(scripts/kagune_tails.gd)。
+	{
+		"id": "naruto",
+		"hair": Color(0.99, 0.82, 0.2), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.96, 0.5, 0.12), "sleeve": Color(0.96, 0.5, 0.12),
+		"pants": Color(0.93, 0.45, 0.1), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.25, 0.55, 0.98), "headband": Color(0.13, 0.14, 0.2), "tall_hair": true,
+		"yoke": Color(0.13, 0.13, 0.17), "whiskers": Color(0.5, 0.32, 0.28),
+		"moves": "naruto",
+	},
+	{
+		"id": "naruto_kyuubi",
+		"hair": Color(0.99, 0.78, 0.18), "spiky": true, "blindfold": false, "marks": false,
+		"top": Color(0.96, 0.5, 0.12), "sleeve": Color(0.96, 0.5, 0.12),
+		"pants": Color(0.93, 0.45, 0.1), "sash": Color(0, 0, 0, 0),
+		"eye": Color(0.96, 0.12, 0.1), "headband": Color(0.13, 0.14, 0.2), "tall_hair": true,
+		"yoke": Color(0.13, 0.13, 0.17), "whiskers": Color(0.2, 0.08, 0.08), "thick_whiskers": true,
+		"cloak": Color(0.9, 0.2, 0.08), "cloak_glow": Color(1.0, 0.5, 0.16, 0.6), "hunched": true,
+		"moves": "naruto",
+	},
 	# 低級咒靈(只在故事模式出現的對手):灰紫色的皮膚、光禿禿的頭上兩支角、一隻黃色的大眼、裂到耳邊的嘴。
 	{
 		"id": "curse",
@@ -780,6 +802,99 @@ func _kakashi_animations() -> Array:
 	]
 
 
+## 漩渦鳴人專用的動作:同名的取代通用動作,其餘的加在後面。
+func _naruto_animations() -> Array:
+	var generic := {}
+	for animation: Dictionary in _animations():
+		generic[animation.name] = animation.frames
+	# 結印(影分身之術的十字印):雙手在胸前交叉
+	var seal_a := {"hand_f": v(30, 23), "elbow_f": v(27, 28), "hand_b": v(30, 21), "elbow_b": v(24, 27)}
+	var seal_b := {"hand_f": v(31, 22), "elbow_f": v(28, 27), "hand_b": v(29, 20), "elbow_b": v(24, 26)}
+	# 上踢:身體後仰,前腳筆直往上踢
+	var high_kick := {"head": v(19, 15), "neck": v(20, 21), "hip": v(23, 31), "foot_f": v(33, 13), "knee_f": v(29, 22),
+		"hand_f": v(24, 28), "hand_b": v(13, 25), "elbow_b": null}
+	# 最後一拳:拳頭先拉到身後,再整個人往前揮出去
+	var wind := {"head": v(23, 14), "neck": v(23, 20), "hand_f": v(17, 24), "elbow_f": v(22, 27), "hand_b": v(30, 22), "elbow_b": v(26, 25)}
+	var haymaker := {"head": v(30, 14), "neck": v(28, 20), "hip": v(25, 31), "hand_f": v(44, 20), "elbow_f": null,
+		"hand_b": v(20, 26), "elbow_b": v(22, 28), "foot_b": v(14, 46), "knee_b": v(19, 39)}
+	# 螺旋丸:一手掌心朝上托在腰前、另一手在上面攪動;凝聚好了整個人往前把手推出去
+	var gather := {"head": v(26, 15), "neck": v(24, 21), "hip": v(23, 32), "hand_f": v(31, 31), "elbow_f": v(27, 28),
+		"hand_b": v(31, 26), "elbow_b": v(25, 27)}
+	var push := {"head": v(31, 15), "neck": v(28, 20), "hip": v(24, 31), "hand_f": v(43, 23), "elbow_f": null,
+		"hand_b": v(17, 27), "elbow_b": null, "foot_b": v(13, 46), "knee_b": v(18, 39), "foot_f": v(31, 46), "knee_f": v(31, 39)}
+	# 爪擊:壓低身體往前撲,一隻手的爪子伸在最前面
+	var crouch := {"head": v(27, 19), "neck": v(25, 24), "hip": v(22, 34), "knee_f": v(30, 40), "knee_b": v(19, 40),
+		"hand_f": v(33, 34), "elbow_f": v(29, 29), "hand_b": v(28, 36), "elbow_b": v(24, 30)}
+	var pounce := {"head": v(35, 22), "neck": v(31, 25), "hip": v(22, 33), "hand_f": v(45, 26), "elbow_f": null,
+		"hand_b": v(40, 32), "elbow_b": null, "foot_b": v(9, 44), "knee_b": v(15, 39), "foot_f": v(26, 46), "knee_f": v(28, 40)}
+	# 空中的爪擊:人在半空,兩隻手輪流往下抓
+	var air := {"head": v(26, 12), "neck": v(24, 18), "hip": v(23, 30), "foot_b": v(18, 41), "knee_b": v(17, 35),
+		"foot_f": v(28, 41), "knee_f": v(30, 35)}
+	var swipe_a := air.merged({"hand_f": v(40, 25), "elbow_f": null, "hand_b": v(17, 13), "elbow_b": v(19, 20)})
+	var swipe_b := air.merged({"hand_f": v(33, 9), "elbow_f": v(31, 16), "hand_b": v(38, 27), "elbow_b": null})
+	# 大招:一手把螺旋丸舉過頭頂往上跳,再整個人頭下腳上地往下砸
+	var raise := air.merged({"hand_f": v(31, 6), "elbow_f": v(31, 14), "hand_b": v(27, 9), "elbow_b": v(24, 15)})
+	var dive := {"head": v(30, 19), "neck": v(27, 22), "hip": v(20, 28), "hand_f": v(40, 34), "elbow_f": null,
+		"hand_b": v(17, 20), "elbow_b": null, "foot_b": v(10, 25), "knee_b": v(14, 29), "foot_f": v(13, 36), "knee_f": v(20, 34)}
+	return [
+		# 普通攻擊:拳(attack1,通用的)、踢、另一隻手的拳、上踢、結印後的最後一拳
+		{"name": "attack2", "fps": 12, "loop": false, "frames": generic.attack3},
+		{"name": "attack3", "fps": 12, "loop": false, "frames": generic.attack2},
+		{"name": "attack4", "fps": 12, "loop": false, "frames": [
+			pose({"hip": v(23, 31), "foot_f": v(29, 40), "knee_f": v(32, 35)}),
+			pose(high_kick),
+			pose(high_kick.merged({"foot_f": v(33, 14)}, true)),
+			pose({"foot_f": v(32, 42), "knee_f": v(31, 36)}),
+		]},
+		{"name": "attack5", "fps": 10, "loop": false, "frames": [
+			pose(seal_a),
+			pose(seal_b),
+			pose(wind),
+			pose(haymaker),
+			pose(haymaker.merged({"hand_f": v(45, 20)}, true)),
+			pose({"hand_f": v(36, 22), "elbow_f": v(30, 24)}),
+		]},
+		{"name": "seal", "fps": 10, "loop": true, "frames": [pose(seal_a), pose(seal_b)]},
+		{"name": "rasengan_charge", "fps": 10, "loop": true, "frames": [
+			pose(gather),
+			pose(gather.merged({"hand_b": v(32, 27), "elbow_b": v(26, 28)}, true)),
+		]},
+		{"name": "rasengan_push", "fps": 10, "loop": false, "frames": [
+			pose(push),
+			pose(push.merged({"hand_f": v(44, 23)}, true)),
+		]},
+		{"name": "claw_dash", "fps": 10, "loop": false, "frames": [
+			pose(crouch),
+			pose(pounce),
+			pose(pounce.merged({"hand_f": v(45, 27), "hand_b": v(41, 31)}, true)),
+			pose(crouch),
+		]},
+		{"name": "air_claw", "fps": 9, "loop": true, "frames": [pose(swipe_a), pose(swipe_b)]},
+		{"name": "raise", "fps": 8, "loop": true, "frames": [pose(raise), pose(raise.merged({"hand_f": v(31, 7)}, true))]},
+		{"name": "dive", "fps": 8, "loop": true, "frames": [pose(dive), pose(dive.merged({"hand_f": v(40, 35)}, true))]},
+	]
+
+
+## 壓低身體、雙手垂在身前的站姿(尾獸爆走):把通用的站立與走路換成這個上半身,腳的動作照舊。
+func _hunch(animations: Array) -> void:
+	var upper := {"head": v(29, 17), "neck": v(27, 22), "hip": v(23, 32),
+		"hand_f": v(36, 33), "elbow_f": v(31, 28), "hand_b": v(31, 35), "elbow_b": v(26, 29)}
+	for index in animations.size():
+		var animation: Dictionary = animations[index]
+		if animation.name != "idle" and animation.name != "walk":
+			continue
+		var frames: Array = []
+		for number in (animation.frames as Array).size():
+			var frame: Dictionary = (animation.frames[number] as Dictionary).merged(upper, true)
+			if number % 2 == 1:
+				# 喘氣:肩膀與手跟著起伏
+				frame["head"] = v(29, 18)
+				frame["hand_f"] = v(36, 34)
+				frame["hand_b"] = v(31, 36)
+			frames.append(frame)
+		animations[index] = {"name": animation.name, "fps": animation.fps, "loop": animation.loop, "frames": frames}
+
+
 ## 這個角色實際要畫的動作:通用動作,加上(或換成)角色自己的。
 func _animations_for(style: Dictionary) -> Array:
 	var animations := _animations()
@@ -790,6 +905,7 @@ func _animations_for(style: Dictionary) -> Array:
 		"gojo_shibuya": extras = _gojo_shibuya_animations()
 		"kaneki": extras = _kaneki_animations()
 		"kakashi": extras = _kakashi_animations()
+		"naruto": extras = _naruto_animations()
 	for extra: Dictionary in extras:
 		var replaced := false
 		for index in animations.size():
@@ -798,6 +914,8 @@ func _animations_for(style: Dictionary) -> Array:
 				replaced = true
 		if not replaced:
 			animations.append(extra)
+	if style.get("hunched", false):
+		_hunch(animations)
 	return animations
 
 
@@ -817,6 +935,11 @@ func _generate(style: Dictionary) -> void:
 			_origin = Vector2i(column * CELL.x, row * CELL.y)
 			_draw_figure(animation.frames[column])
 			_draw_outline()
+			if style.has("cloak"):
+				# 查克拉外衣:頭上兩隻狐耳,整個人外面再包一圈紅色與一圈半透明的橘色
+				_draw_fox_ears(animation.frames[column].head, style.cloak)
+				_draw_outline(style.cloak)
+				_draw_outline(style.cloak_glow)
 			rects.append([_origin.x, _origin.y, CELL.x, CELL.y])
 		sheet_animations[animation.name] = {"fps": animation.fps, "loop": animation.loop, "frames": rects}
 
@@ -874,6 +997,9 @@ func _draw_figure(p: Dictionary) -> void:
 	else:
 		# 腰帶
 		_fill(p.hip + Vector2i(-3, -2), Vector2i(7, 1), pants.darkened(0.35))
+	if _style.has("yoke"):
+		# 外套的肩膀是另一個顏色
+		_fill(shoulder + Vector2i(-3, -1), Vector2i(6, 3), _style.yoke)
 	_fill(p.neck + Vector2i(-1, -1), Vector2i(3, 2), _skin())
 	if _style.get("collar", false):
 		# 制服的高領,遮住脖子的下半截
@@ -1038,6 +1164,14 @@ func _draw_head(center: Vector2i) -> void:
 			_plot(center + Vector2i(dx, 2), Color(0.95, 0.94, 0.88))
 		for dx: int in [1, 3]:
 			_plot(center + Vector2i(dx, 3), Color(0.95, 0.94, 0.88))
+	if _style.has("whiskers"):
+		# 臉頰上的鬍鬚紋:兩道短短的橫線(尾獸爆走時變粗)
+		var whisker: Color = _style.whiskers
+		_fill(center + Vector2i(0, 1), Vector2i(2, 1), whisker)
+		_fill(center + Vector2i(0, 3), Vector2i(2, 1), whisker)
+		if _style.get("thick_whiskers", false):
+			_plot(center + Vector2i(-1, 2), whisker)
+			_plot(center + Vector2i(1, 2), whisker)
 	if _style.marks:
 		var mark := Color(0.12, 0.1, 0.14)
 		_plot(center + Vector2i(1, 2), mark)
@@ -1087,8 +1221,14 @@ func _clear(local: Vector2i) -> void:
 	_plot(local, Color(0, 0, 0, 0))
 
 
-## 替目前格子裡的圖形描一圈深色外框,讓角色在任何背景上都看得清楚。
-func _draw_outline() -> void:
+## 查克拉外衣的狐耳:頭頂上方兩個往上尖的小三角。
+func _draw_fox_ears(head: Vector2i, color: Color) -> void:
+	for point: Vector2i in [Vector2i(-4, -9), Vector2i(-3, -9), Vector2i(-4, -10), Vector2i(2, -9), Vector2i(3, -9), Vector2i(3, -10)]:
+		_plot(head + point, color)
+
+
+## 替目前格子裡的圖形描一圈外框(預設是深色),讓角色在任何背景上都看得清楚。
+func _draw_outline(color: Color = OUTLINE) -> void:
 	var edge: Array[Vector2i] = []
 	for y in CELL.y:
 		for x in CELL.x:
@@ -1103,4 +1243,4 @@ func _draw_outline() -> void:
 					edge.append(local)
 					break
 	for local in edge:
-		_image.set_pixelv(_origin + local, OUTLINE)
+		_image.set_pixelv(_origin + local, color)

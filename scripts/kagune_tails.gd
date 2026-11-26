@@ -25,6 +25,12 @@ const SCALE_SHINE := Color(1.0, 0.36, 0.3)
 var count := 1       # 現在有幾條
 var facing := 1
 var glow := 0.0      # 0 到 1:亢奮時尾巴發亮
+## 顏色與長出來的位置可以換:漩渦鳴人尾獸爆走時的查克拉尾巴也用這個節點畫(見 naruto.gd)。
+var outline := OUTLINE
+var body := BODY
+var shade := SHADE
+var shine := SCALE_SHINE
+var root := ROOT
 
 var _time := 0.0
 var _stab_clock: Array[float] = [-1.0, -1.0, -1.0, -1.0]  # 這條尾巴伸出去多久了;小於 0 代表沒有在伸
@@ -95,7 +101,7 @@ func _draw() -> void:
 		if _sweep >= 0.0:
 			# 幾條尾巴前後錯開一點,掃起來像一把扇子
 			var angle := lerpf(SWEEP_FROM, SWEEP_TO, clampf(_sweep * 1.15 - index * 0.05, 0.0, 1.0))
-			tip = ROOT + Vector2(cos(angle), sin(angle)) * (SWEEP_RADIUS + index * 12.0)
+			tip = root + Vector2(cos(angle), sin(angle)) * (SWEEP_RADIUS + index * 12.0)
 			bulge = 0.22
 		else:
 			var reach := _reach(index)
@@ -107,32 +113,32 @@ func _draw() -> void:
 
 ## 從後腰到 tip 畫一條尾巴:根部粗、尾端尖,外面一圈深色的邊,身上一節一節的鱗片反光。
 func _draw_tail(tip: Vector2, bulge: float) -> void:
-	var along := tip - ROOT
+	var along := tip - root
 	# 往上、往後拱:取和尾巴垂直、偏上的那個方向
 	var normal := Vector2(along.y, -along.x).normalized()
 	if normal.y > 0.0:
 		normal = -normal
-	var control := ROOT + along * 0.5 + normal * along.length() * bulge
+	var control := root + along * 0.5 + normal * along.length() * bulge
 	var points: Array[Vector2] = []
 	var widths: Array[float] = []
 	for step in SAMPLES:
 		var t := step / float(SAMPLES - 1)
-		var point := ROOT.lerp(control, t).lerp(control.lerp(tip, t), t)
+		var point := root.lerp(control, t).lerp(control.lerp(tip, t), t)
 		point = (point / CELL).round() * CELL
 		points.append(Vector2(point.x * facing, point.y))
 		widths.append(maxf(roundf(lerpf(4.4, 1.0, pow(t, 0.8))), 1.0) * CELL)
 	for step in SAMPLES:
 		var size := widths[step] + CELL * 2.0
-		draw_rect(Rect2(points[step] - Vector2(size, size) / 2.0, Vector2(size, size)), OUTLINE)
-	var body := BODY.lerp(SCALE_SHINE, glow * 0.45)
+		draw_rect(Rect2(points[step] - Vector2(size, size) / 2.0, Vector2(size, size)), outline)
+	var fill := body.lerp(shine, glow * 0.45)
 	for step in SAMPLES:
 		var size := widths[step]
-		draw_rect(Rect2(points[step] - Vector2(size, size) / 2.0, Vector2(size, size)), body)
+		draw_rect(Rect2(points[step] - Vector2(size, size) / 2.0, Vector2(size, size)), fill)
 		# 下緣一道陰影
 		if size > CELL:
-			draw_rect(Rect2(points[step] + Vector2(-size / 2.0, size / 2.0 - CELL), Vector2(size, CELL)), SHADE.lerp(BODY, glow * 0.5))
+			draw_rect(Rect2(points[step] + Vector2(-size / 2.0, size / 2.0 - CELL), Vector2(size, CELL)), shade.lerp(body, glow * 0.5))
 	for step in range(2, SAMPLES - 3, 4):
 		# 鱗片:每隔幾格在上緣點一格亮色
 		var size := widths[step]
 		if size > CELL:
-			draw_rect(Rect2(points[step] + Vector2(-CELL / 2.0, -size / 2.0), Vector2(CELL, CELL)), SCALE_SHINE)
+			draw_rect(Rect2(points[step] + Vector2(-CELL / 2.0, -size / 2.0), Vector2(CELL, CELL)), shine)
