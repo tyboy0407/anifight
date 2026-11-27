@@ -962,6 +962,11 @@ func skill1_empowered() -> bool:
 	return false
 
 
+## 同上,招式二的版本(乙骨里香在場時的黑閃拳)。
+func skill2_empowered() -> bool:
+	return false
+
+
 ## 給電腦對手的提示:技能二要按住幾秒(可以蓄力的招式用)。預設點一下就好。
 func ai_skill2_hold() -> float:
 	return 0.0

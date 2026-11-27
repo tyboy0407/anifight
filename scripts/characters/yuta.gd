@@ -4,32 +4,62 @@ extends Fighter
 ##
 ## 一般狀態
 ## 氣量上限是 8 格(在 yuta.tscn 設定 max_energy = 800)。
-##   飛走吧!(skill):咒言,前方大範圍微量傷害並擊飛。耗 1 格氣,有冷卻。
+##   普通攻擊(按四下):兩刀、一腳把對手踢退兩三步、舉刀衝刺斬過去(停在對手身後,對手倒地)。
+##   一刀斬(skill):閃身到對手面前一刀往上斬,對手浮空,可以接普通攻擊。耗 1 格氣,有冷卻。
 ##   我也可以!(上 + skill):咒力附刀,10 秒內普通攻擊傷害提升。耗 1 格氣。
 ##   來吧,里香!(下 + special):召喚里香,進入里香狀態 60 秒。耗 5 格氣。
-## 被動「咒力滿盈」
-##   氣量滿 4 格時進入,掉到 4 格以下就解除。期間:
-##   氣量會緩慢自動恢復(每 20 秒 1 格)。
-##   skill 變成「不准欺負我的朋友!」:短暫蓄力後向前揮拳,必定黑閃(傷害 2 倍),
-##   對手低空飛出後在地上翻滾彈跳,一路滾到場邊。
-##   skill 與 上 + skill 的耗氣量加倍(各 2 格);「來吧,里香!」不受影響。
 ## 里香狀態
-##   地面連段由 3 段變 5 段,每次普攻命中里香都會追加一擊。
+##   地面連段變成 5 段,每次普攻命中里香都會追加一擊。
+##   skill 變成「飛走吧!」:咒言,前方大範圍擊飛(和一刀斬共用冷卻)。
 ##   下 + special 改為「真是失禮,這可是純愛」:里香在身後蓄力 3 秒後向前射出
 ##   大範圍咒力砲,結束後退出里香狀態。不耗氣。
 ##   被動「不准欺負憂太!」:憂太被打中時有 10% 機率,里香出手把對手拍飛。
+## 被動「咒力滿盈」
+##   里香在場的期間就是咒力滿盈(和氣量多少無關)。期間:
+##   氣量會緩慢自動恢復(每 20 秒 1 格)。
+##   上 + skill 變成「不准欺負我的朋友!」:短暫蓄力後向前揮拳,必定黑閃(傷害 2 倍)、防禦也擋不住,
+##   對手低空飛出後在地上翻滾彈跳,一路滾到場邊。
+##   skill 與 上 + skill 的耗氣量加倍(各 2 格)。
 ## 故事模式
-##   招式隨劇情領悟(見 apply_story):還沒領悟的按了沒有反應。
+##   招式隨劇情領悟(見 apply_story):還沒領悟的按了沒有反應(一刀斬一開始就會)。
 ##   還不能控制里香的時候,血量掉到三成五以下里香會自己衝出來(每回合一次):
-##   期間和里香狀態一樣,而且更常替憂太出手,但放不了純愛砲。
+##   期間和里香狀態一樣(也算咒力滿盈),而且更常替憂太出手,但放不了純愛砲。
 
 const SPEECH_COLOR := Color(1.0, 0.95, 0.6)
 const CURSE_COLOR := Color(0.55, 0.85, 1.0)
 const RIKA_COLOR := Color(1.0, 0.7, 0.88)
+const BLADE_COLOR := Color(0.85, 0.92, 1.0)
 
-# 飛走吧!
+# 普通攻擊第三下:一腳把對手踢退兩三步(地面摩擦下大約滑 220 像素)
+const KICK_DAMAGE := 40
+const KICK_PUSH := 1250.0
+const KICK_HITSTUN := 0.55        # 夠久,第四下衝過去還打得到
+# 普通攻擊第四下:舉刀、衝刺斬過去,停在對手身後
+const RUSH_WINDUP := 0.16         # 舉刀的時間
+const RUSH_SPEED := 2400.0
+const RUSH_TIME := 0.18           # 沒斬到人的話衝這麼久(約 430 像素)
+const RUSH_EXTRA := 0.10          # 斬到人了但還沒穿到身後:最多再多衝這麼久
+const RUSH_RECOVERY := 0.26
+const RUSH_PASS := 105.0          # 斬到人之後停在對手身後多遠
+const RUSH_DAMAGE := 100
+const RUSH_SIZE := Vector2(150, 100)
+const RUSH_KNOCKDOWN := Vector2(40, -340)  # 小小浮起來就倒地
+# 招式一(沒有里香):一刀斬
+const IAI_COST := 100
+const IAI_WINDUP := 0.12
+const IAI_SPEED := 2200.0
+const IAI_TIME := 0.15            # 最遠閃身約 330 像素
+const IAI_DAMAGE := 85
+const IAI_LAUNCH := Vector2(40, -640)  # 打高不打遠:落下來之前接得到普通攻擊
+const IAI_SIZE := Vector2(110, 100)
+const IAI_HIT_RECOVERY := 0.14    # 斬中了收招很短
+const IAI_MISS_RECOVERY := 0.30
+const IAI_FOLLOW_TIME := 0.9      # 電腦:斬中後這段時間內會按普攻追打
+const SKILL1_COOLDOWN := 3.0      # 一刀斬與「飛走吧!」共用
+# 招式一(里香在場):飛走吧!
 const SPEECH_COST := 100
-const SPEECH_COOLDOWN := 3.0
+const SPEECH_DAMAGE := 78         # 原本 60,里香在場時提升三成
+const SPEECH_KNOCKBACK := Vector2(1250, -470)
 const SPEECH_CAST := 0.50
 const SPEECH_RELEASE := 0.22
 const SPEECH_SIZE := Vector2(380, 170)
@@ -40,12 +70,14 @@ const BUFF_CAST := 0.40
 const BUFF_RELEASE := 0.20
 const BUFF_DURATION := 10.0
 const BUFF_DAMAGE_SCALE := 1.5
-# 咒力滿盈
-const OVERFLOW_THRESHOLD := 400   # 氣量到達這個值就進入咒力滿盈
+# 咒力滿盈(里香在場的期間)
 const OVERFLOW_COST_SCALE := 2    # 滿盈期間招式一、招式二的耗氣倍率
 const OVERFLOW_REGEN := 5.0       # 滿盈期間每秒自動恢復的氣量(20 秒一格)
+const OVERFLOW_NOTE_DELAY := 0.55 # 「咒力滿盈」的浮字晚一點出來,不和「來吧,里香!」疊在一起
 const ENERGY_GAIN_SCALE := 1.8    # 打人、挨打累積氣量的倍率
-# 不准欺負我的朋友!(咒力滿盈時的招式一,和「飛走吧!」共用冷卻)
+# 不准欺負我的朋友!(咒力滿盈時的招式二)
+const FRIEND_COST := 100
+const FRIEND_COOLDOWN := 3.0
 const FRIEND_DAMAGE := 130        # 必定黑閃,實際是 2 倍
 const FRIEND_CHARGE := 0.40       # 揮拳前的蓄力時間
 const FRIEND_KNOCKBACK := Vector2(1150, -420)  # 低空飛出,落地後翻滾彈跳到場邊
@@ -81,12 +113,31 @@ const RAMPAGE_PROTECT_CHANCE := 0.35
 const STORY_ABILITIES: Array[String] = ["buff", "friend", "speech", "rika"]
 
 enum Cannon { NONE, CHARGING, FIRING }
+enum Iai { NONE, WINDUP, RUSH, RECOVER }
 
-var _speech_cooldown := 0.0
+var _skill1_cooldown := 0.0
 var _speech_move: AttackData
 
+# 普通攻擊第三、四下
+var _kick_move: AttackData
+var _rush_move: AttackData      # 只管時間(舉刀、衝刺、收招),判定由 _tick_rush 自己算
+var _rush_hit_move: AttackData  # 衝刺斬實際打在對手身上的數值
+var _rush_started := false
+var _rush_hit := false
+var _rush_done := false
+var _rush_stop_x := 0.0
+var _ghost_timer := 0.0
+
+# 一刀斬
+var _iai := Iai.NONE
+var _iai_time := 0.0
+var _iai_move: AttackData
+var _iai_follow := 0.0  # 電腦:斬中後還有幾秒可以追打
+
 var _was_overflowing := false
+var _overflow_note := 0.0  # 「咒力滿盈」的浮字還要等幾秒才出來
 var _regen_bank := 0.0  # 自動回氣還沒滿 1 點的零頭
+var _friend_cooldown := 0.0
 var _friend_move: AttackData
 var _friend_health := 0  # 出拳前對手的血量,用來判斷這一拳有沒有打到
 
@@ -137,11 +188,15 @@ func _ready() -> void:
 
 func _build_moves() -> void:
 	super()
-	# 刀的三連擊:比徒手打得遠
+	# 沒有里香時的四段:兩刀、一腳踢退、衝刺斬
+	_kick_move = AttackData.make(KICK_DAMAGE, 0.08, 0.10, 0.22, Vector2(70, -52), Vector2(104, 52), Vector2(KICK_PUSH, 0), KICK_HITSTUN, false, 150.0)
+	_rush_move = AttackData.make(0, RUSH_WINDUP + RUSH_TIME, 0.0, RUSH_RECOVERY, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.0, false, 0.0)
+	_rush_hit_move = AttackData.make(RUSH_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, RUSH_KNOCKDOWN, 0.0, true, 0.0)
 	_normal_chain = [
-		_slash(55, 0.06, 0.17, 0.32, false),
-		_slash(65, 0.07, 0.19, 0.34, false),
-		_slash(110, 0.10, 0.30, 0.0, true),
+		_slash(50, 0.06, 0.17, 0.32, false),
+		_slash(60, 0.07, 0.19, 0.34, false),
+		_kick_move,
+		_rush_move,
 	]
 	# 里香狀態的五連擊
 	_rika_chain = [
@@ -154,12 +209,15 @@ func _build_moves() -> void:
 	_ground_moves = _normal_chain
 	_air_move = AttackData.make(65, 0.05, 0.20, 0.10, Vector2(60, -40), Vector2(110, 70), Vector2(260, 0), 0.30, false, 0.0)
 
-	_speech_move = AttackData.make(60, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(900, -420), 0.0, true, 0.0)
+	_iai_move = AttackData.make(IAI_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, IAI_LAUNCH, 0.0, true, 0.0)
+	_iai_move.builds_energy = false
+	_speech_move = AttackData.make(SPEECH_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, SPEECH_KNOCKBACK, 0.0, true, 0.0)
 	_speech_move.builds_energy = false
 	var flash_damage := int(round(FRIEND_DAMAGE * BLACK_FLASH_DAMAGE_SCALE))
 	_friend_move = AttackData.make(flash_damage, 0.05, 0.14, 0.40, Vector2(90, -62), Vector2(170, 90), FRIEND_KNOCKBACK, 0.0, true, 520.0)
 	_friend_move.builds_energy = false
 	_friend_move.tumbles = true
+	_friend_move.unblockable = true
 	_friend_move.color = Color(0.1, 0.02, 0.04, 0.85)
 	_rika_move = AttackData.make(30, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, 0.36, false, 0.0)
 	_protect_move = AttackData.make(PROTECT_DAMAGE, 0.0, 0.0, 0.0, Vector2.ZERO, Vector2.ZERO, Vector2(720, -480), 0.0, true, 0.0)
@@ -170,9 +228,9 @@ func _build_moves() -> void:
 	_cannon_final_move.builds_energy = false
 
 
-## 拿刀的角色:揮擊畫成刀光。
+## 拿刀的角色:揮擊畫成刀光(第三下是用腳踢的,畫成一般的弧線)。
 func _slash_effect() -> String:
-	return "slash"
+	return "swish" if _move == _kick_move else "slash"
 
 
 func _slash(damage: int, startup: float, recovery: float, hitstun: float, launches: bool) -> AttackData:
@@ -194,20 +252,24 @@ func _knows(ability: String) -> bool:
 	return _abilities.has(ability)
 
 
+## 招式一(一刀斬)一開始就會;招式二要領悟「我也可以!」或黑閃拳才有。
 func action_available(key: String) -> bool:
 	match key:
-		"skill": return _knows("speech") or _knows("friend")
-		"skill2": return _knows("buff")
+		"skill2": return _knows("buff") or _knows("friend")
 		"super": return _knows("rika")
 	return true
 
 
 func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 	_rampage_ready = not _knows("rika")
-	_speech_cooldown = 0.0
+	_skill1_cooldown = 0.0
+	_friend_cooldown = 0.0
 	_buff_time = 0.0
 	_was_overflowing = false
+	_overflow_note = 0.0
 	_regen_bank = 0.0
+	_iai = Iai.NONE
+	_iai_follow = 0.0
 	_cancel_cannon()
 	_exit_rika()
 	super(spawn_position, spawn_facing)
@@ -215,8 +277,11 @@ func reset(spawn_position: Vector2, spawn_facing: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	super(delta)
-	_speech_cooldown = maxf(_speech_cooldown - delta, 0.0)
+	_skill1_cooldown = maxf(_skill1_cooldown - delta, 0.0)
+	_friend_cooldown = maxf(_friend_cooldown - delta, 0.0)
 	_buff_time = maxf(_buff_time - delta, 0.0)
+	_iai_follow = maxf(_iai_follow - delta, 0.0)
+	_tick_iai(delta)
 	_tick_overflow(delta)
 	_tick_rika(delta)
 	_tick_cannon(delta)
@@ -227,12 +292,13 @@ func in_rika_state() -> bool:
 	return _rika_time > 0.0
 
 
-## 咒力滿盈:氣量滿 4 格。
+## 咒力滿盈:里香在場的期間(故事模式裡里香失控衝出來也算)。
 func overflowing() -> bool:
-	return energy >= OVERFLOW_THRESHOLD
+	return in_rika_state()
 
 
-func skill1_empowered() -> bool:
+## 觸控按鈕的提示:招式二現在是不是必定黑閃的那一拳。
+func skill2_empowered() -> bool:
 	return overflowing() and _knows("friend")
 
 
@@ -243,9 +309,13 @@ func _skill_cost(base_cost: int) -> int:
 
 func _tick_overflow(delta: float) -> void:
 	var now := overflowing()
-	if now and not _was_overflowing and state != State.KO:
-		_callout("咒力滿盈", CURSE_COLOR, "overflow")
+	if now and not _was_overflowing:
+		_overflow_note = OVERFLOW_NOTE_DELAY
 	_was_overflowing = now
+	if _overflow_note > 0.0:
+		_overflow_note -= delta
+		if _overflow_note <= 0.0 and now and state != State.KO:
+			_callout("咒力滿盈", CURSE_COLOR, "overflow")
 	# 滿盈期間緩慢回氣。氣量是整數,不足 1 點的部分先存著。
 	if not now or state == State.KO or energy_sealed():
 		_regen_bank = 0.0
@@ -264,24 +334,34 @@ func add_energy(amount: int) -> void:
 
 func _try_character_actions() -> bool:
 	if _skill2_pressed():
+		if overflowing() and _knows("friend"):
+			# 咒力滿盈:招式二是必定黑閃的那一拳
+			if _friend_cooldown > 0.0 or not _spend_energy(_skill_cost(FRIEND_COST)):
+				return false
+			_friend_cooldown = FRIEND_COOLDOWN
+			_start_friend_punch()
+			return true
 		if _knows("buff") and _spend_energy(_skill_cost(BUFF_COST)):
 			_start_cast(BUFF_CAST, BUFF_RELEASE, _release_buff)
 			return true
 		return false
-	if _skill1_pressed() and _speech_cooldown <= 0.0:
-		# 先記下是不是滿盈:扣完氣可能就掉到 4 格以下了
-		var empowered := overflowing() and _knows("friend")
-		if not empowered and not _knows("speech"):
+	if _skill1_pressed() and _skill1_cooldown <= 0.0:
+		# 里香在場時是「飛走吧!」,其餘時間是一刀斬
+		var shouts := _shouts()
+		if not _spend_energy(_skill_cost(SPEECH_COST if shouts else IAI_COST)):
 			return false
-		if not _spend_energy(_skill_cost(SPEECH_COST)):
-			return false
-		_speech_cooldown = SPEECH_COOLDOWN
-		if empowered:
-			_start_friend_punch()
-		else:
+		_skill1_cooldown = SKILL1_COOLDOWN
+		if shouts:
 			_start_cast(SPEECH_CAST, SPEECH_RELEASE, _release_speech)
+		else:
+			_start_iai()
 		return true
 	return false
+
+
+## 招式一現在是不是「飛走吧!」(里香在場,而且已經領悟了)。
+func _shouts() -> bool:
+	return in_rika_state() and _knows("speech")
 
 
 ## 里香狀態下的純愛砲不耗氣(代價是結束里香狀態);蓄力中不能再放一次。
@@ -292,7 +372,6 @@ func super_cost() -> int:
 
 
 ## 電腦操作時:決定存氣的回合先不用招式,存到 5 格召喚里香;里香出來之後才又開始用招式。
-## (滿 4 格就是咒力滿盈,這時用招式要 2 格,一用就存不到 5 格了。)
 func ai_saving_energy() -> bool:
 	return ai_saves_this_round and not in_rika_state()
 
@@ -312,12 +391,33 @@ func ai_super_is_safe() -> bool:
 	return in_rika_state() or _ai_opponent_cannot_interrupt()
 
 
-## 電腦操作時:招式一也要耗氣,存氣中不放;咒力滿盈時是近身的拳,對手夠近才出手。
+## 電腦操作時:招式一也要耗氣,存氣中不放;冷卻中、氣不夠也不按。
 func ai_skill_range() -> float:
-	if ai_saving_energy():
+	if ai_saving_energy() or _skill1_cooldown > 0.0:
 		return 0.0
-	# 「飛走吧!」的聲波只到身前四百像素左右,太遠放只是浪費氣
-	return FRIEND_RANGE if overflowing() else SPEECH_OFFSET.x + SPEECH_SIZE.x / 2.0
+	if _shouts():
+		# 「飛走吧!」的聲波只到身前四百像素左右,太遠放只是浪費氣
+		return SPEECH_OFFSET.x + SPEECH_SIZE.x / 2.0 if energy >= _skill_cost(SPEECH_COST) else 0.0
+	# 一刀斬:閃身搆得到的距離內
+	return IAI_SPEED * IAI_TIME + 90.0 if energy >= _skill_cost(IAI_COST) else 0.0
+
+
+## 招式二:咒力滿盈時是近身的黑閃拳;平常是「我也可以!」,已經附刀了就不再放一次。
+func ai_skill2_ready() -> bool:
+	if skill2_empowered():
+		return _friend_cooldown <= 0.0 and energy >= _skill_cost(FRIEND_COST)
+	return _knows("buff") and _buff_time <= 0.0 and energy >= _skill_cost(BUFF_COST)
+
+
+func ai_skill2_range() -> float:
+	return FRIEND_RANGE if skill2_empowered() else INF
+
+
+## 一刀斬把人斬到半空了:按普通攻擊追打。
+func ai_wants_attack() -> bool:
+	if _iai_follow <= 0.0 or opponent == null or opponent.state != State.LAUNCHED or opponent.is_invulnerable():
+		return false
+	return state in [State.IDLE, State.MOVE] and absf(opponent.global_position.x - global_position.x) <= 170.0
 
 
 func _start_super() -> void:
@@ -325,6 +425,125 @@ func _start_super() -> void:
 		_start_cast(CANNON_CAST, CANNON_RELEASE, _begin_cannon)
 	else:
 		_start_cast(RIKA_CAST, RIKA_RELEASE, _enter_rika)
+
+
+# ---------- 普通攻擊 ----------
+
+func _start_attack(move: AttackData, combo_step: int) -> void:
+	super(move, combo_step)
+	if move == _rush_move:
+		_attack_anim = "dash_slash"
+		_rush_started = false
+		_rush_hit = false
+		_rush_done = false
+
+
+func _tick_attack(delta: float) -> void:
+	if _move == _rush_move:
+		_tick_rush(delta)
+	super(delta)
+
+
+## 第四下:舉刀之後整個人衝出去,斬過對手、停在對方身後。沒斬到人就衝到底。
+func _tick_rush(delta: float) -> void:
+	var time := _state_time - RUSH_WINDUP
+	if time < 0.0 or _rush_done:
+		return
+	if not _rush_started:
+		_rush_started = true
+		_ghost_timer = 0.0
+		Sfx.play("dash")
+		_spawn_dust(global_position, 3, 0.5)
+	velocity.x = facing * RUSH_SPEED
+	_leave_trail(delta)
+	if not _rush_hit and _rect_hits_opponent(global_position + Vector2(facing * 40.0, -60.0), RUSH_SIZE):
+		_rush_hit = true
+		_rush_stop_x = clampf(opponent.global_position.x + facing * RUSH_PASS, arena_min_x, arena_max_x)
+		_cut_effect(opponent.global_position, 1.25)
+		opponent.take_hit(_effective_move(_rush_hit_move), self)
+	var passed := _rush_hit and (global_position.x - _rush_stop_x) * facing >= 0.0
+	if passed or time >= RUSH_TIME + (RUSH_EXTRA if _rush_hit else 0.0):
+		_rush_done = true
+		velocity.x = 0.0
+		if passed:
+			global_position.x = _rush_stop_x
+		# 提早斬完:直接進收招,動畫跳到揮完刀的那一格
+		_state_time = maxf(_state_time, RUSH_WINDUP + RUSH_TIME)
+		if _has_sprite and _sprite.animation == &"dash_slash":
+			_sprite.frame = maxi(_sprite.frame, 4)
+
+
+## 斬在對手身上的一道刀光(at 是對手的腳底)。
+func _cut_effect(at: Vector2, size: float) -> void:
+	Sfx.play("swing")
+	_spawn_effect("slash", at + Vector2(-facing * 70.0, 0.0), _bright(BLADE_COLOR, 1.5), size, facing < 0)
+
+
+## 衝刺、閃身時每隔一小段時間留下一個淡藍色的殘影。
+func _leave_trail(delta: float) -> void:
+	_ghost_timer -= delta
+	if _ghost_timer > 0.0:
+		return
+	_ghost_timer = 0.03
+	var ghost := _copy_of_self(_sprite.animation, _sprite.frame) if _has_sprite else null
+	if ghost == null:
+		return
+	ghost.flip_h = _sprite.flip_h
+	ghost.modulate = Color(0.8, 1.2, 2.0, 0.5)
+	ghost.global_position = global_position
+	var tween := ghost.create_tween()
+	tween.tween_property(ghost, "modulate:a", 0.0, 0.2)
+	tween.tween_callback(ghost.queue_free)
+
+
+# ---------- 一刀斬 ----------
+
+## 壓低身體把刀收在腰間,一瞬間閃到對手面前往上斬。被防禦住的話對手不會浮空。
+func _start_iai() -> void:
+	_face_opponent()
+	_iai = Iai.WINDUP
+	_iai_follow = 0.0
+	_callout("一刀斬", BLADE_COLOR, "swing")
+	_start_cast(IAI_WINDUP + IAI_TIME + IAI_MISS_RECOVERY, IAI_WINDUP, _release_iai, "iai")
+
+
+func _release_iai() -> void:
+	if _iai != Iai.WINDUP:
+		return
+	_iai = Iai.RUSH
+	_iai_time = IAI_TIME
+	_ghost_timer = 0.0
+	Sfx.play("dash")
+
+
+func _tick_iai(delta: float) -> void:
+	if _iai == Iai.NONE:
+		return
+	if state != State.CAST:
+		_iai = Iai.NONE  # 被打斷,或整招結束
+		return
+	if _iai != Iai.RUSH:
+		return
+	velocity.x = facing * IAI_SPEED
+	_iai_time -= delta
+	_leave_trail(delta)
+	if _rect_hits_opponent(global_position + Vector2(facing * 60.0, -60.0), IAI_SIZE):
+		velocity.x = 0.0
+		_cut_effect(opponent.global_position, 1.1)
+		if _land(_iai_move):
+			screen_shake.emit(6.0)
+			_iai_follow = IAI_FOLLOW_TIME
+		_finish_iai(IAI_HIT_RECOVERY)
+	elif _iai_time <= 0.0:
+		velocity.x = 0.0
+		_finish_iai(IAI_MISS_RECOVERY)
+
+
+func _finish_iai(after: float) -> void:
+	_iai = Iai.RECOVER
+	_cast_duration = _state_time + after
+	if _has_sprite and _sprite.animation == &"iai":
+		_sprite.frame = maxi(_sprite.frame, 2)  # 揮刀的那一格
 
 
 # ---------- 飛走吧! ----------
@@ -385,18 +604,12 @@ func _effective_move(move: AttackData) -> AttackData:
 	return _boosted[move]
 
 
-## 當替身、要放招式一:故事模式裡還不會「飛走吧!」只會黑閃拳的話,先把氣量補到咒力滿盈,出手才會是那一拳。
-func prepare_copy(skill: int) -> void:
-	if skill == 1 and not _knows("speech") and _knows("friend"):
-		_set_energy(maxi(energy, OVERFLOW_THRESHOLD + SPEECH_COST * OVERFLOW_COST_SCALE))
-
-
 func normal_attack_scale() -> float:
 	return BUFF_DAMAGE_SCALE if _buff_time > 0.0 else 1.0
 
 
 func _is_normal_attack(move: AttackData) -> bool:
-	return move == _air_move or _normal_chain.has(move) or _rika_chain.has(move)
+	return move == _air_move or move == _rush_hit_move or _normal_chain.has(move) or _rika_chain.has(move)
 
 
 # ---------- 里香狀態 ----------
@@ -465,10 +678,10 @@ func _tick_rika(delta: float) -> void:
 			_rika_strike()
 
 
-## 普通攻擊命中後,里香稍後追加一擊。「不准欺負我的朋友!」打到對手(被防禦住也算)就是黑閃。
+## 普通攻擊命中後,里香稍後追加一擊。「不准欺負我的朋友!」打到對手就是黑閃(防禦擋不住;被無下限這類擋下就不算)。
 func _on_attack_hit(target: Fighter, move: AttackData) -> void:
 	if move == _friend_move:
-		if target.health < _friend_health or target.state == State.GUARD:
+		if target.health < _friend_health:
 			_black_flash_effect(target.global_position + Vector2(0, -60))
 			screen_shake.emit(10.0)
 		return
@@ -668,8 +881,7 @@ func _update_status() -> void:
 	if overflowing():
 		parts.append("咒力滿盈")
 	_status_label.text = "   ".join(parts)
-	var curse_text := _buff_time > 0.0 or (overflowing() and not in_rika_state())
-	_status_label.add_theme_color_override("font_color", CURSE_COLOR if curse_text else RIKA_COLOR)
+	_status_label.add_theme_color_override("font_color", RIKA_COLOR if in_rika_state() else CURSE_COLOR)
 
 
 func _update_visual() -> void:

@@ -61,6 +61,8 @@ var _teleport_done := false
 var _pulses: Dictionary = {}  # 代按中的動作 -> 剩餘秒數
 var _skill_button: TouchScreenButton
 var _skill_radius := 0.0
+var _skill2_button: TouchScreenButton
+var _skill2_radius := 0.0
 var _skill_glow: Node2D
 var _glow_bolts: Array[Line2D] = []
 var _glow_time := 0.0
@@ -217,10 +219,14 @@ func _make_ring(radius: float, width: float, color: Color) -> Line2D:
 
 
 func _update_skill_glow(delta: float) -> void:
-	var glowing := fighter != null and fighter.skill1_empowered()
+	var on_second := fighter != null and fighter.skill2_empowered() and _skill2_button != null
+	var glowing := on_second or (fighter != null and fighter.skill1_empowered())
 	_skill_glow.visible = glowing
 	if not glowing:
 		return
+	# 光芒是照招式一的按鈕大小做的:移到招式二時跟著放大
+	_skill_glow.position = (_skill2_button if on_second else _skill_button).position
+	_skill_glow.scale = Vector2.ONE * (_skill2_radius / _skill_radius if on_second else 1.0)
 	_glow_time += delta
 	_skill_glow.modulate.a = GLOW_ALPHA + GLOW_PULSE * sin(_glow_time * 7.0)
 	_glow_flicker -= delta
@@ -296,6 +302,9 @@ func _add_button(spec: Dictionary) -> void:
 	elif spec.key == "skill":
 		_skill_button = button
 		_skill_radius = button_size.x / 2.0
+	elif spec.key == "skill2":
+		_skill2_button = button
+		_skill2_radius = button_size.x / 2.0
 
 
 func _make_panel(panel_size: Vector2, corner_radius: int) -> Panel:

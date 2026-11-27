@@ -35,6 +35,7 @@ const STYLES := [
 		"top": Color(0.94, 0.94, 0.96), "sleeve": Color(0.94, 0.94, 0.96),
 		"pants": Color(0.14, 0.15, 0.22), "sash": Color(0, 0, 0, 0),
 		"sword": true,
+		"moves": "yuta",
 	},
 	{
 		"id": "yuji",
@@ -875,6 +876,55 @@ func _naruto_animations() -> Array:
 	]
 
 
+## 乙骨憂太專用的動作:同名的取代通用動作,其餘的加在後面。刀一直拿在近側的手上,順著前臂的方向伸出去。
+func _yuta_animations() -> Array:
+	# 由上往下的一刀、反手由下往上的一刀:揮到底的那一格
+	var cut_down := {"head": v(27, 13), "neck": v(26, 19), "hand_f": v(40, 26), "elbow_f": null}
+	var cut_up := {"head": v(28, 13), "neck": v(27, 19), "hip": v(25, 31), "hand_f": v(40, 16), "elbow_f": null}
+	# 衝刺斬:雙手把刀舉過頭頂、壓低身體衝出去(刀平舉在身前)、斬完刀垂在身側
+	var raise := {"head": v(26, 13), "neck": v(25, 19), "hand_f": v(27, 8), "elbow_f": v(30, 15),
+		"hand_b": v(25, 9), "elbow_b": v(21, 15), "foot_b": v(17, 46), "knee_b": v(20, 39)}
+	var rush := {"head": v(34, 18), "neck": v(30, 22), "hip": v(22, 32), "hand_f": v(33, 23), "elbow_f": null,
+		"hand_b": v(30, 25), "elbow_b": null, "foot_b": v(10, 44), "knee_b": v(16, 38), "foot_f": v(27, 46), "knee_f": v(28, 39)}
+	var swept := {"head": v(31, 15), "neck": v(28, 20), "hip": v(23, 31), "hand_f": v(36, 36), "elbow_f": v(32, 29),
+		"hand_b": v(19, 27), "elbow_b": null, "foot_b": v(12, 46), "knee_b": v(18, 39), "foot_f": v(31, 46), "knee_f": v(31, 39)}
+	# 一刀斬:壓低身體把刀收在腰後、貼地閃出去、一刀由下往上斬
+	var sheath := {"head": v(27, 17), "neck": v(25, 22), "hip": v(23, 33), "knee_f": v(30, 40), "knee_b": v(19, 40),
+		"hand_f": v(20, 32), "elbow_f": v(26, 29), "hand_b": v(22, 29), "elbow_b": v(24, 27)}
+	var flash := {"head": v(34, 20), "neck": v(30, 23), "hip": v(22, 33), "hand_f": v(19, 32), "elbow_f": v(26, 28),
+		"hand_b": v(24, 29), "elbow_b": null, "foot_b": v(10, 44), "knee_b": v(16, 39), "foot_f": v(28, 46), "knee_f": v(29, 40)}
+	var rising := {"head": v(30, 14), "neck": v(28, 20), "hip": v(25, 31), "hand_f": v(39, 11), "elbow_f": null,
+		"hand_b": v(21, 28), "elbow_b": null, "foot_b": v(13, 46), "knee_b": v(18, 39)}
+	return [
+		{"name": "attack1", "fps": 12, "loop": false, "frames": [
+			pose({"neck": v(25, 19), "hand_f": v(29, 11), "elbow_f": v(27, 18)}),
+			pose(cut_down),
+			pose({"hand_f": v(35, 29), "elbow_f": v(30, 26)}),
+		]},
+		{"name": "attack2", "fps": 12, "loop": false, "frames": [
+			pose({"neck": v(25, 19), "hand_f": v(28, 31), "elbow_f": v(24, 27)}),
+			pose(cut_up),
+			pose({"hand_f": v(34, 14), "elbow_f": v(30, 20)}),
+		]},
+		{"name": "dash_slash", "fps": 12, "loop": false, "frames": [
+			pose(raise),
+			pose(raise.merged({"head": v(27, 13), "neck": v(26, 19), "hand_f": v(26, 7), "hand_b": v(24, 8)}, true)),
+			pose(rush),
+			pose(rush.merged({"hand_f": v(34, 24)}, true)),
+			pose(swept),
+			pose(swept.merged({"hand_f": v(36, 37)}, true)),
+			pose({"hand_f": v(34, 30), "elbow_f": v(29, 27)}),
+		]},
+		{"name": "iai", "fps": 10, "loop": false, "frames": [
+			pose(sheath),
+			pose(flash),
+			pose(rising),
+			pose(rising.merged({"hand_f": v(37, 9)}, true)),
+			pose({"hand_f": v(34, 16), "elbow_f": v(30, 21)}),
+		]},
+	]
+
+
 ## 壓低身體、雙手垂在身前的站姿(尾獸爆走):把通用的站立與走路換成這個上半身,腳的動作照舊。
 func _hunch(animations: Array) -> void:
 	var upper := {"head": v(29, 17), "neck": v(27, 22), "hip": v(23, 32),
@@ -906,6 +956,7 @@ func _animations_for(style: Dictionary) -> Array:
 		"kaneki": extras = _kaneki_animations()
 		"kakashi": extras = _kakashi_animations()
 		"naruto": extras = _naruto_animations()
+		"yuta": extras = _yuta_animations()
 	for extra: Dictionary in extras:
 		var replaced := false
 		for index in animations.size():

@@ -64,8 +64,8 @@ const CHARACTERS: Array[Dictionary] = [
 		"scene": "res://scenes/characters/yuta.tscn",
 		"sprites": "res://assets/characters/yuta",
 		"hair": Color(0.13, 0.13, 0.17),
-		"skills": ["飛走吧!(1格)", "我也可以!(1格)", "來吧,里香!(5格)/純愛砲"],
-		"summary": "氣量上限 8 格\n飛走吧!:咒言擊飛\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒\n4 格氣:咒力滿盈,緩慢回氣\n招式一變黑閃拳,耗氣加倍",
+		"skills": ["一刀斬(1格)/飛走吧!", "我也可以!(1格)/黑閃拳", "來吧,里香!(5格)/純愛砲"],
+		"summary": "氣量上限 8 格\n普攻:兩刀、一踢、衝刺斬\n一刀斬:閃身斬擊,浮空可追打\n我也可以!:普攻強化 10 秒\n來吧,里香!:里香狀態 60 秒\n里香在場即咒力滿盈:緩慢回氣\n招式一變飛走吧!,招式二變黑閃拳\n這兩招耗氣加倍(各 2 格)",
 	},
 	{
 		"name": "虎杖悠仁",
@@ -171,7 +171,7 @@ const NET_ACTIONS: Array[String] = ["left", "right", "up", "down", "attack", "ju
 		"skill2", "super", "teleport"]
 ## 連線雙方的遊戲內容要一樣才能同步。改了會影響對戰結果的東西(招式數值、角色、同步的做法)就把這個數字加一,
 ## 版本不同的兩個人會在房間裡被擋下來,不會打到一半才不同步。
-const NET_VERSION := 3
+const NET_VERSION := 4
 const P1_KEYS := {
 	"left": KEY_A, "right": KEY_D, "up": KEY_W, "down": KEY_S,
 	"attack": KEY_J, "jump": KEY_K, "dash": KEY_L,
